@@ -804,7 +804,7 @@ async function boot() {
 
   // Under backfillen ligger arkivet efter nutid — förklara varför vyerna
   // öppnar på ett äldre datum och hur långt det är kvar
-  const yesterday = new Date(Date.now() - 86400e3).toLocaleDateString("sv-SE");
+  const yesterday = addDaysIso(todayIso(), -1);
   if (manifest.lastFetched < yesterday) {
     const daysLeft = Math.round((new Date(yesterday) - new Date(manifest.lastFetched)) / 86400e3);
     const nights = Math.ceil(daysLeft / 600);

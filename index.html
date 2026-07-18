@@ -329,7 +329,11 @@ const state = {
   pressureDays: 1,
   range: "idag",   // idag | 48h | vecka | manad
 };
-const RANGES = { "48h": { days: 2, label: "48 tim" }, vecka: { days: 7, label: "veckan" }, manad: { days: 30, label: "månaden" } };
+const RANGES = {
+  "48h": { days: 2, label: "48 tim", hourly: true },
+  vecka: { days: 7, label: "veckan" },
+  manad: { days: 30, label: "månaden" },
+};
 
 /* ===== Status & banner ===================================================== */
 function renderStatus() {
@@ -602,21 +606,40 @@ function todaySyntheticDaily() {
 }
 
 async function buildRangeData() {
-  const n = RANGES[state.range].days;
+  const { days: n, hourly } = RANGES[state.range];
   const today = todayIso();
   const dates = [];
   for (let i = n - 1; i >= 0; i--) dates.push(addDaysIso(today, -i));
   const past = dates.slice(0, -1);
-  const hourly = n <= 7;
+
   if (hourly) {
-    const archivePts = await collectHourly(past);
+    let archivePts = await collectHourly(past);
+    // Gårdagen finns inte i arkivet förrän nattens hämtning (eller alls,
+    // under backfillen) — komplettera med timvärden direkt från API:et
+    const yesterday = past[past.length - 1];
+    if (!archivePts.some(p => p.date === yesterday)) {
+      try {
+        const y = await fetchJSON("/api/wu?e=yesterday");
+        const di = past.length - 1;
+        archivePts = archivePts.concat(daySeries(y.observations ?? [])
+          .map(p => ({ ...p, x: di * 24 + p.h, date: yesterday })));
+      } catch (err) { console.warn("yesterday:", err); }
+    }
     const pts = [...archivePts, ...todayPtsHourly(past.length, today)];
     const covered = new Set(pts.map(p => p.date)).size;
     return { dates, hourly, pts, covered };
   }
+
   const days = await collectDaily(past);
-  const synth = todaySyntheticDaily();
-  days.push({ x: past.length, date: today, obs: synth });
+  // Dygn som saknas i arkivet fylls från 7-dygnssummeringarna (samma data
+  // som remsan längst ner) — täcker senaste veckan tills arkivet är ikapp
+  const weekByDate = new Map(state.week
+    .filter(s => s?.metric && s.obsTimeLocal)
+    .map(s => [s.obsTimeLocal.slice(0, 10), s]));
+  for (const d of days) {
+    if (!d.obs && weekByDate.has(d.date)) d.obs = weekByDate.get(d.date);
+  }
+  days.push({ x: past.length, date: today, obs: todaySyntheticDaily() });
   const covered = days.filter(d => d.obs).length;
   return { dates, hourly, days, covered };
 }
@@ -666,8 +689,10 @@ async function renderRangeCharts() {
     const xMax = dates.length - 1;
     const dayT = d => `${dateLabel(d.date)} ${d.date.slice(0, 4)}`;
 
-    bandChart("chart-temp", days.map(d => ({ x: d.x, lo: d.obs.metric.tempLow, hi: d.obs.metric.tempHigh,
-      avg: d.obs.metric.tempAvg, t: dayT(d) })), tempColor, { xMax, xLabels });
+    bandChart("chart-temp", days.filter(d => d.obs.metric.tempHigh != null).map(d => ({
+      x: d.x, lo: d.obs.metric.tempLow, hi: d.obs.metric.tempHigh,
+      avg: d.obs.metric.tempAvg ?? (d.obs.metric.tempHigh + d.obs.metric.tempLow) / 2,
+      t: dayT(d) })), tempColor, { xMax, xLabels });
     if (days.length) {
       document.getElementById("t-sub").innerHTML =
         `Senaste ${label} · min <b>${fmt(Math.min(...days.map(d => d.obs.metric.tempLow)))}°</b>` +
@@ -728,9 +753,8 @@ function renderDays() {
 async function buildPressureSeries() {
   const days = [];
   for (const back of [2, 1]) {
-    const d = new Date(Date.now() - back * 86400e3);
-    const iso = d.toLocaleDateString("sv-SE");
-    days.push({ iso, month: iso.slice(0, 7), name: DAY_NAMES[d.getDay()] });
+    const iso = addDaysIso(todayIso(), -back);
+    days.push({ iso, month: iso.slice(0, 7), name: DAY_NAMES[new Date(iso + "T12:00:00").getDay()] });
   }
   const monthData = {};
   for (const m of new Set(days.map(d => d.month))) monthData[m] = await hourlyMonth(m);

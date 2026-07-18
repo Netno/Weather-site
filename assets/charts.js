@@ -36,7 +36,8 @@ function listDates(from, to) {
   return out;
 }
 const dateLabel = iso => `${parseInt(iso.slice(8, 10), 10)} ${MONTHS[parseInt(iso.slice(5, 7), 10) - 1].slice(0, 3)}`;
-const todayIso = () => new Date().toLocaleDateString("sv-SE");
+// Stationens dygn, inte besökarens — allt datumräknande sker i svensk tid
+const todayIso = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
 
 /* ===== Hämtning ============================================================ */
 // API-anrop: kasta vid fel (anroparen hanterar), ingen klientcache
