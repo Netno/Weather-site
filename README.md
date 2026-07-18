@@ -35,8 +35,8 @@ dygn inkrementellt varje natt. Sidan läser bara arkivet — WU används enbart
 för att fylla på det, plus (via proxy) för aktuella värden i live-vyn.
 
 ```
-                       ┌── (live) liten proxy ──► api.weather.com
-Webbläsare ── statisk sida                          (nyckel + cache 60 s)
+                       ┌── (live) /api/wu på Vercel ──► api.weather.com
+Webbläsare ── statisk sida                               (nyckel + edge-cache 60 s)
                        └── (historik) eget arkiv i data/ ◄── nattligt cron-jobb
                                                              (GitHub Action) ◄── api.weather.com
 ```
@@ -45,11 +45,24 @@ Webbläsare ── statisk sida                          (nyckel + cache 60 s)
   den här storleken; vanilla + SVG räcker och laddar snabbt.
 - **Arkivet:** statiska JSON-filer i `data/` (se nedan). Alla historikvyer
   blir omedelbara, kostar noll API-anrop oavsett antal besökare och funkar
-  även när WU:s API ligger nere.
-- **Proxy (endast live-vyn):** en Cloudflare Worker (gratisnivån räcker gott)
-  eller motsvarande edge-funktion. Den (1) gömmer API-nyckeln, (2) cachear
-  svar ~60 s, (3) låser vilka endpoints som går att anropa.
-- **Hosting:** Cloudflare Pages / GitHub Pages / Vercel — valfritt, sidan är statisk.
+  även när WU:s API ligger nere. Ingen databas: åtkomstmönstren är kända och
+  fillayouten designad efter dem, så CDN-servade filer är både snabbare och
+  enklare — och filerna är källan, så en databas kan läsas in senare om någon
+  vy faktiskt kräver det.
+- **Proxy (endast live-vyn):** serverless-funktionen [`api/wu.js`](api/wu.js).
+  Den (1) gömmer API-nyckeln, (2) cachear svar 60 s i Vercels edge-cache,
+  (3) vitlistar de två live-endpointsen (`?e=current`, `?e=today`).
+- **Hosting:** Vercel. Den nattliga datacommiten triggar automatiskt en ny
+  deploy, så arkivet på sajten uppdateras varje natt utan extra bygge.
+
+## Deploy (Vercel)
+
+1. Koppla repot till ett nytt Vercel-projekt.
+2. **Framework Preset: "Other"** — ingen build command, ingen output directory
+   (repot servas rakt av som statiska filer; `api/` blir funktioner automatiskt).
+3. Lägg miljövariabeln `WU_API_KEY` i projektet (Settings → Environment
+   Variables). Det är samma nyckel som Actions-secreten — de används av
+   varsin del (proxyn resp. arkivhämtningen).
 
 ## Dataarkivet
 
@@ -99,9 +112,11 @@ Arkivet möjliggör vyer som WU:s eget gränssnitt saknar, utan API-kostnad:
 ### Om nyckeln
 
 Nyckeln ska **inte** ligga i frontend-koden eller i repot — i klienten är den
-läsbar för vem som helst. Den läggs som secret i proxyn (`WU_API_KEY`).
-Eftersom nyckeln har skickats i klartext i chatten: överväg att rotera den på
-wunderground.com (Member Settings → API Keys) när skarpa versionen är uppe.
+läsbar för vem som helst. Den finns på exakt två ställen: som miljövariabel
+`WU_API_KEY` i Vercel-projektet (proxyn) och som Actions-secret med samma namn
+(arkivhämtningen). Eftersom nyckeln har skickats i klartext i chatten: överväg
+att rotera den på wunderground.com (Member Settings → API Keys) när skarpa
+versionen är uppe.
 
 ## Mocken
 
@@ -121,9 +136,9 @@ sedan midnatt, lufttryck tre dygn, samt max/min och regn för senaste sju dygnen
 
 1. Lägga `WU_API_KEY` som Actions-secret och trigga workflowen → backfill av
    arkivet startar (klar på några nätter beroende på stationens ålder).
-2. Bekräfta look & feel utifrån mocken (justeringar görs enkelt där).
-3. Bygga historikvyerna ovan mot arkivet i `data/`.
-4. Sätta upp proxy med nyckeln som secret + 60 s cache för live-vyn.
-5. Byta `MOCK` mot fetch + felhantering (station offline, API nere).
-6. Deploy + eget domännamn om så önskas.
+2. Koppla repot till Vercel enligt ovan + lägga `WU_API_KEY` som miljövariabel.
+3. Bekräfta look & feel utifrån mocken (justeringar görs enkelt där).
+4. Bygga historikvyerna ovan mot arkivet i `data/`.
+5. Byta `MOCK` mot fetch mot `/api/wu` + felhantering (station offline, API nere).
+6. Eget domännamn om så önskas.
 7. (Senare, valfritt) SMHI-prognos, sol upp/ned.
