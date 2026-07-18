@@ -134,11 +134,13 @@ sedan midnatt, lufttryck tre dygn, samt max/min och regn för senaste sju dygnen
 
 ## Nästa steg
 
-1. Lägga `WU_API_KEY` som Actions-secret och trigga workflowen → backfill av
-   arkivet startar (klar på några nätter beroende på stationens ålder).
-2. Koppla repot till Vercel enligt ovan + lägga `WU_API_KEY` som miljövariabel.
-3. Bekräfta look & feel utifrån mocken (justeringar görs enkelt där).
+1. ~~Backfill av arkivet~~ — igång, cron betar av ~600 dagar/natt (start
+   2018-12-09, komplett ca 22–23 juli 2026).
+2. ~~Vercel-deploy + proxy~~ — live på weather-site-delta-ochre.vercel.app.
+3. ~~Live-vyn~~ — `index.html` läser `/api/wu` + arkivet: havsnivåomräknat
+   tryck, beräknad trycktrend, dolda kort för värden stationen saknar,
+   felhantering och minutvis auto-uppdatering. Tryckkurvan växer till tre
+   dygn av sig själv när arkivet är ikapp.
 4. Bygga historikvyerna ovan mot arkivet i `data/`.
-5. Byta `MOCK` mot fetch mot `/api/wu` + felhantering (station offline, API nere).
-6. Eget domännamn om så önskas.
-7. (Senare, valfritt) SMHI-prognos, sol upp/ned.
+5. Eget domännamn om så önskas.
+6. (Senare, valfritt) SMHI-prognos, sol upp/ned.

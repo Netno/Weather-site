@@ -1,18 +1,20 @@
 /*
  * Proxy för live-vyn: gömmer WU-nyckeln och låter Vercels edge-cache hålla
- * svaret i 60 s så att stationens rate limit aldrig påverkas av antal
- * besökare. Endast de två live-endpointsen är tillåtna — all historik läses
- * ur det statiska arkivet i data/, aldrig härifrån.
+ * svaren så att stationens rate limit aldrig påverkas av antal besökare.
+ * Endast live-endpoints är tillåtna — historik läses ur det statiska
+ * arkivet i data/, aldrig härifrån.
  *
- *   GET /api/wu?e=current   → observations/current   (senaste observationen)
- *   GET /api/wu?e=today     → observations/all/1day  (5-minutersvärden sedan midnatt)
+ *   GET /api/wu?e=current   → observations/current    (senaste observationen)
+ *   GET /api/wu?e=today     → observations/all/1day   (5-minutersvärden sedan midnatt)
+ *   GET /api/wu?e=week      → dailysummary/7day       (dygnssummeringar senaste 7 dygnen)
  *
  * Kräver miljövariabeln WU_API_KEY i Vercel-projektet.
  */
 
 const ENDPOINTS = {
-  current: "observations/current",
-  today: "observations/all/1day",
+  current: { path: "observations/current", cache: 60 },
+  today: { path: "observations/all/1day", cache: 60 },
+  week: { path: "dailysummary/7day", cache: 600 },
 };
 
 export default async function handler(req, res) {
@@ -23,13 +25,13 @@ export default async function handler(req, res) {
 
   const endpoint = ENDPOINTS[req.query.e];
   if (!endpoint) {
-    return res.status(400).json({ error: "Ogiltig endpoint — använd ?e=current eller ?e=today" });
+    return res.status(400).json({ error: "Ogiltig endpoint — använd ?e=current, ?e=today eller ?e=week" });
   }
 
   const base = process.env.WU_API_BASE || "https://api.weather.com/v2/pws";
   const station = process.env.STATION_ID || "IBRMHULT2";
   const url =
-    `${base}/${endpoint}?stationId=${station}&format=json&units=m` +
+    `${base}/${endpoint.path}?stationId=${station}&format=json&units=m` +
     `&numericPrecision=decimal&apiKey=${key}`;
 
   let upstream;
@@ -41,7 +43,7 @@ export default async function handler(req, res) {
 
   if (upstream.status === 204) {
     // Stationen har inte rapporterat — tomt men giltigt svar
-    res.setHeader("Cache-Control", "s-maxage=60");
+    res.setHeader("Cache-Control", `s-maxage=${endpoint.cache}`);
     return res.status(200).json({ observations: [] });
   }
   if (!upstream.ok) {
@@ -49,6 +51,6 @@ export default async function handler(req, res) {
   }
 
   const body = await upstream.json();
-  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
+  res.setHeader("Cache-Control", `s-maxage=${endpoint.cache}, stale-while-revalidate=600`);
   return res.status(200).json(body);
 }

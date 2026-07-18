@@ -4,10 +4,730 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brämhult väderstation · IBRMHULT2</title>
-<!-- Tillfällig rotsida: skickar vidare till mocken tills riktiga sidan byggs här. -->
-<meta http-equiv="refresh" content="0; url=/mock/">
+<style>
+  /* ===== Design tokens (samma som mock/index.html) ========================= */
+  :root {
+    --bg: #F5F7F9;
+    --card: #FFFFFF;
+    --card-border: #E3E8EE;
+    --ink: #1B2530;
+    --ink-2: #4A5866;
+    --ink-3: #7C8A99;
+    --grid: #EAEEF2;
+    --axis: #C9D2DB;
+    --temp: #CE711A;
+    --temp-soft: rgba(206, 113, 26, 0.10);
+    --rain: #2E7CC4;
+    --rain-soft: rgba(46, 124, 196, 0.12);
+    --wind: #0F9182;
+    --wind-soft: rgba(15, 145, 130, 0.10);
+    --badge-bg: #E7F3EC;
+    --badge-ink: #22623F;
+    --warn-bg: #FDF3E7;
+    --warn-ink: #9A560F;
+    --ok: #2E7D4F;
+    --shadow: 0 1px 2px rgba(27, 37, 48, 0.05), 0 4px 16px rgba(27, 37, 48, 0.04);
+    --tooltip-bg: #1B2530;
+    --tooltip-ink: #F5F7F9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10161D;
+      --card: #18202A;
+      --card-border: #232E3A;
+      --ink: #E8EDF2;
+      --ink-2: #A6B2BF;
+      --ink-3: #6E7C8B;
+      --grid: #1F2934;
+      --axis: #33404E;
+      --temp: #CF7414;
+      --temp-soft: rgba(207, 116, 20, 0.14);
+      --rain: #4C8FD6;
+      --rain-soft: rgba(76, 143, 214, 0.16);
+      --wind: #14A392;
+      --wind-soft: rgba(20, 163, 146, 0.13);
+      --badge-bg: #16281E;
+      --badge-ink: #6BC493;
+      --warn-bg: #2A2013;
+      --warn-ink: #E0A45E;
+      --ok: #4CAF7A;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+      --tooltip-bg: #E8EDF2;
+      --tooltip-ink: #10161D;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F7F9; --card: #FFFFFF; --card-border: #E3E8EE; --ink: #1B2530;
+    --ink-2: #4A5866; --ink-3: #7C8A99; --grid: #EAEEF2; --axis: #C9D2DB;
+    --temp: #CE711A; --temp-soft: rgba(206, 113, 26, 0.10);
+    --rain: #2E7CC4; --rain-soft: rgba(46, 124, 196, 0.12);
+    --wind: #0F9182; --wind-soft: rgba(15, 145, 130, 0.10);
+    --badge-bg: #E7F3EC; --badge-ink: #22623F;
+    --warn-bg: #FDF3E7; --warn-ink: #9A560F; --ok: #2E7D4F;
+    --shadow: 0 1px 2px rgba(27, 37, 48, 0.05), 0 4px 16px rgba(27, 37, 48, 0.04);
+    --tooltip-bg: #1B2530; --tooltip-ink: #F5F7F9;
+  }
+  :root[data-theme="dark"] {
+    --bg: #10161D; --card: #18202A; --card-border: #232E3A; --ink: #E8EDF2;
+    --ink-2: #A6B2BF; --ink-3: #6E7C8B; --grid: #1F2934; --axis: #33404E;
+    --temp: #CF7414; --temp-soft: rgba(207, 116, 20, 0.14);
+    --rain: #4C8FD6; --rain-soft: rgba(76, 143, 214, 0.16);
+    --wind: #14A392; --wind-soft: rgba(20, 163, 146, 0.13);
+    --badge-bg: #16281E; --badge-ink: #6BC493;
+    --warn-bg: #2A2013; --warn-ink: #E0A45E; --ok: #4CAF7A;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+    --tooltip-bg: #E8EDF2; --tooltip-ink: #10161D;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "SF Pro Text", "Segoe UI Variable", "Segoe UI", system-ui, Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 24px 20px 48px; }
+
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px 16px; padding: 8px 4px 20px;
+  }
+  .station h1 { font-size: 21px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  .station .meta { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+  .station .meta .id { font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 12px; }
+  .status { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-2); }
+  .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; vertical-align: 1px; }
+  .status .dot.stale { background: var(--warn-ink); }
+  .live-badge {
+    background: var(--badge-bg); color: var(--badge-ink);
+    font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 100px;
+  }
+
+  .banner {
+    display: none;
+    background: var(--warn-bg); color: var(--warn-ink);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px;
+  }
+  .banner.on { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 10px; box-shadow: var(--shadow); padding: 20px;
+  }
+  .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .grid .span2 { grid-column: 1 / -1; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+  .hero { display: flex; flex-wrap: wrap; gap: 24px 48px; align-items: center; }
+  .hero-temp { display: flex; align-items: flex-start; gap: 4px; }
+  .hero-temp .value {
+    font-size: 88px; font-weight: 200; line-height: 1; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .hero-temp .unit { font-size: 28px; font-weight: 300; color: var(--ink-3); margin-top: 10px; }
+  .hero-sub { color: var(--ink-2); font-size: 14px; margin-top: 6px; }
+  .hero-sub .hi { color: var(--temp); font-weight: 600; }
+  .hero-sub .lo { color: var(--rain); font-weight: 600; }
+  .readings {
+    display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr));
+    gap: 18px 28px; flex: 1; min-width: 280px;
+  }
+  @media (max-width: 640px) { .readings { grid-template-columns: repeat(2, 1fr); } }
+  .reading .label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 2px;
+  }
+  .reading .val { font-size: 21px; font-weight: 550; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .reading .val small { font-size: 13px; font-weight: 450; color: var(--ink-3); margin-left: 2px; }
+  .reading .sub { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+  .trend-down::after { content: "↓"; color: var(--rain); margin-left: 4px; font-size: 15px; }
+  .trend-up::after { content: "↑"; color: var(--temp); margin-left: 4px; font-size: 15px; }
+  .trend-flat::after { content: "→"; color: var(--ink-3); margin-left: 4px; font-size: 15px; }
+  .compass { display: inline-block; vertical-align: -3px; margin-right: 6px; }
+  .compass circle { fill: none; stroke: var(--axis); stroke-width: 1.5; }
+  .compass path { fill: var(--wind); }
+
+  .chart-card h2 {
+    font-size: 12px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-2); margin: 0 0 2px;
+  }
+  .chart-card .subtitle { font-size: 13px; color: var(--ink-3); margin: 0 0 14px; }
+  .chart-card .subtitle b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chart-wrap { position: relative; }
+  .chart-wrap svg { display: block; width: 100%; height: auto; }
+  .chart-empty { color: var(--ink-3); font-size: 13px; padding: 40px 0; text-align: center; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-2); margin-top: 10px; }
+  .legend .key { display: inline-block; width: 14px; height: 0; border-top: 2px solid; vertical-align: 3px; margin-right: 5px; }
+  .legend .key.dashed { border-top-style: dashed; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; z-index: 5;
+    background: var(--tooltip-bg); color: var(--tooltip-ink);
+    font-size: 12px; line-height: 1.45; font-variant-numeric: tabular-nums;
+    padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+    opacity: 0; transition: opacity 0.1s;
+  }
+  @media (prefers-reduced-motion: reduce) { .tooltip { transition: none; } }
+  .tooltip.on { opacity: 1; }
+  .tooltip .t-time { opacity: 0.65; }
+
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .day { text-align: center; padding: 10px 4px 12px; border-radius: 8px; }
+  .day.today { background: var(--temp-soft); }
+  .day .dname { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .day .range { height: 96px; margin: 10px auto 8px; position: relative; width: 8px; }
+  .day .range .track { position: absolute; inset: 0; left: 3px; width: 2px; background: var(--grid); border-radius: 2px; }
+  .day .range .bar { position: absolute; left: 0; width: 8px; border-radius: 4px; background: linear-gradient(to bottom, var(--temp), var(--rain)); }
+  .day .hi, .day .lo { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .day .hi { font-weight: 600; }
+  .day .lo { color: var(--ink-3); }
+  .day .rain { font-size: 11px; color: var(--rain); margin-top: 6px; min-height: 16px; font-variant-numeric: tabular-nums; }
+
+  footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
+  footer a { color: var(--ink-2); }
+</style>
 </head>
 <body>
-<p>Skickar vidare till <a href="/mock/">mocken</a> …</p>
+
+<div class="page">
+  <header>
+    <div class="station">
+      <h1>Brämhult väderstation</h1>
+      <div class="meta"><span class="id">IBRMHULT2</span> · 209 m ö.h. · Weather Underground PWS</div>
+    </div>
+    <div class="status">
+      <span><span class="dot" id="dot"></span><span id="obs-status">Hämtar …</span></span>
+      <span class="live-badge">Live</span>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="grid">
+    <div class="card span2 hero" id="hero"><div class="chart-empty">Hämtar senaste observationen …</div></div>
+
+    <div class="card chart-card">
+      <h2>Temperatur</h2>
+      <p class="subtitle" id="t-sub">Idag sedan midnatt</p>
+      <div class="chart-wrap" id="chart-temp"></div>
+    </div>
+
+    <div class="card chart-card">
+      <h2>Nederbörd</h2>
+      <p class="subtitle" id="r-sub">Per timme idag</p>
+      <div class="chart-wrap" id="chart-rain"></div>
+    </div>
+
+    <div class="card chart-card">
+      <h2>Vind</h2>
+      <p class="subtitle">Medelvind och byar sedan midnatt</p>
+      <div class="chart-wrap" id="chart-wind"></div>
+      <div class="legend">
+        <span><span class="key" style="border-color: var(--wind)"></span>Medelvind</span>
+        <span><span class="key dashed" style="border-color: var(--wind)"></span>Byar</span>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <h2>Lufttryck</h2>
+      <p class="subtitle" id="p-sub">Havsnivåtryck</p>
+      <div class="chart-wrap" id="chart-pressure"></div>
+    </div>
+
+    <div class="card span2 chart-card">
+      <h2>Senaste sju dygnen</h2>
+      <p class="subtitle">Dygnets max- och mintemperatur samt nederbörd</p>
+      <div class="days" id="days"><div class="chart-empty">Hämtar …</div></div>
+    </div>
+  </div>
+
+  <footer>
+    Data från personlig väderstation IBRMHULT2 i Brämhult via Weather Underground · uppdateras varje minut.<br>
+    Lufttryck omräknat till havsnivå · historik ur eget arkiv · <a href="/mock/">designutkast</a>
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* =============================================================================
+   Live-vy: läser /api/wu (proxyn) för dagens data och data/-arkivet för
+   tryckhistoriken. Samma diagramkod och layout som mocken.
+   ========================================================================== */
+const ELEV = 209.1; // stationens höjd enligt API:et — för havsnivåomräkning
+
+/* ===== Adapter & format ==================================================== */
+const ms = kmh => kmh / 3.6;
+const fmt = (n, d = 1) => n.toLocaleString("sv-SE", { minimumFractionDigits: d, maximumFractionDigits: d });
+const DIRS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"];
+const dirText = deg => DIRS[Math.round(deg / 22.5) % 16];
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// Stationen rapporterar absolut tryck; räkna om till havsnivå (barometrisk formel)
+function seaLevel(p, tC) {
+  if (p == null) return null;
+  const t = tC ?? 10;
+  return p * Math.pow(1 - (0.0065 * ELEV) / (t + 0.0065 * ELEV + 273.15), -5.257);
+}
+
+const uvLabel = uv => uv < 3 ? "låg" : uv < 6 ? "måttlig" : uv < 8 ? "hög" : uv < 11 ? "mycket hög" : "extrem";
+const dewptLabel = d => d < 10 ? "torr luft" : d < 13 ? "behagligt" : d < 16 ? "lite fuktigt" : d < 18 ? "fuktigt" : "tryckande";
+
+async function getJSON(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
+  return r.json();
+}
+
+/* Aggregera dagens 5-minutersvärden (observations/all/1day, High/Low/Avg-fält)
+   till timserier för diagrammen. precipTotal är kumulativ sedan midnatt →
+   regn per timme = differensen mellan timmarnas maxvärden. */
+function hourlySeries(buckets) {
+  const byHour = new Map();
+  for (const o of buckets) {
+    if (!o?.obsTimeLocal || !o.metric) continue;
+    const h = parseInt(o.obsTimeLocal.slice(11, 13), 10);
+    if (!byHour.has(h)) byHour.set(h, []);
+    byHour.get(h).push(o);
+  }
+  const avg = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  const out = [];
+  let prevCum = 0;
+  for (const h of [...byHour.keys()].sort((a, b) => a - b)) {
+    const os = byHour.get(h);
+    const nums = (get) => os.map(get).filter(v => typeof v === "number");
+    const cum = Math.max(prevCum, ...nums(o => o.metric.precipTotal));
+    out.push({
+      h,
+      temp: avg(nums(o => o.metric.tempAvg ?? o.metric.temp)),
+      rain: Math.max(0, cum - prevCum),
+      wind: avg(nums(o => o.metric.windspeedAvg ?? o.metric.windSpeed)),
+      gust: Math.max(0, ...nums(o => o.metric.windgustHigh ?? o.metric.windGust)),
+      pressure: avg(nums(o => o.metric.pressureMax != null && o.metric.pressureMin != null
+        ? (o.metric.pressureMax + o.metric.pressureMin) / 2
+        : o.metric.pressure)),
+    });
+    prevCum = cum;
+  }
+  return out.filter(p => p.temp != null);
+}
+
+/* ===== Tillstånd =========================================================== */
+const state = {
+  current: null,   // senaste observationen (observations/current-format)
+  today: [],       // timserie ur hourlySeries()
+  week: [],        // dygnssummeringar (dailysummary/7day-format)
+  pressurePts: [], // [{x: timmar sedan seriestart, v: hPa havsnivå}]
+  pressureLabels: [],
+  pressureDays: 1,
+};
+
+/* ===== Header/status ======================================================= */
+function renderStatus() {
+  const el = document.getElementById("obs-status");
+  const dot = document.getElementById("dot");
+  const obs = state.current;
+  if (!obs) { el.textContent = "Ingen kontakt med stationen"; dot.classList.add("stale"); return; }
+  const ageMin = Math.round((Date.now() / 1000 - obs.epoch) / 60);
+  const time = obs.obsTimeLocal.slice(11, 16);
+  if (ageMin <= 20) {
+    el.innerHTML = `Senaste observation <b>${time}</b>`;
+    dot.classList.remove("stale");
+  } else {
+    el.innerHTML = `Senast <b>${time}</b> (${ageMin} min sedan)`;
+    dot.classList.add("stale");
+  }
+}
+
+function showBanner(msg) {
+  const b = document.getElementById("banner");
+  if (!msg) { b.classList.remove("on"); return; }
+  b.textContent = msg;
+  b.classList.add("on");
+}
+
+/* ===== Hero ================================================================ */
+function pressureTrend() {
+  // Jämför senaste timmen med tre timmar tidigare i dagens serie
+  const pts = state.today.filter(p => p.pressure != null);
+  if (pts.length < 4) return null;
+  const last = pts[pts.length - 1], ref = pts[Math.max(0, pts.length - 4)];
+  const diff = seaLevel(last.pressure, last.temp) - seaLevel(ref.pressure, ref.temp);
+  return diff > 0.8 ? "up" : diff < -0.8 ? "down" : "flat";
+}
+
+function renderHero() {
+  const obs = state.current;
+  if (!obs) return;
+  const m = obs.metric;
+  const temps = state.today.map(p => p.temp);
+  const tMin = temps.length ? Math.min(...temps, m.temp) : m.temp;
+  const tMax = temps.length ? Math.max(...temps, m.temp) : m.temp;
+  const trend = pressureTrend();
+  const trendClass = trend ? ` trend-${trend}` : "";
+  const trendText = trend === "up" ? "stigande" : trend === "down" ? "fallande" : trend === "flat" ? "stabilt" : "havsnivå";
+  const feels = m.temp >= 20 ? m.heatIndex : m.windChill;
+
+  const cards = [
+    { label: "Vind", val: `
+        <svg class="compass" width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="8.5"></circle>
+          <path d="M10 3.5 L13 13 L10 11 L7 13 Z" transform="rotate(${(obs.winddir + 180) % 360} 10 10)"></path>
+        </svg>${fmt(ms(m.windSpeed))}<small>m/s</small>`,
+      sub: `${dirText(obs.winddir)} (${obs.winddir}°)` },
+    { label: "Byar", val: `${fmt(ms(m.windGust))}<small>m/s</small>`, sub: "senaste obs" },
+    { label: "Luftfuktighet", val: `${Math.round(obs.humidity)}<small>%</small>`, sub: "rel. fuktighet" },
+    { label: "Lufttryck", val: `${fmt(seaLevel(m.pressure, m.temp))}<small>hPa</small>`, sub: trendText, cls: trendClass },
+    { label: "Regn idag", val: `${fmt(m.precipTotal)}<small>mm</small>`, sub: `${fmt(m.precipRate)} mm/h nu` },
+    { label: "Känns som", val: `${fmt(feels)}<small>°C</small>`, sub: "vind & fukt invägda" },
+  ];
+  if (obs.uv != null) cards.push({ label: "UV-index", val: fmt(obs.uv), sub: uvLabel(obs.uv) });
+  if (obs.solarRadiation != null) cards.push({ label: "Solinstrålning", val: `${Math.round(obs.solarRadiation)}<small>W/m²</small>`, sub: "global strålning" });
+  if (cards.length < 8) cards.push({ label: "Daggpunkt", val: `${fmt(m.dewpt)}<small>°C</small>`, sub: dewptLabel(m.dewpt) });
+
+  document.getElementById("hero").innerHTML = `
+    <div>
+      <div class="hero-temp">
+        <span class="value">${fmt(m.temp)}</span><span class="unit">°C</span>
+      </div>
+      <div class="hero-sub">
+        Daggpunkt ${fmt(m.dewpt)}° · idag <span class="hi">▲ ${fmt(tMax)}°</span>
+        <span class="lo">▼ ${fmt(tMin)}°</span>
+      </div>
+    </div>
+    <div class="readings">
+      ${cards.map(c => `
+        <div class="reading">
+          <div class="label">${c.label}</div>
+          <div class="val${c.cls || ""}">${c.val}</div>
+          <div class="sub">${c.sub}</div>
+        </div>`).join("")}
+    </div>`;
+}
+
+/* ===== Diagramhjälpare (samma som mocken, med central registry) ============ */
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+};
+const H = 210, PAD = { t: 14, r: 12, b: 26, l: 40 };
+
+const charts = [];
+function chart(wrapId, draw) { charts.push({ wrapId, draw }); }
+
+function renderCharts() {
+  for (const c of charts) {
+    const wrap = document.getElementById(c.wrapId);
+    wrap.innerHTML = "";
+    const W = Math.max(wrap.clientWidth, 260);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
+    const tip = document.createElement("div");
+    tip.className = "tooltip";
+    wrap.append(svg, tip);
+    if (c.draw(svg, tip, W) === false) {
+      wrap.innerHTML = '<div class="chart-empty">Ingen data ännu i dag</div>';
+    }
+  }
+}
+let resizeRaf;
+addEventListener("resize", () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(renderCharts); });
+
+function axes(svg, W, yTicks, yFmt, xLabels) {
+  for (const { v, y } of yTicks) {
+    svg.append(el("line", { x1: PAD.l, x2: W - PAD.r, y1: y, y2: y, stroke: css("--grid"), "stroke-width": 1 }));
+    const t = el("text", { x: PAD.l - 8, y: y + 4, "text-anchor": "end", "font-size": 11, fill: css("--ink-3") });
+    t.textContent = yFmt(v);
+    svg.append(t);
+  }
+  for (const { label, x } of xLabels) {
+    const t = el("text", { x, y: H - 8, "text-anchor": "middle", "font-size": 11, fill: css("--ink-3") });
+    t.textContent = label;
+    svg.append(t);
+  }
+}
+
+const yScale = (lo, hi) => v => PAD.t + (hi - v) / (hi - lo) * (H - PAD.t - PAD.b);
+
+function showTip(tip, wrap, x, y, html) {
+  tip.innerHTML = html;
+  tip.classList.add("on");
+  const w = tip.offsetWidth;
+  tip.style.left = Math.min(Math.max(x - w / 2, 4), wrap.clientWidth - w - 4) + "px";
+  tip.style.top = (y - tip.offsetHeight - 12) + "px";
+}
+
+const hh = h => ("0" + h).slice(-2);
+
+/* ===== Temperatur ========================================================== */
+chart("chart-temp", (svg, tip, W) => {
+  const data = state.today;
+  if (!data.length) return false;
+  const temps = data.map(p => p.temp);
+  const lo = Math.floor(Math.min(...temps)) - 1, hi = Math.ceil(Math.max(...temps)) + 1;
+  const sy = yScale(lo, hi);
+  const sx = h => PAD.l + h / 23 * (W - PAD.l - PAD.r);
+  const step = hi - lo > 12 ? 4 : 2;
+  const ticks = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+  axes(svg, W, ticks, v => v + "°", [0, 6, 12, 18].map(h => ({ label: hh(h), x: sx(h) })));
+
+  const pts = data.map(p => [sx(p.h), sy(p.temp)]);
+  const line = pts.map((p, i) => (i ? "L" : "M") + p[0] + " " + p[1]).join(" ");
+  const base = sy(lo);
+  svg.append(el("path", { d: `${line} L ${pts[pts.length - 1][0]} ${base} L ${pts[0][0]} ${base} Z`, fill: css("--temp-soft") }));
+  svg.append(el("path", { d: line, fill: "none", stroke: css("--temp"), "stroke-width": 2, "stroke-linejoin": "round" }));
+  const last = pts[pts.length - 1];
+  svg.append(el("circle", { cx: last[0], cy: last[1], r: 4, fill: css("--temp"), stroke: css("--card"), "stroke-width": 2 }));
+
+  const cross = el("line", { y1: PAD.t, y2: H - PAD.b, stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
+  const dot = el("circle", { r: 3.5, fill: css("--temp"), stroke: css("--card"), "stroke-width": 2, visibility: "hidden" });
+  svg.append(cross, dot);
+  svg.addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect();
+    const h = Math.round((e.clientX - r.left) / r.width * W / (W - PAD.l - PAD.r) * 23 - PAD.l / (W - PAD.l - PAD.r) * 23);
+    const p = data.reduce((best, d) => Math.abs(d.h - h) < Math.abs(best.h - h) ? d : best, data[0]);
+    const x = sx(p.h), y = sy(p.temp);
+    cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("visibility", "visible");
+    showTip(tip, svg.parentElement, x, y, `<span class="t-time">kl ${hh(p.h)}:00</span><br><b>${fmt(p.temp)} °C</b>`);
+  });
+  svg.addEventListener("pointerleave", () => {
+    cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.classList.remove("on");
+  });
+});
+
+/* ===== Nederbörd =========================================================== */
+chart("chart-rain", (svg, tip, W) => {
+  const data = state.today;
+  if (!data.length) return false;
+  const hi = Math.max(2, Math.ceil(Math.max(...data.map(p => p.rain)) * 2) / 2 + 0.5);
+  const sy = yScale(0, hi);
+  const slot = (W - PAD.l - PAD.r) / 24;
+  const bw = Math.max(slot - 2, 3);
+  const ticks = [];
+  const tickStep = hi > 4 ? 1 : 0.5;
+  for (let v = 0; v <= hi; v += tickStep) ticks.push({ v, y: sy(v) });
+  axes(svg, W, ticks, v => fmt(v), [0, 6, 12, 18].map(h => ({ label: hh(h), x: PAD.l + (h + 0.5) * slot })));
+
+  for (const p of data) {
+    const x = PAD.l + p.h * slot + (slot - bw) / 2;
+    const y = sy(p.rain), base = sy(0);
+    const zero = p.rain < 0.05;
+    const bar = el("rect", {
+      x, y: zero ? base - 2 : y, width: bw,
+      height: zero ? 2 : base - y, rx: 2,
+      fill: zero ? css("--grid") : css("--rain")
+    });
+    bar.addEventListener("pointerenter", () => showTip(tip, svg.parentElement, x + bw / 2, zero ? base - 2 : y,
+      `<span class="t-time">kl ${hh(p.h)}–${hh(p.h + 1)}</span><br><b>${fmt(p.rain)} mm</b>`));
+    bar.addEventListener("pointerleave", () => tip.classList.remove("on"));
+    svg.append(bar);
+  }
+});
+
+/* ===== Vind ================================================================ */
+chart("chart-wind", (svg, tip, W) => {
+  const data = state.today.filter(p => p.wind != null);
+  if (!data.length) return false;
+  const hi = Math.max(4, Math.ceil(Math.max(...data.map(p => ms(p.gust)))) + 1);
+  const sy = yScale(0, hi);
+  const sx = h => PAD.l + h / 23 * (W - PAD.l - PAD.r);
+  const ticks = [];
+  const step = hi > 12 ? 4 : 2;
+  for (let v = 0; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+  axes(svg, W, ticks, v => v, [0, 6, 12, 18].map(h => ({ label: hh(h), x: sx(h) })));
+
+  const path = (get, dash) => {
+    const d = data.map((p, i) => (i ? "L" : "M") + sx(p.h) + " " + sy(get(p))).join(" ");
+    const attrs = { d, fill: "none", stroke: css("--wind"), "stroke-width": 2, "stroke-linejoin": "round" };
+    if (dash) { attrs["stroke-dasharray"] = "5 4"; attrs["stroke-width"] = 1.5; attrs.opacity = 0.75; }
+    svg.append(el("path", attrs));
+  };
+  path(p => ms(p.wind), false);
+  path(p => ms(p.gust), true);
+  const last = data[data.length - 1];
+  svg.append(el("circle", { cx: sx(last.h), cy: sy(ms(last.wind)), r: 4, fill: css("--wind"), stroke: css("--card"), "stroke-width": 2 }));
+
+  const cross = el("line", { y1: PAD.t, y2: H - PAD.b, stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
+  svg.append(cross);
+  svg.addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect();
+    const hGuess = (e.clientX - r.left) / r.width * 23;
+    const p = data.reduce((best, d) => Math.abs(d.h - hGuess) < Math.abs(best.h - hGuess) ? d : best, data[0]);
+    const x = sx(p.h);
+    cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
+    showTip(tip, svg.parentElement, x, sy(ms(p.gust)),
+      `<span class="t-time">kl ${hh(p.h)}:00</span><br>Medel <b>${fmt(ms(p.wind))}</b> · byar <b>${fmt(ms(p.gust))}</b> m/s`);
+  });
+  svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tip.classList.remove("on"); });
+});
+
+/* ===== Lufttryck =========================================================== */
+chart("chart-pressure", (svg, tip, W) => {
+  const pts = state.pressurePts;
+  if (pts.length < 2) return false;
+  const xMax = state.pressureDays * 24 - 1;
+  const vals = pts.map(p => p.v);
+  const lo = Math.floor(Math.min(...vals)) - 1, hi = Math.ceil(Math.max(...vals)) + 1;
+  const sy = yScale(lo, hi);
+  const sx = x => PAD.l + x / xMax * (W - PAD.l - PAD.r);
+  const ticks = [];
+  const step = hi - lo > 12 ? 4 : 2;
+  for (let v = Math.ceil((lo + 1) / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+  axes(svg, W, ticks, v => v, state.pressureLabels.map(l => ({ label: l.label, x: sx(l.x) })));
+
+  const d = pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.v)).join(" ");
+  svg.append(el("path", { d, fill: "none", stroke: css("--ink-2"), "stroke-width": 2, "stroke-linejoin": "round" }));
+  const last = pts[pts.length - 1];
+  svg.append(el("circle", { cx: sx(last.x), cy: sy(last.v), r: 4, fill: css("--ink-2"), stroke: css("--card"), "stroke-width": 2 }));
+
+  svg.addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect();
+    const xGuess = (e.clientX - r.left) / r.width * xMax;
+    const p = pts.reduce((best, q) => Math.abs(q.x - xGuess) < Math.abs(best.x - xGuess) ? q : best, pts[0]);
+    showTip(tip, svg.parentElement, sx(p.x), sy(p.v), `<span class="t-time">${p.t}</span><br><b>${fmt(p.v)} hPa</b>`);
+  });
+  svg.addEventListener("pointerleave", () => tip.classList.remove("on"));
+});
+
+/* ===== 7-dygnsremsa ======================================================== */
+const DAY_NAMES = ["Sön", "Mån", "Tis", "Ons", "Tor", "Fre", "Lör"];
+function renderDays() {
+  const box = document.getElementById("days");
+  const days = state.week
+    .filter(s => s?.metric && s.metric.tempHigh != null)
+    .map(s => {
+      const date = new Date(s.obsTimeLocal.slice(0, 10) + "T12:00:00");
+      const isToday = s.obsTimeLocal.slice(0, 10) === new Date().toLocaleDateString("sv-SE");
+      return {
+        d: isToday ? "Idag" : `${DAY_NAMES[date.getDay()]} ${date.getDate()}`,
+        lo: s.metric.tempLow, hi: s.metric.tempHigh,
+        rain: s.metric.precipTotal ?? 0, today: isToday,
+      };
+    });
+  if (!days.length) { box.innerHTML = '<div class="chart-empty">Ingen dygnsdata ännu</div>'; return; }
+  const lo = Math.min(...days.map(d => d.lo)), hi = Math.max(...days.map(d => d.hi));
+  const span = Math.max(hi - lo, 1);
+  box.innerHTML = days.map(d => `
+    <div class="day${d.today ? " today" : ""}">
+      <div class="dname">${d.d}</div>
+      <div class="hi">${fmt(d.hi, 0)}°</div>
+      <div class="range"><div class="track"></div>
+        <div class="bar" style="top:${(hi - d.hi) / span * 100}%; height:${(d.hi - d.lo) / span * 100}%"></div></div>
+      <div class="lo">${fmt(d.lo, 0)}°</div>
+      <div class="rain">${d.rain > 0 ? "☂ " + fmt(d.rain) + " mm" : ""}</div>
+    </div>`).join("");
+}
+
+/* ===== Tryckhistorik ur arkivet ============================================
+   Försöker hämta två föregående dygn ur data/hourly/. Saknas de (arkivet är
+   inte ikapp än) visas bara dagens kurva — sidan läker sig själv i takt med
+   att arkivet fylls på. */
+async function buildPressureSeries() {
+  const days = [];
+  for (const back of [2, 1]) {
+    const d = new Date(Date.now() - back * 86400e3);
+    const iso = d.toLocaleDateString("sv-SE");
+    days.push({ iso, month: iso.slice(0, 7), back, name: DAY_NAMES[d.getDay()] });
+  }
+  const monthData = {};
+  for (const m of new Set(days.map(d => d.month))) {
+    try {
+      monthData[m] = await getJSON(`/data/hourly/${m.slice(0, 4)}/${m}.json`);
+    } catch { monthData[m] = null; }
+  }
+  const pts = [];
+  const labels = [];
+  let dayOffset = 0;
+  const archived = days.filter(d => monthData[d.month]?.[d.iso]?.length);
+  for (const d of archived) {
+    for (const o of monthData[d.month][d.iso]) {
+      const hFrac = parseInt(o.obsTimeLocal.slice(11, 13), 10) + parseInt(o.obsTimeLocal.slice(14, 16), 10) / 60;
+      const p = o.metric.pressureMax != null ? (o.metric.pressureMax + o.metric.pressureMin) / 2 : o.metric.pressure;
+      const v = seaLevel(p, o.metric.tempAvg ?? o.metric.temp);
+      if (v != null) pts.push({ x: dayOffset * 24 + hFrac, v, t: `${d.name} ${o.obsTimeLocal.slice(11, 16)}` });
+    }
+    labels.push({ label: d.name, x: dayOffset * 24 + 12 });
+    dayOffset++;
+  }
+  for (const p of state.today) {
+    if (p.pressure == null) continue;
+    pts.push({ x: dayOffset * 24 + p.h, v: seaLevel(p.pressure, p.temp), t: `Idag kl ${hh(p.h)}:00` });
+  }
+  labels.push(archived.length ? { label: "Idag", x: dayOffset * 24 + 12 }
+    : { label: "06", x: 6 }, ...(archived.length ? [] : [{ label: "12", x: 12 }, { label: "18", x: 18 }]));
+  state.pressurePts = pts;
+  state.pressureLabels = labels;
+  state.pressureDays = dayOffset + 1;
+  document.getElementById("p-sub").innerHTML = archived.length
+    ? `Havsnivåtryck senaste ${dayOffset + 1} dygnen · nu <b id="p-now">–</b>`
+    : `Havsnivåtryck idag · nu <b id="p-now">–</b> <span title="Fler dygn visas när arkivet är ikapp">(arkivet fylls på)</span>`;
+}
+
+/* ===== Undertexter ========================================================= */
+function renderSubtitles() {
+  const temps = state.today.map(p => p.temp);
+  const m = state.current?.metric;
+  if (temps.length && m) {
+    const tMin = Math.min(...temps, m.temp), tMax = Math.max(...temps, m.temp);
+    document.getElementById("t-sub").innerHTML = `Idag sedan midnatt · min <b>${fmt(tMin)}°</b> · max <b>${fmt(tMax)}°</b>`;
+  }
+  if (m) {
+    document.getElementById("r-sub").innerHTML = `Per timme idag · totalt <b>${fmt(m.precipTotal)} mm</b>`;
+    const pNow = document.getElementById("p-now");
+    if (pNow) pNow.textContent = fmt(seaLevel(m.pressure, m.temp)) + " hPa";
+  }
+}
+
+/* ===== Laddning & uppdatering ============================================== */
+async function loadCurrent() {
+  try {
+    const data = await getJSON("/api/wu?e=current");
+    const obs = data.observations?.[0];
+    if (!obs) throw new Error("tomt svar");
+    state.current = obs;
+    showBanner(null);
+  } catch (err) {
+    console.warn("current:", err);
+    if (!state.current) showBanner("Kunde inte hämta data från stationen just nu — försöker igen automatiskt.");
+  }
+  renderStatus();
+  renderHero();
+  renderSubtitles();
+}
+
+async function loadDayAndWeek() {
+  try {
+    const t = await getJSON("/api/wu?e=today");
+    state.today = hourlySeries(t.observations ?? []);
+  } catch (err) { console.warn("today:", err); }
+  try {
+    const w = await getJSON("/api/wu?e=week");
+    state.week = w.summaries ?? w.observations ?? [];
+  } catch (err) { console.warn("week:", err); }
+  await buildPressureSeries();
+  renderHero();
+  renderSubtitles();
+  renderCharts();
+  renderDays();
+}
+
+async function boot() {
+  await loadDayAndWeek();
+  await loadCurrent();
+  setInterval(loadCurrent, 60_000);
+  setInterval(loadDayAndWeek, 300_000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") { loadCurrent(); loadDayAndWeek(); }
+  });
+}
+boot();
+</script>
+
 </body>
 </html>
