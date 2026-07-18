@@ -141,6 +141,8 @@ sedan midnatt, lufttryck tre dygn, samt max/min och regn för senaste sju dygnen
    tryck, beräknad trycktrend, dolda kort för värden stationen saknar,
    felhantering och minutvis auto-uppdatering. Tryckkurvan växer till tre
    dygn av sig själv när arkivet är ikapp.
-4. Bygga historikvyerna ovan mot arkivet i `data/`.
+4. ~~Historikvyerna~~ — `/historik/` med tre flikar: Dag, Samma dag genom
+   åren, Månadsjämförelse. Läser arkivet direkt; växer automatiskt i takt
+   med backfillen.
 5. Eget domännamn om så önskas.
 6. (Senare, valfritt) SMHI-prognos, sol upp/ned.
