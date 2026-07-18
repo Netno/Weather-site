@@ -92,6 +92,13 @@
   .nav a:hover { background: var(--grid); }
   .nav a[aria-current] { background: var(--temp-soft); color: var(--temp); }
 
+  .notice {
+    display: none;
+    background: var(--warn-bg); color: var(--warn-ink);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13.5px;
+  }
+  .notice.on { display: block; }
+
   .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
   .tabs button {
     font: inherit; font-size: 13.5px; font-weight: 550; color: var(--ink-2);
@@ -203,6 +210,8 @@
       <a href="/historik/" aria-current="page">Historik</a>
     </nav>
   </header>
+
+  <div class="notice" id="backfill-notice"></div>
 
   <div class="tabs">
     <button data-view="dag" class="active">Dag</button>
@@ -758,6 +767,20 @@ async function boot() {
   }
   document.getElementById("arkiv-span").textContent =
     `${manifest.firstDate} – ${manifest.lastFetched}`;
+
+  // Under backfillen ligger arkivet efter nutid — förklara varför vyerna
+  // öppnar på ett äldre datum och hur långt det är kvar
+  const yesterday = new Date(Date.now() - 86400e3).toLocaleDateString("sv-SE");
+  if (manifest.lastFetched < yesterday) {
+    const daysLeft = Math.round((new Date(yesterday) - new Date(manifest.lastFetched)) / 86400e3);
+    const nights = Math.ceil(daysLeft / 600);
+    const notice = document.getElementById("backfill-notice");
+    notice.textContent = `Historiken hämtas fortfarande in: arkivet täcker ${manifest.firstDate} `
+      + `till ${manifest.lastFetched} och fylls på med ~600 dygn per natt `
+      + `(${daysLeft} dygn kvar ≈ ${nights} ${nights === 1 ? "natt" : "nätter"}). `
+      + `Vyerna öppnar därför på senaste arkiverade dygnet — de hittar fram till idag av sig själva.`;
+    notice.classList.add("on");
+  }
   const firstYear = parseInt(manifest.firstDate.slice(0, 4), 10);
   const lastYear = parseInt(manifest.lastFetched.slice(0, 4), 10);
   years = [];
