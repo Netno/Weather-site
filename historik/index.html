@@ -127,7 +127,7 @@
     background: var(--card); color: var(--ink-2);
     border: 1px solid var(--card-border); border-radius: 100px; padding: 4px 12px;
   }
-  .chips button.on { border-color: transparent; color: #fff; }
+  .chips button.on { border-color: transparent; color: #fff; background: var(--ink-2); }
 
   .card {
     background: var(--card); border: 1px solid var(--card-border);
@@ -214,13 +214,48 @@
   <div class="notice" id="backfill-notice"></div>
 
   <div class="tabs">
-    <button data-view="dag" class="active">Dag</button>
+    <button data-view="utforska" class="active">Utforska</button>
+    <button data-view="dag">Dag</button>
     <button data-view="arsdag">Samma dag genom åren</button>
     <button data-view="manad">Månadsjämförelse</button>
   </div>
 
+  <!-- ===== Vy: Utforska =================================================== -->
+  <section class="view active" id="view-utforska">
+    <div class="controls">
+      <select id="utf-metric">
+        <option value="temp">Temperatur</option>
+        <option value="hum">Luftfuktighet</option>
+        <option value="wind">Vind</option>
+        <option value="rain">Nederbörd</option>
+        <option value="pressure">Lufttryck</option>
+        <option value="dewpt">Daggpunkt</option>
+      </select>
+      <span class="chips" id="utf-range">
+        <button data-range="48h">48 tim</button>
+        <button data-range="vecka" class="on">Vecka</button>
+        <button data-range="manad">Månad</button>
+        <button data-range="ar">År</button>
+        <button data-range="allt">Allt</button>
+        <button data-range="eget">Eget …</button>
+      </span>
+      <span id="utf-custom" style="display:none">
+        <input type="date" id="utf-from">
+        <input type="date" id="utf-to">
+      </span>
+    </div>
+    <div class="grid">
+      <div class="card span2 chart-card">
+        <h2 id="utf-title">Temperatur</h2>
+        <p class="subtitle" id="utf-sub"></p>
+        <div class="chart-wrap" id="utf-chart"></div>
+        <div class="legend" id="utf-legend"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== Vy: Dag ======================================================== -->
-  <section class="view active" id="view-dag">
+  <section class="view" id="view-dag">
     <div class="controls">
       <button class="step" id="dag-prev" aria-label="Föregående dag">←</button>
       <input type="date" id="dag-datum">
@@ -353,11 +388,28 @@ function daySeries(buckets) {
       rain: Math.max(0, cum - prevCum),
       wind: o.metric.windspeedAvg,
       gust: o.metric.windgustHigh,
+      hum: o.humidityAvg,
+      dewpt: o.metric.dewptAvg,
+      pressure: o.metric.pressureMax != null && o.metric.pressureMin != null
+        ? seaLevel((o.metric.pressureMax + o.metric.pressureMin) / 2, o.metric.tempAvg)
+        : null,
     };
     prevCum = cum;
     return p;
   }).filter(p => p.temp != null);
 }
+
+const addDaysIso = (iso, n) => {
+  const d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+function listDates(from, to) {
+  const out = [];
+  for (let d = from; d <= to; d = addDaysIso(d, 1)) out.push(d);
+  return out;
+}
+const dateLabel = iso => `${parseInt(iso.slice(8, 10), 10)} ${MONTHS[parseInt(iso.slice(5, 7), 10) - 1].slice(0, 3)}`;
 
 /* ===== Diagramhjälpare ===================================================== */
 const NS = "http://www.w3.org/2000/svg";
@@ -453,6 +505,209 @@ function multiLine(wrapId, series, opts) {
 /* ===== Gemensamt tillstånd ================================================= */
 let manifest = null;
 let years = [];
+
+/* ===== Vy: Utforska ========================================================
+   Fritt val av mätvärde + period. ≤ 14 dagar ritas med timupplösning ur
+   data/hourly/, längre perioder med dygnsupplösning ur data/daily/. */
+const METRICS = {
+  temp: { label: "Temperatur", unit: "°C", color: () => css("--temp") },
+  hum: { label: "Luftfuktighet", unit: "%", color: () => css("--rain") },
+  wind: { label: "Vind", unit: "m/s", color: () => css("--wind") },
+  rain: { label: "Nederbörd", unit: "mm", color: () => css("--rain") },
+  pressure: { label: "Lufttryck", unit: "hPa", color: () => css("--ink-2") },
+  dewpt: { label: "Daggpunkt", unit: "°C", color: () => css("--wind") },
+};
+const utfState = { range: "vecka" };
+
+function utfRange() {
+  const to = manifest.lastFetched;
+  const spans = { "48h": 1, vecka: 6, manad: 29, ar: 364 };
+  if (utfState.range === "allt") return { from: manifest.firstDate, to };
+  if (utfState.range === "eget") {
+    let from = document.getElementById("utf-from").value || addDaysIso(to, -6);
+    let t = document.getElementById("utf-to").value || to;
+    if (from > t) [from, t] = [t, from];
+    return { from: from < manifest.firstDate ? manifest.firstDate : from, to: t > to ? to : t };
+  }
+  const from = addDaysIso(to, -spans[utfState.range]);
+  return { from: from < manifest.firstDate ? manifest.firstDate : from, to };
+}
+
+async function collectHourly(dates) {
+  const months = [...new Set(dates.map(d => d.slice(0, 7)))];
+  const data = Object.fromEntries(await Promise.all(months.map(async m => [m, await hourlyMonth(m)])));
+  const pts = [];
+  dates.forEach((date, di) => {
+    for (const p of daySeries(data[date.slice(0, 7)][date])) pts.push({ ...p, x: di * 24 + p.h, date });
+  });
+  return pts;
+}
+
+async function collectDaily(dates) {
+  const yearsSet = [...new Set(dates.map(d => d.slice(0, 4)))];
+  const data = Object.fromEntries(await Promise.all(yearsSet.map(async y => [y, await dailyYear(y)])));
+  return dates.map((date, di) => ({ x: di, date, obs: data[date.slice(0, 4)][date] ?? null }));
+}
+
+function utfXLabels(dates, hourly) {
+  const step = Math.max(1, Math.round(dates.length / 6));
+  const out = [];
+  for (let di = 0; di < dates.length; di += step) {
+    out.push({ label: dateLabel(dates[di]), x: hourly ? di * 24 + 12 : di });
+  }
+  return out;
+}
+
+function utfBars(wrapId, bars, slots, opts) {
+  mountChart(wrapId, (svg, tip, W) => {
+    if (!bars.length) return false;
+    const hi = Math.max(opts.minY ?? 2, Math.ceil(Math.max(...bars.map(b => b.v)) * 1.15));
+    const sy = yScale(0, hi);
+    const slot = (W - PAD.l - PAD.r) / slots;
+    const bw = Math.max(slot - 2, 1.2);
+    const ticks = [];
+    const step = hi > 40 ? 20 : hi > 16 ? 8 : hi > 8 ? 4 : hi > 4 ? 2 : 1;
+    for (let v = 0; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+    axes(svg, W, ticks, v => v, opts.xLabels.map(l => ({ label: l.label, x: PAD.l + (l.x + 0.5) * slot })));
+    for (const b of bars) {
+      const x = PAD.l + b.x * slot + (slot - bw) / 2;
+      const y = sy(b.v), base = sy(0);
+      const zero = b.v < 0.05;
+      const bar = el("rect", { x, y: zero ? base - 1.5 : y, width: bw, height: zero ? 1.5 : base - y,
+        rx: Math.min(2, bw / 2), fill: zero ? css("--grid") : css("--rain") });
+      bar.addEventListener("pointerenter", () => showTip(tip, svg.parentElement, x + bw / 2, zero ? base - 1.5 : y,
+        `<span class="t-time">${b.t}</span><br><b>${fmt(b.v)} mm</b>`));
+      bar.addEventListener("pointerleave", () => tip.classList.remove("on"));
+      svg.append(bar);
+    }
+  });
+}
+
+function utfBand(wrapId, pts, color, opts) {
+  mountChart(wrapId, (svg, tip, W) => {
+    if (pts.length < 2) return false;
+    const lo = Math.floor(Math.min(...pts.map(p => p.lo))) - 1;
+    const hi = Math.ceil(Math.max(...pts.map(p => p.hi))) + 1;
+    const sy = yScale(lo, hi);
+    const sx = x => PAD.l + x / opts.xMax * (W - PAD.l - PAD.r);
+    const ticks = [];
+    const step = hi - lo > 24 ? 8 : hi - lo > 12 ? 4 : 2;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+    axes(svg, W, ticks, v => v + "°", opts.xLabels.map(l => ({ label: l.label, x: sx(l.x) })));
+
+    const top = pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.hi)).join(" ");
+    const bottom = [...pts].reverse().map(p => "L" + sx(p.x) + " " + sy(p.lo)).join(" ");
+    svg.append(el("path", { d: top + " " + bottom + " Z", fill: color, "fill-opacity": 0.16 }));
+    const avgLine = pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.avg)).join(" ");
+    svg.append(el("path", { d: avgLine, fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round" }));
+
+    const cross = el("line", { y1: PAD.t, y2: H - PAD.b, stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
+    svg.append(cross);
+    svg.addEventListener("pointermove", e => {
+      const r = svg.getBoundingClientRect();
+      const xGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * opts.xMax;
+      const p = pts.reduce((b, q) => Math.abs(q.x - xGuess) < Math.abs(b.x - xGuess) ? q : b, pts[0]);
+      const x = sx(p.x);
+      cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
+      showTip(tip, svg.parentElement, x, sy(p.hi),
+        `<span class="t-time">${p.t}</span><br>Max <b>${fmt(p.hi)}°</b> · medel <b>${fmt(p.avg)}°</b> · min <b>${fmt(p.lo)}°</b>`);
+    });
+    svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tip.classList.remove("on"); });
+  });
+}
+
+async function renderUtforska() {
+  const metric = document.getElementById("utf-metric").value;
+  const M = METRICS[metric];
+  const { from, to } = utfRange();
+  const dates = listDates(from, to);
+  const hourly = dates.length <= 14;
+  document.getElementById("utf-title").textContent = M.label + (metric === "pressure" ? " (havsnivå)" : "");
+  document.getElementById("utf-custom").style.display = utfState.range === "eget" ? "inline" : "none";
+  const legend = document.getElementById("utf-legend");
+  legend.innerHTML = "";
+
+  const summarize = (min, max, avg, sum) => {
+    document.getElementById("utf-sub").innerHTML =
+      `${dateLabel(from)} – ${dateLabel(to)} ${to.slice(0, 4)}` +
+      (sum != null ? ` · totalt <b>${fmt(sum)} ${M.unit}</b>` : "") +
+      (min != null ? ` · min <b>${fmt(min)}</b>` : "") +
+      (max != null ? ` · max <b>${fmt(max)}</b>` : "") +
+      (avg != null ? ` · medel <b>${fmt(avg)} ${M.unit}</b>` : "");
+  };
+  const avgOf = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  const xLabels = utfXLabels(dates, hourly);
+
+  if (hourly) {
+    const pts = await collectHourly(dates);
+    const xMax = dates.length * 24 - 1;
+    const tipT = p => `${dateLabel(p.date)} kl ${hh(p.h)}`;
+    if (metric === "rain") {
+      const bars = pts.map(p => ({ x: p.x, v: p.rain, t: `${dateLabel(p.date)} kl ${hh(p.h)}–${hh(p.h + 1)}` }));
+      utfBars("utf-chart", bars, dates.length * 24, { xLabels });
+      summarize(null, null, null, bars.reduce((a, b) => a + b.v, 0));
+    } else if (metric === "wind") {
+      const mk = (get, label) => ({ label, color: M.color(), pts: pts.filter(p => get(p) != null).map(p => ({ x: p.x, v: ms(get(p)), t: tipT(p) })) });
+      const serie = [mk(p => p.wind, "Medelvind"), mk(p => p.gust, "Byar")];
+      multiLine("utf-chart", serie, { xMax, snap: 2, yLo: 0, xLabels, tipTitle: x => {
+        const p = pts.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, pts[0]);
+        return p ? tipT(p) : "";
+      } });
+      legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>Medelvind</span>
+        <span><span class="key" style="border-color:${M.color()}; border-top-style: dashed"></span>Byar</span>`;
+      const winds = pts.map(p => ms(p.wind)).filter(v => v != null);
+      summarize(null, Math.max(...pts.map(p => ms(p.gust) || 0)), avgOf(winds));
+    } else {
+      const vals = pts.filter(p => p[metric] != null).map(p => ({ x: p.x, v: p[metric], t: tipT(p) }));
+      multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
+        xMax, snap: 2, xLabels, yLo: metric === "hum" ? 0 : undefined,
+        yFmt: v => v, tipTitle: x => {
+          const p = vals.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, vals[0]);
+          return p ? p.t : "";
+        } });
+      const vs = vals.map(p => p.v);
+      summarize(Math.min(...vs), Math.max(...vs), avgOf(vs));
+    }
+  } else {
+    const days = (await collectDaily(dates)).filter(d => d.obs);
+    if (!days.length) {
+      document.getElementById("utf-chart").innerHTML = '<div class="chart-empty">Ingen data i den här perioden</div>';
+      document.getElementById("utf-sub").textContent = "";
+      return;
+    }
+    const xMax = dates.length - 1;
+    if (metric === "temp") {
+      const pts = days.map(d => ({ x: d.x, lo: d.obs.metric.tempLow, hi: d.obs.metric.tempHigh,
+        avg: d.obs.metric.tempAvg, t: dateLabel(d.date) + " " + d.date.slice(0, 4) }));
+      utfBand("utf-chart", pts, M.color(), { xMax, xLabels });
+      legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>Dygnsmedel</span>
+        <span><span class="key" style="border-color:${M.color()}; opacity:.35; border-top-width:8px"></span>Max–min</span>`;
+      summarize(Math.min(...pts.map(p => p.lo)), Math.max(...pts.map(p => p.hi)), avgOf(pts.map(p => p.avg)));
+    } else if (metric === "rain") {
+      const bars = days.map(d => ({ x: d.x, v: d.obs.metric.precipTotal ?? 0, t: dateLabel(d.date) + " " + d.date.slice(0, 4) }));
+      utfBars("utf-chart", bars, dates.length, { xLabels });
+      summarize(null, null, null, bars.reduce((a, b) => a + b.v, 0));
+    } else {
+      const getters = {
+        hum: d => d.humidityAvg,
+        wind: d => ms(d.metric.windspeedAvg),
+        dewpt: d => d.metric.dewptAvg,
+        pressure: d => seaLevel((d.metric.pressureMax + d.metric.pressureMin) / 2, d.metric.tempAvg),
+      };
+      const vals = days.map(d => ({ x: d.x, v: getters[metric](d.obs), t: dateLabel(d.date) + " " + d.date.slice(0, 4) }))
+        .filter(p => p.v != null);
+      multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
+        xMax, snap: 1.2, xLabels, yLo: metric === "hum" || metric === "wind" ? 0 : undefined,
+        yFmt: v => v, tipTitle: x => {
+          const p = vals.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, vals[0]);
+          return p ? p.t : "";
+        } });
+      const vs = vals.map(p => p.v);
+      summarize(Math.min(...vs), Math.max(...vs), avgOf(vs));
+      if (metric === "wind") legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>Dygnets medelvind</span>`;
+    }
+  }
+}
 
 /* ===== Vy: Dag ============================================================= */
 async function renderDag() {
@@ -745,8 +1000,8 @@ async function renderManad() {
 }
 
 /* ===== Flikar & uppstart =================================================== */
-const RENDERERS = { dag: renderDag, arsdag: renderArsdag, manad: renderManad };
-let activeView = "dag";
+const RENDERERS = { utforska: renderUtforska, dag: renderDag, arsdag: renderArsdag, manad: renderManad };
+let activeView = "utforska";
 
 for (const btn of document.querySelectorAll(".tabs button")) {
   btn.addEventListener("click", () => {
@@ -786,6 +1041,24 @@ async function boot() {
   years = [];
   for (let y = firstYear; y <= lastYear; y++) years.push(String(y));
 
+  // Utforska
+  document.getElementById("utf-metric").addEventListener("change", renderUtforska);
+  for (const btn of document.querySelectorAll("#utf-range button")) {
+    btn.addEventListener("click", () => {
+      utfState.range = btn.dataset.range;
+      document.querySelectorAll("#utf-range button").forEach(b => b.classList.toggle("on", b === btn));
+      renderUtforska();
+    });
+  }
+  const utfFrom = document.getElementById("utf-from");
+  const utfTo = document.getElementById("utf-to");
+  utfFrom.min = utfTo.min = manifest.firstDate;
+  utfFrom.max = utfTo.max = manifest.lastFetched;
+  utfFrom.value = addDaysIso(manifest.lastFetched, -6);
+  utfTo.value = manifest.lastFetched;
+  utfFrom.addEventListener("change", renderUtforska);
+  utfTo.addEventListener("change", renderUtforska);
+
   // Dag
   const dagInput = document.getElementById("dag-datum");
   dagInput.min = manifest.firstDate;
@@ -813,7 +1086,7 @@ async function boot() {
 
   // Rendera bara den synliga fliken — övriga renderas vid flikbyte
   await renderManadChips();
-  await renderDag();
+  await renderUtforska();
 }
 boot();
 
