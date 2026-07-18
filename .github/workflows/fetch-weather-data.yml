@@ -1,0 +1,49 @@
+name: Hämta väderdata
+
+on:
+  schedule:
+    # 01:30 UTC = 02:30/03:30 svensk tid — säkert efter midnatt året om.
+    # Hämtar gårdagens dygn; under backfill betar varje körning av upp till
+    # ~600 dagar (1200 anrop) tills arkivet är ikapp.
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+    inputs:
+      call_budget:
+        description: "Max antal API-anrop (WU:s gräns är 1500/dygn totalt)"
+        default: "1200"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-weather-data
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Hämta ny data till arkivet
+        env:
+          WU_API_KEY: ${{ secrets.WU_API_KEY }}
+          CALL_BUDGET: ${{ github.event.inputs.call_budget || '1200' }}
+        run: node scripts/fetch-history.mjs
+
+      - name: Committa och pusha arkivet
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "Ingen ny data att committa."
+          else
+            CURSOR=$(node -p "require('./data/manifest.json').lastFetched")
+            git commit -m "Uppdatera väderarkivet t.o.m. $CURSOR"
+            git push
+          fi
