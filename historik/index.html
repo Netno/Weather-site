@@ -341,167 +341,13 @@
   </footer>
 </div>
 
+<script src="/assets/charts.js"></script>
 <script>
 "use strict";
 /* =============================================================================
    Historikvyer mot det statiska arkivet i data/. Ingen data hämtas från WU —
    allt är förhämtat av det nattliga cron-jobbet.
    ========================================================================== */
-const ELEV = 209.1;
-const ms = kmh => kmh / 3.6;
-const fmt = (n, d = 1) => n.toLocaleString("sv-SE", { minimumFractionDigits: d, maximumFractionDigits: d });
-const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const hh = h => ("0" + h).slice(-2);
-const MONTHS = ["januari", "februari", "mars", "april", "maj", "juni",
-  "juli", "augusti", "september", "oktober", "november", "december"];
-const WEEKDAYS = ["söndag", "måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag"];
-const YEAR_COLORS = ["#CE711A", "#2E7CC4", "#0F9182", "#9A6BD0", "#C2517A",
-  "#7A8C3F", "#C4A030", "#5B7A99", "#B0653A"];
-
-function seaLevel(p, tC) {
-  if (p == null) return null;
-  const t = tC ?? 10;
-  return p * Math.pow(1 - (0.0065 * ELEV) / (t + 0.0065 * ELEV + 273.15), -5.257);
-}
-
-/* ===== Arkivåtkomst med cache ============================================= */
-const cache = new Map();
-function getJSON(url) {
-  if (!cache.has(url)) {
-    cache.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null));
-  }
-  return cache.get(url);
-}
-const dailyYear = async y => await getJSON(`/data/daily/${y}.json`) ?? {};
-const hourlyMonth = async ym => await getJSON(`/data/hourly/${ym.slice(0, 4)}/${ym}.json`) ?? {};
-
-/* Timserie för en dag ur arkivets timvärden (samma bucketformat som live-vyn) */
-function daySeries(buckets) {
-  if (!buckets?.length) return [];
-  let prevCum = 0;
-  return buckets.map(o => {
-    const h = parseInt(o.obsTimeLocal.slice(11, 13), 10);
-    const cum = Math.max(prevCum, o.metric.precipTotal ?? 0);
-    const p = {
-      h,
-      temp: o.metric.tempAvg ?? o.metric.temp,
-      rain: Math.max(0, cum - prevCum),
-      wind: o.metric.windspeedAvg,
-      gust: o.metric.windgustHigh,
-      hum: o.humidityAvg,
-      dewpt: o.metric.dewptAvg,
-      pressure: o.metric.pressureMax != null && o.metric.pressureMin != null
-        ? seaLevel((o.metric.pressureMax + o.metric.pressureMin) / 2, o.metric.tempAvg)
-        : null,
-    };
-    prevCum = cum;
-    return p;
-  }).filter(p => p.temp != null);
-}
-
-const addDaysIso = (iso, n) => {
-  const d = new Date(iso + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-function listDates(from, to) {
-  const out = [];
-  for (let d = from; d <= to; d = addDaysIso(d, 1)) out.push(d);
-  return out;
-}
-const dateLabel = iso => `${parseInt(iso.slice(8, 10), 10)} ${MONTHS[parseInt(iso.slice(5, 7), 10) - 1].slice(0, 3)}`;
-
-/* ===== Diagramhjälpare ===================================================== */
-const NS = "http://www.w3.org/2000/svg";
-const el = (tag, attrs) => {
-  const e = document.createElementNS(NS, tag);
-  for (const k in attrs) e.setAttribute(k, attrs[k]);
-  return e;
-};
-const H = 230, PAD = { t: 14, r: 12, b: 26, l: 40 };
-const yScale = (lo, hi) => v => PAD.t + (hi - v) / (hi - lo) * (H - PAD.t - PAD.b);
-
-function axes(svg, W, yTicks, yFmt, xLabels) {
-  for (const { v, y } of yTicks) {
-    svg.append(el("line", { x1: PAD.l, x2: W - PAD.r, y1: y, y2: y, stroke: css("--grid"), "stroke-width": 1 }));
-    const t = el("text", { x: PAD.l - 8, y: y + 4, "text-anchor": "end", "font-size": 11, fill: css("--ink-3") });
-    t.textContent = yFmt(v);
-    svg.append(t);
-  }
-  for (const { label, x } of xLabels) {
-    const t = el("text", { x, y: H - 8, "text-anchor": "middle", "font-size": 11, fill: css("--ink-3") });
-    t.textContent = label;
-    svg.append(t);
-  }
-}
-
-function showTip(tip, wrap, x, y, html) {
-  tip.innerHTML = html;
-  tip.classList.add("on");
-  const w = tip.offsetWidth;
-  tip.style.left = Math.min(Math.max(x - w / 2, 4), wrap.clientWidth - w - 4) + "px";
-  tip.style.top = (y - tip.offsetHeight - 12) + "px";
-}
-
-function mountChart(wrapId, draw) {
-  const wrap = document.getElementById(wrapId);
-  wrap.innerHTML = "";
-  // Dold flik → bredd 0; hoppa över och låt flikbytet rendera i rätt bredd
-  if (!wrap.clientWidth) return;
-  const W = wrap.clientWidth;
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
-  const tip = document.createElement("div");
-  tip.className = "tooltip";
-  wrap.append(svg, tip);
-  if (draw(svg, tip, W) === false) {
-    wrap.innerHTML = '<div class="chart-empty">Ingen data för det här valet ännu</div>';
-  }
-}
-
-/* Generiskt flerseriediagram med krysshårstooltip.
-   series: [{ label, color, pts: [{x, v}] }], x i [0, xMax] */
-function multiLine(wrapId, series, opts) {
-  mountChart(wrapId, (svg, tip, W) => {
-    const all = series.flatMap(s => s.pts.map(p => p.v));
-    if (!all.length) return false;
-    const lo = opts.yLo ?? Math.floor(Math.min(...all)) - 1;
-    const hi = opts.yHi ?? Math.ceil(Math.max(...all)) + 1;
-    const sy = yScale(lo, hi);
-    const sx = x => PAD.l + x / opts.xMax * (W - PAD.l - PAD.r);
-    const ticks = [];
-    const step = hi - lo > 24 ? 8 : hi - lo > 12 ? 4 : 2;
-    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
-    axes(svg, W, ticks, opts.yFmt ?? (v => v), opts.xLabels.map(l => ({ label: l.label, x: sx(l.x) })));
-
-    for (const s of series) {
-      if (!s.pts.length) continue;
-      const d = s.pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.v)).join(" ");
-      svg.append(el("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", opacity: 0.9 }));
-    }
-
-    const cross = el("line", { y1: PAD.t, y2: H - PAD.b, stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
-    svg.append(cross);
-    svg.addEventListener("pointermove", e => {
-      const r = svg.getBoundingClientRect();
-      const xGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * opts.xMax;
-      const rows = [];
-      let anchorX = null, anchorY = PAD.t;
-      for (const s of series) {
-        if (!s.pts.length) continue;
-        const p = s.pts.reduce((b, q) => Math.abs(q.x - xGuess) < Math.abs(b.x - xGuess) ? q : b, s.pts[0]);
-        if (Math.abs(p.x - xGuess) > opts.snap) continue;
-        rows.push(`<span style="color:${s.color}">●</span> ${s.label} <b>${fmt(p.v)}</b>`);
-        anchorX = sx(p.x);
-      }
-      if (!rows.length || anchorX == null) { cross.setAttribute("visibility", "hidden"); tip.classList.remove("on"); return; }
-      cross.setAttribute("x1", anchorX); cross.setAttribute("x2", anchorX); cross.setAttribute("visibility", "visible");
-      showTip(tip, svg.parentElement, anchorX, anchorY + 40,
-        `<span class="t-time">${opts.tipTitle(xGuess)}</span><br>${rows.join("<br>")}`);
-    });
-    svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tip.classList.remove("on"); });
-  });
-}
-
 /* ===== Gemensamt tillstånd ================================================= */
 let manifest = null;
 let years = [];
@@ -549,73 +395,6 @@ async function collectDaily(dates) {
   return dates.map((date, di) => ({ x: di, date, obs: data[date.slice(0, 4)][date] ?? null }));
 }
 
-function utfXLabels(dates, hourly) {
-  const step = Math.max(1, Math.round(dates.length / 6));
-  const out = [];
-  for (let di = 0; di < dates.length; di += step) {
-    out.push({ label: dateLabel(dates[di]), x: hourly ? di * 24 + 12 : di });
-  }
-  return out;
-}
-
-function utfBars(wrapId, bars, slots, opts) {
-  mountChart(wrapId, (svg, tip, W) => {
-    if (!bars.length) return false;
-    const hi = Math.max(opts.minY ?? 2, Math.ceil(Math.max(...bars.map(b => b.v)) * 1.15));
-    const sy = yScale(0, hi);
-    const slot = (W - PAD.l - PAD.r) / slots;
-    const bw = Math.max(slot - 2, 1.2);
-    const ticks = [];
-    const step = hi > 40 ? 20 : hi > 16 ? 8 : hi > 8 ? 4 : hi > 4 ? 2 : 1;
-    for (let v = 0; v <= hi; v += step) ticks.push({ v, y: sy(v) });
-    axes(svg, W, ticks, v => v, opts.xLabels.map(l => ({ label: l.label, x: PAD.l + (l.x + 0.5) * slot })));
-    for (const b of bars) {
-      const x = PAD.l + b.x * slot + (slot - bw) / 2;
-      const y = sy(b.v), base = sy(0);
-      const zero = b.v < 0.05;
-      const bar = el("rect", { x, y: zero ? base - 1.5 : y, width: bw, height: zero ? 1.5 : base - y,
-        rx: Math.min(2, bw / 2), fill: zero ? css("--grid") : css("--rain") });
-      bar.addEventListener("pointerenter", () => showTip(tip, svg.parentElement, x + bw / 2, zero ? base - 1.5 : y,
-        `<span class="t-time">${b.t}</span><br><b>${fmt(b.v)} mm</b>`));
-      bar.addEventListener("pointerleave", () => tip.classList.remove("on"));
-      svg.append(bar);
-    }
-  });
-}
-
-function utfBand(wrapId, pts, color, opts) {
-  mountChart(wrapId, (svg, tip, W) => {
-    if (pts.length < 2) return false;
-    const lo = Math.floor(Math.min(...pts.map(p => p.lo))) - 1;
-    const hi = Math.ceil(Math.max(...pts.map(p => p.hi))) + 1;
-    const sy = yScale(lo, hi);
-    const sx = x => PAD.l + x / opts.xMax * (W - PAD.l - PAD.r);
-    const ticks = [];
-    const step = hi - lo > 24 ? 8 : hi - lo > 12 ? 4 : 2;
-    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
-    axes(svg, W, ticks, v => v + "°", opts.xLabels.map(l => ({ label: l.label, x: sx(l.x) })));
-
-    const top = pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.hi)).join(" ");
-    const bottom = [...pts].reverse().map(p => "L" + sx(p.x) + " " + sy(p.lo)).join(" ");
-    svg.append(el("path", { d: top + " " + bottom + " Z", fill: color, "fill-opacity": 0.16 }));
-    const avgLine = pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.avg)).join(" ");
-    svg.append(el("path", { d: avgLine, fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round" }));
-
-    const cross = el("line", { y1: PAD.t, y2: H - PAD.b, stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
-    svg.append(cross);
-    svg.addEventListener("pointermove", e => {
-      const r = svg.getBoundingClientRect();
-      const xGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * opts.xMax;
-      const p = pts.reduce((b, q) => Math.abs(q.x - xGuess) < Math.abs(b.x - xGuess) ? q : b, pts[0]);
-      const x = sx(p.x);
-      cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
-      showTip(tip, svg.parentElement, x, sy(p.hi),
-        `<span class="t-time">${p.t}</span><br>Max <b>${fmt(p.hi)}°</b> · medel <b>${fmt(p.avg)}°</b> · min <b>${fmt(p.lo)}°</b>`);
-    });
-    svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tip.classList.remove("on"); });
-  });
-}
-
 async function renderUtforska() {
   const metric = document.getElementById("utf-metric").value;
   const M = METRICS[metric];
@@ -636,7 +415,7 @@ async function renderUtforska() {
       (avg != null ? ` · medel <b>${fmt(avg)} ${M.unit}</b>` : "");
   };
   const avgOf = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
-  const xLabels = utfXLabels(dates, hourly);
+  const xLabels = rangeXLabels(dates, hourly);
 
   if (hourly) {
     const pts = await collectHourly(dates);
@@ -644,7 +423,7 @@ async function renderUtforska() {
     const tipT = p => `${dateLabel(p.date)} kl ${hh(p.h)}`;
     if (metric === "rain") {
       const bars = pts.map(p => ({ x: p.x, v: p.rain, t: `${dateLabel(p.date)} kl ${hh(p.h)}–${hh(p.h + 1)}` }));
-      utfBars("utf-chart", bars, dates.length * 24, { xLabels });
+      barsChart("utf-chart", bars, dates.length * 24, { xLabels });
       summarize(null, null, null, bars.reduce((a, b) => a + b.v, 0));
     } else if (metric === "wind") {
       const mk = (get, label) => ({ label, color: M.color(), pts: pts.filter(p => get(p) != null).map(p => ({ x: p.x, v: ms(get(p)), t: tipT(p) })) });
@@ -679,13 +458,13 @@ async function renderUtforska() {
     if (metric === "temp") {
       const pts = days.map(d => ({ x: d.x, lo: d.obs.metric.tempLow, hi: d.obs.metric.tempHigh,
         avg: d.obs.metric.tempAvg, t: dateLabel(d.date) + " " + d.date.slice(0, 4) }));
-      utfBand("utf-chart", pts, M.color(), { xMax, xLabels });
+      bandChart("utf-chart", pts, M.color(), { xMax, xLabels });
       legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>Dygnsmedel</span>
         <span><span class="key" style="border-color:${M.color()}; opacity:.35; border-top-width:8px"></span>Max–min</span>`;
       summarize(Math.min(...pts.map(p => p.lo)), Math.max(...pts.map(p => p.hi)), avgOf(pts.map(p => p.avg)));
     } else if (metric === "rain") {
       const bars = days.map(d => ({ x: d.x, v: d.obs.metric.precipTotal ?? 0, t: dateLabel(d.date) + " " + d.date.slice(0, 4) }));
-      utfBars("utf-chart", bars, dates.length, { xLabels });
+      barsChart("utf-chart", bars, dates.length, { xLabels });
       summarize(null, null, null, bars.reduce((a, b) => a + b.v, 0));
     } else {
       const getters = {
@@ -1014,7 +793,7 @@ for (const btn of document.querySelectorAll(".tabs button")) {
 }
 
 async function boot() {
-  manifest = await getJSON("/data/manifest.json");
+  manifest = await getArchive("/data/manifest.json");
   if (!manifest) {
     document.querySelector(".page").insertAdjacentHTML("beforeend",
       '<div class="chart-empty">Arkivet är inte tillgängligt ännu.</div>');

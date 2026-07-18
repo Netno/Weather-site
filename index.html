@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brämhult väderstation · IBRMHULT2</title>
 <style>
-  /* ===== Design tokens (samma som mock/index.html) ========================= */
+  /* ===== Design tokens ===================================================== */
   :root {
     --bg: #F5F7F9;
     --card: #FFFFFF;
@@ -124,8 +124,18 @@
     border-radius: 10px; box-shadow: var(--shadow); padding: 20px;
   }
   .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .grid > * { min-width: 0; }
   .grid .span2 { grid-column: 1 / -1; }
   @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .chips .chips-label { font-size: 12px; color: var(--ink-3); margin-right: 4px; }
+  .chips button {
+    font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
+    background: var(--card); color: var(--ink-2);
+    border: 1px solid var(--card-border); border-radius: 100px; padding: 4px 12px;
+  }
+  .chips button.on { border-color: transparent; color: #fff; background: var(--ink-2); }
 
   .hero { display: flex; flex-wrap: wrap; gap: 24px 48px; align-items: center; }
   .hero-temp { display: flex; align-items: flex-start; gap: 4px; }
@@ -216,6 +226,14 @@
   <div class="grid">
     <div class="card span2 hero" id="hero"><div class="chart-empty">Hämtar senaste observationen …</div></div>
 
+    <div class="span2 chips" id="live-range">
+      <span class="chips-label">Grafer:</span>
+      <button data-range="idag" class="on">Idag</button>
+      <button data-range="48h">48 tim</button>
+      <button data-range="vecka">Vecka</button>
+      <button data-range="manad">Månad</button>
+    </div>
+
     <div class="card chart-card">
       <h2>Temperatur</h2>
       <p class="subtitle" id="t-sub">Idag sedan midnatt</p>
@@ -230,7 +248,7 @@
 
     <div class="card chart-card">
       <h2>Vind</h2>
-      <p class="subtitle">Medelvind och byar sedan midnatt</p>
+      <p class="subtitle" id="w-sub">Medelvind och byar sedan midnatt</p>
       <div class="chart-wrap" id="chart-wind"></div>
       <div class="legend">
         <span><span class="key" style="border-color: var(--wind)"></span>Medelvind</span>
@@ -253,44 +271,24 @@
 
   <footer>
     Data från personlig väderstation IBRMHULT2 i Brämhult via Weather Underground · uppdateras varje minut.<br>
-    Lufttryck omräknat till havsnivå · historik ur eget arkiv · <a href="/mock/">designutkast</a>
+    Lufttryck omräknat till havsnivå · historik ur eget arkiv · <a href="/historik/">utforska historiken</a>
   </footer>
 </div>
 
+<script src="/assets/charts.js"></script>
 <script>
 "use strict";
 /* =============================================================================
-   Live-vy: läser /api/wu (proxyn) för dagens data och data/-arkivet för
-   tryckhistoriken. Samma diagramkod och layout som mocken.
+   Live-vy: /api/wu (proxyn) för dagens data, data/-arkivet för längre perioder.
+   Diagramkoden delas med historiksidan via assets/charts.js.
    ========================================================================== */
-const ELEV = 209.1; // stationens höjd enligt API:et — för havsnivåomräkning
-
-/* ===== Adapter & format ==================================================== */
-const ms = kmh => kmh / 3.6;
-const fmt = (n, d = 1) => n.toLocaleString("sv-SE", { minimumFractionDigits: d, maximumFractionDigits: d });
 const DIRS = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"];
 const dirText = deg => DIRS[Math.round(deg / 22.5) % 16];
-const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-// Stationen rapporterar absolut tryck; räkna om till havsnivå (barometrisk formel)
-function seaLevel(p, tC) {
-  if (p == null) return null;
-  const t = tC ?? 10;
-  return p * Math.pow(1 - (0.0065 * ELEV) / (t + 0.0065 * ELEV + 273.15), -5.257);
-}
-
 const uvLabel = uv => uv < 3 ? "låg" : uv < 6 ? "måttlig" : uv < 8 ? "hög" : uv < 11 ? "mycket hög" : "extrem";
 const dewptLabel = d => d < 10 ? "torr luft" : d < 13 ? "behagligt" : d < 16 ? "lite fuktigt" : d < 18 ? "fuktigt" : "tryckande";
 
-async function getJSON(url) {
-  const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
-  return r.json();
-}
-
-/* Aggregera dagens 5-minutersvärden (observations/all/1day, High/Low/Avg-fält)
-   till timserier för diagrammen. precipTotal är kumulativ sedan midnatt →
-   regn per timme = differensen mellan timmarnas maxvärden. */
+/* Aggregera dagens 5-minutersvärden (observations/all/1day) till timserie.
+   Samma bucketformat som arkivet men vi behåller rått stationstryck här. */
 function hourlySeries(buckets) {
   const byHour = new Map();
   for (const o of buckets) {
@@ -299,12 +297,12 @@ function hourlySeries(buckets) {
     if (!byHour.has(h)) byHour.set(h, []);
     byHour.get(h).push(o);
   }
-  const avg = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  const avg = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
   const out = [];
   let prevCum = 0;
   for (const h of [...byHour.keys()].sort((a, b) => a - b)) {
     const os = byHour.get(h);
-    const nums = (get) => os.map(get).filter(v => typeof v === "number");
+    const nums = get => os.map(get).filter(v => typeof v === "number");
     const cum = Math.max(prevCum, ...nums(o => o.metric.precipTotal));
     out.push({
       h,
@@ -323,27 +321,29 @@ function hourlySeries(buckets) {
 
 /* ===== Tillstånd =========================================================== */
 const state = {
-  current: null,   // senaste observationen (observations/current-format)
+  current: null,   // senaste observationen
   today: [],       // timserie ur hourlySeries()
-  week: [],        // dygnssummeringar (dailysummary/7day-format)
-  pressurePts: [], // [{x: timmar sedan seriestart, v: hPa havsnivå}]
+  week: [],        // dygnssummeringar (dailysummary/7day)
+  pressurePts: [], // idag-vyns tryckkurva (upp till 3 dygn)
   pressureLabels: [],
   pressureDays: 1,
+  range: "idag",   // idag | 48h | vecka | manad
 };
+const RANGES = { "48h": { days: 2, label: "48 tim" }, vecka: { days: 7, label: "veckan" }, manad: { days: 30, label: "månaden" } };
 
-/* ===== Header/status ======================================================= */
+/* ===== Status & banner ===================================================== */
 function renderStatus() {
-  const el = document.getElementById("obs-status");
+  const elS = document.getElementById("obs-status");
   const dot = document.getElementById("dot");
   const obs = state.current;
-  if (!obs) { el.textContent = "Ingen kontakt med stationen"; dot.classList.add("stale"); return; }
+  if (!obs) { elS.textContent = "Ingen kontakt med stationen"; dot.classList.add("stale"); return; }
   const ageMin = Math.round((Date.now() / 1000 - obs.epoch) / 60);
   const time = obs.obsTimeLocal.slice(11, 16);
   if (ageMin <= 20) {
-    el.innerHTML = `Senaste observation <b>${time}</b>`;
+    elS.innerHTML = `Senaste observation <b>${time}</b>`;
     dot.classList.remove("stale");
   } else {
-    el.innerHTML = `Senast <b>${time}</b> (${ageMin} min sedan)`;
+    elS.innerHTML = `Senast <b>${time}</b> (${ageMin} min sedan)`;
     dot.classList.add("stale");
   }
 }
@@ -357,7 +357,6 @@ function showBanner(msg) {
 
 /* ===== Hero ================================================================ */
 function pressureTrend() {
-  // Jämför senaste timmen med tre timmar tidigare i dagens serie
   const pts = state.today.filter(p => p.pressure != null);
   if (pts.length < 4) return null;
   const last = pts[pts.length - 1], ref = pts[Math.max(0, pts.length - 4)];
@@ -414,23 +413,17 @@ function renderHero() {
     </div>`;
 }
 
-/* ===== Diagramhjälpare (samma som mocken, med central registry) ============ */
-const NS = "http://www.w3.org/2000/svg";
-const el = (tag, attrs) => {
-  const e = document.createElementNS(NS, tag);
-  for (const k in attrs) e.setAttribute(k, attrs[k]);
-  return e;
-};
-const H = 210, PAD = { t: 14, r: 12, b: 26, l: 40 };
-
+/* ===== Idag-vyns diagram (samma utseende som tidigare) ===================== */
 const charts = [];
 function chart(wrapId, draw) { charts.push({ wrapId, draw }); }
 
 function renderCharts() {
+  if (state.range !== "idag") { renderRangeCharts(); return; }
   for (const c of charts) {
     const wrap = document.getElementById(c.wrapId);
     wrap.innerHTML = "";
-    const W = Math.max(wrap.clientWidth, 260);
+    if (!wrap.clientWidth) continue;
+    const W = wrap.clientWidth;
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
     const tip = document.createElement("div");
     tip.className = "tooltip";
@@ -443,33 +436,7 @@ function renderCharts() {
 let resizeRaf;
 addEventListener("resize", () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(renderCharts); });
 
-function axes(svg, W, yTicks, yFmt, xLabels) {
-  for (const { v, y } of yTicks) {
-    svg.append(el("line", { x1: PAD.l, x2: W - PAD.r, y1: y, y2: y, stroke: css("--grid"), "stroke-width": 1 }));
-    const t = el("text", { x: PAD.l - 8, y: y + 4, "text-anchor": "end", "font-size": 11, fill: css("--ink-3") });
-    t.textContent = yFmt(v);
-    svg.append(t);
-  }
-  for (const { label, x } of xLabels) {
-    const t = el("text", { x, y: H - 8, "text-anchor": "middle", "font-size": 11, fill: css("--ink-3") });
-    t.textContent = label;
-    svg.append(t);
-  }
-}
-
-const yScale = (lo, hi) => v => PAD.t + (hi - v) / (hi - lo) * (H - PAD.t - PAD.b);
-
-function showTip(tip, wrap, x, y, html) {
-  tip.innerHTML = html;
-  tip.classList.add("on");
-  const w = tip.offsetWidth;
-  tip.style.left = Math.min(Math.max(x - w / 2, 4), wrap.clientWidth - w - 4) + "px";
-  tip.style.top = (y - tip.offsetHeight - 12) + "px";
-}
-
-const hh = h => ("0" + h).slice(-2);
-
-/* ===== Temperatur ========================================================== */
+/* Temperatur idag */
 chart("chart-temp", (svg, tip, W) => {
   const data = state.today;
   if (!data.length) return false;
@@ -495,8 +462,8 @@ chart("chart-temp", (svg, tip, W) => {
   svg.append(cross, dot);
   svg.addEventListener("pointermove", e => {
     const r = svg.getBoundingClientRect();
-    const h = Math.round((e.clientX - r.left) / r.width * W / (W - PAD.l - PAD.r) * 23 - PAD.l / (W - PAD.l - PAD.r) * 23);
-    const p = data.reduce((best, d) => Math.abs(d.h - h) < Math.abs(best.h - h) ? d : best, data[0]);
+    const hGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * 23;
+    const p = data.reduce((best, d) => Math.abs(d.h - hGuess) < Math.abs(best.h - hGuess) ? d : best, data[0]);
     const x = sx(p.h), y = sy(p.temp);
     cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
     dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("visibility", "visible");
@@ -507,7 +474,7 @@ chart("chart-temp", (svg, tip, W) => {
   });
 });
 
-/* ===== Nederbörd =========================================================== */
+/* Nederbörd idag */
 chart("chart-rain", (svg, tip, W) => {
   const data = state.today;
   if (!data.length) return false;
@@ -536,7 +503,7 @@ chart("chart-rain", (svg, tip, W) => {
   }
 });
 
-/* ===== Vind ================================================================ */
+/* Vind idag */
 chart("chart-wind", (svg, tip, W) => {
   const data = state.today.filter(p => p.wind != null);
   if (!data.length) return false;
@@ -563,7 +530,7 @@ chart("chart-wind", (svg, tip, W) => {
   svg.append(cross);
   svg.addEventListener("pointermove", e => {
     const r = svg.getBoundingClientRect();
-    const hGuess = (e.clientX - r.left) / r.width * 23;
+    const hGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * 23;
     const p = data.reduce((best, d) => Math.abs(d.h - hGuess) < Math.abs(best.h - hGuess) ? d : best, data[0]);
     const x = sx(p.h);
     cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
@@ -573,7 +540,7 @@ chart("chart-wind", (svg, tip, W) => {
   svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tip.classList.remove("on"); });
 });
 
-/* ===== Lufttryck =========================================================== */
+/* Lufttryck idag (upp till 3 dygn ur arkivet) */
 chart("chart-pressure", (svg, tip, W) => {
   const pts = state.pressurePts;
   if (pts.length < 2) return false;
@@ -594,22 +561,149 @@ chart("chart-pressure", (svg, tip, W) => {
 
   svg.addEventListener("pointermove", e => {
     const r = svg.getBoundingClientRect();
-    const xGuess = (e.clientX - r.left) / r.width * xMax;
+    const xGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * xMax;
     const p = pts.reduce((best, q) => Math.abs(q.x - xGuess) < Math.abs(best.x - xGuess) ? q : best, pts[0]);
     showTip(tip, svg.parentElement, sx(p.x), sy(p.v), `<span class="t-time">${p.t}</span><br><b>${fmt(p.v)} hPa</b>`);
   });
   svg.addEventListener("pointerleave", () => tip.classList.remove("on"));
 });
 
+/* ===== Periodvyer (48 tim / vecka / månad) ================================
+   Historik ur arkivet + dagens data från API:et. Saknade dygn (arkivet ej
+   ikapp, station offline) lämnas som hål och fylls i av nattens hämtningar. */
+function todayPtsHourly(dayIndex, dateIso) {
+  return state.today.map(p => ({
+    x: dayIndex * 24 + p.h, date: dateIso, h: p.h,
+    temp: p.temp, rain: p.rain, wind: p.wind, gust: p.gust,
+    pressure: p.pressure != null ? seaLevel(p.pressure, p.temp) : null,
+  }));
+}
+
+function todaySyntheticDaily() {
+  if (!state.today.length && !state.current) return null;
+  const temps = state.today.map(p => p.temp);
+  if (state.current) temps.push(state.current.metric.temp);
+  if (!temps.length) return null;
+  const winds = state.today.map(p => p.wind).filter(v => v != null);
+  const gusts = state.today.map(p => p.gust).filter(v => v != null);
+  const press = state.today.filter(p => p.pressure != null);
+  return {
+    humidityAvg: state.current?.humidity,
+    metric: {
+      tempHigh: Math.max(...temps), tempLow: Math.min(...temps),
+      tempAvg: temps.reduce((a, b) => a + b, 0) / temps.length,
+      precipTotal: state.current?.metric.precipTotal ?? state.today.reduce((a, p) => a + p.rain, 0),
+      windspeedAvg: winds.length ? winds.reduce((a, b) => a + b, 0) / winds.length : null,
+      windgustHigh: gusts.length ? Math.max(...gusts) : null,
+      pressureMax: press.length ? Math.max(...press.map(p => p.pressure)) : null,
+      pressureMin: press.length ? Math.min(...press.map(p => p.pressure)) : null,
+    },
+  };
+}
+
+async function buildRangeData() {
+  const n = RANGES[state.range].days;
+  const today = todayIso();
+  const dates = [];
+  for (let i = n - 1; i >= 0; i--) dates.push(addDaysIso(today, -i));
+  const past = dates.slice(0, -1);
+  const hourly = n <= 7;
+  if (hourly) {
+    const archivePts = await collectHourly(past);
+    const pts = [...archivePts, ...todayPtsHourly(past.length, today)];
+    const covered = new Set(pts.map(p => p.date)).size;
+    return { dates, hourly, pts, covered };
+  }
+  const days = await collectDaily(past);
+  const synth = todaySyntheticDaily();
+  days.push({ x: past.length, date: today, obs: synth });
+  const covered = days.filter(d => d.obs).length;
+  return { dates, hourly, days, covered };
+}
+
+async function renderRangeCharts() {
+  const { label } = RANGES[state.range];
+  const data = await buildRangeData();
+  const { dates, hourly } = data;
+  const xLabels = rangeXLabels(dates, hourly);
+  const gapNote = data.covered < dates.length ? " · äldre dygn fylls på när arkivet är ikapp" : "";
+  const tempColor = css("--temp"), windColor = css("--wind");
+
+  if (hourly) {
+    const pts = data.pts;
+    const xMax = dates.length * 24 - 1;
+    const nearest = x => pts.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, pts[0]);
+    const tipT = p => `${dateLabel(p.date)} kl ${hh(p.h)}`;
+
+    const temps = pts.filter(p => p.temp != null);
+    multiLine("chart-temp", [{ label: "Temperatur", color: tempColor, pts: temps.map(p => ({ x: p.x, v: p.temp })) }],
+      { xMax, snap: 2, area: true, endDot: true, xLabels, yFmt: v => v + "°",
+        tipTitle: x => pts.length ? tipT(nearest(x)) : "" });
+    if (temps.length) {
+      const vs = temps.map(p => p.temp);
+      document.getElementById("t-sub").innerHTML =
+        `Senaste ${label} · min <b>${fmt(Math.min(...vs))}°</b> · max <b>${fmt(Math.max(...vs))}°</b>${gapNote}`;
+    }
+
+    const bars = pts.map(p => ({ x: p.x, v: p.rain, t: `${dateLabel(p.date)} kl ${hh(p.h)}–${hh(p.h + 1)}` }));
+    barsChart("chart-rain", bars, dates.length * 24, { xLabels });
+    document.getElementById("r-sub").innerHTML =
+      `Senaste ${label} · totalt <b>${fmt(bars.reduce((a, b) => a + b.v, 0))} mm</b>${gapNote}`;
+
+    const winds = pts.filter(p => p.wind != null);
+    multiLine("chart-wind", [
+      { label: "Medelvind", color: windColor, pts: winds.map(p => ({ x: p.x, v: ms(p.wind) })) },
+      { label: "Byar", color: windColor, dash: true, pts: winds.map(p => ({ x: p.x, v: ms(p.gust) })) },
+    ], { xMax, snap: 2, yLo: 0, xLabels, tipTitle: x => winds.length ? tipT(nearest(x)) : "" });
+    document.getElementById("w-sub").textContent = `Medelvind och byar senaste ${label} (m/s)`;
+
+    const press = pts.filter(p => p.pressure != null);
+    multiLine("chart-pressure", [{ label: "Lufttryck", color: css("--ink-2"), pts: press.map(p => ({ x: p.x, v: p.pressure })) }],
+      { xMax, snap: 2, endDot: true, xLabels, tipTitle: x => press.length ? tipT(nearest(x)) : "" });
+    document.getElementById("p-sub").innerHTML = `Havsnivåtryck senaste ${label}${gapNote}`;
+  } else {
+    const days = data.days.filter(d => d.obs);
+    const xMax = dates.length - 1;
+    const dayT = d => `${dateLabel(d.date)} ${d.date.slice(0, 4)}`;
+
+    bandChart("chart-temp", days.map(d => ({ x: d.x, lo: d.obs.metric.tempLow, hi: d.obs.metric.tempHigh,
+      avg: d.obs.metric.tempAvg, t: dayT(d) })), tempColor, { xMax, xLabels });
+    if (days.length) {
+      document.getElementById("t-sub").innerHTML =
+        `Senaste ${label} · min <b>${fmt(Math.min(...days.map(d => d.obs.metric.tempLow)))}°</b>` +
+        ` · max <b>${fmt(Math.max(...days.map(d => d.obs.metric.tempHigh)))}°</b>${gapNote}`;
+    }
+
+    const bars = days.map(d => ({ x: d.x, v: d.obs.metric.precipTotal ?? 0, t: dayT(d) }));
+    barsChart("chart-rain", bars, dates.length, { xLabels });
+    document.getElementById("r-sub").innerHTML =
+      `Per dygn senaste ${label} · totalt <b>${fmt(bars.reduce((a, b) => a + b.v, 0))} mm</b>${gapNote}`;
+
+    const winds = days.filter(d => d.obs.metric.windspeedAvg != null);
+    const nearestW = x => winds.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, winds[0]);
+    multiLine("chart-wind", [
+      { label: "Dygnsmedel", color: windColor, pts: winds.map(d => ({ x: d.x, v: ms(d.obs.metric.windspeedAvg) })) },
+      { label: "Kraftigaste by", color: windColor, dash: true, pts: winds.filter(d => d.obs.metric.windgustHigh != null).map(d => ({ x: d.x, v: ms(d.obs.metric.windgustHigh) })) },
+    ], { xMax, snap: 1.2, yLo: 0, xLabels, tipTitle: x => winds.length ? dayT(nearestW(x)) : "" });
+    document.getElementById("w-sub").textContent = `Dygnsmedel och kraftigaste by senaste ${label} (m/s)`;
+
+    const press = days.filter(d => d.obs.metric.pressureMax != null)
+      .map(d => ({ x: d.x, v: seaLevel((d.obs.metric.pressureMax + d.obs.metric.pressureMin) / 2, d.obs.metric.tempAvg), t: dayT(d) }));
+    const nearestP = x => press.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, press[0]);
+    multiLine("chart-pressure", [{ label: "Lufttryck", color: css("--ink-2"), pts: press }],
+      { xMax, snap: 1.2, endDot: true, xLabels, tipTitle: x => press.length ? nearestP(x).t : "" });
+    document.getElementById("p-sub").innerHTML = `Havsnivåtryck (dygnsmitt) senaste ${label}${gapNote}`;
+  }
+}
+
 /* ===== 7-dygnsremsa ======================================================== */
-const DAY_NAMES = ["Sön", "Mån", "Tis", "Ons", "Tor", "Fre", "Lör"];
 function renderDays() {
   const box = document.getElementById("days");
   const days = state.week
     .filter(s => s?.metric && s.metric.tempHigh != null)
     .map(s => {
       const date = new Date(s.obsTimeLocal.slice(0, 10) + "T12:00:00");
-      const isToday = s.obsTimeLocal.slice(0, 10) === new Date().toLocaleDateString("sv-SE");
+      const isToday = s.obsTimeLocal.slice(0, 10) === todayIso();
       return {
         d: isToday ? "Idag" : `${DAY_NAMES[date.getDay()]} ${date.getDate()}`,
         lo: s.metric.tempLow, hi: s.metric.tempHigh,
@@ -630,23 +724,16 @@ function renderDays() {
     </div>`).join("");
 }
 
-/* ===== Tryckhistorik ur arkivet ============================================
-   Försöker hämta två föregående dygn ur data/hourly/. Saknas de (arkivet är
-   inte ikapp än) visas bara dagens kurva — sidan läker sig själv i takt med
-   att arkivet fylls på. */
+/* ===== Idag-vyns tryckserie (upp till 3 dygn ur arkivet) =================== */
 async function buildPressureSeries() {
   const days = [];
   for (const back of [2, 1]) {
     const d = new Date(Date.now() - back * 86400e3);
     const iso = d.toLocaleDateString("sv-SE");
-    days.push({ iso, month: iso.slice(0, 7), back, name: DAY_NAMES[d.getDay()] });
+    days.push({ iso, month: iso.slice(0, 7), name: DAY_NAMES[d.getDay()] });
   }
   const monthData = {};
-  for (const m of new Set(days.map(d => d.month))) {
-    try {
-      monthData[m] = await getJSON(`/data/hourly/${m.slice(0, 4)}/${m}.json`);
-    } catch { monthData[m] = null; }
-  }
+  for (const m of new Set(days.map(d => d.month))) monthData[m] = await hourlyMonth(m);
   const pts = [];
   const labels = [];
   let dayOffset = 0;
@@ -670,13 +757,16 @@ async function buildPressureSeries() {
   state.pressurePts = pts;
   state.pressureLabels = labels;
   state.pressureDays = dayOffset + 1;
-  document.getElementById("p-sub").innerHTML = archived.length
-    ? `Havsnivåtryck senaste ${dayOffset + 1} dygnen · nu <b id="p-now">–</b>`
-    : `Havsnivåtryck idag · nu <b id="p-now">–</b> <span title="Fler dygn visas när arkivet är ikapp">(arkivet fylls på)</span>`;
+  if (state.range === "idag") {
+    document.getElementById("p-sub").innerHTML = archived.length
+      ? `Havsnivåtryck senaste ${dayOffset + 1} dygnen · nu <b id="p-now">–</b>`
+      : `Havsnivåtryck idag · nu <b id="p-now">–</b> <span title="Fler dygn visas när arkivet är ikapp">(arkivet fylls på)</span>`;
+  }
 }
 
-/* ===== Undertexter ========================================================= */
+/* ===== Undertexter (idag-läget) ============================================ */
 function renderSubtitles() {
+  if (state.range !== "idag") return;
   const temps = state.today.map(p => p.temp);
   const m = state.current?.metric;
   if (temps.length && m) {
@@ -685,6 +775,7 @@ function renderSubtitles() {
   }
   if (m) {
     document.getElementById("r-sub").innerHTML = `Per timme idag · totalt <b>${fmt(m.precipTotal)} mm</b>`;
+    document.getElementById("w-sub").textContent = "Medelvind och byar sedan midnatt";
     const pNow = document.getElementById("p-now");
     if (pNow) pNow.textContent = fmt(seaLevel(m.pressure, m.temp)) + " hPa";
   }
@@ -693,7 +784,7 @@ function renderSubtitles() {
 /* ===== Laddning & uppdatering ============================================== */
 async function loadCurrent() {
   try {
-    const data = await getJSON("/api/wu?e=current");
+    const data = await fetchJSON("/api/wu?e=current");
     const obs = data.observations?.[0];
     if (!obs) throw new Error("tomt svar");
     state.current = obs;
@@ -709,11 +800,11 @@ async function loadCurrent() {
 
 async function loadDayAndWeek() {
   try {
-    const t = await getJSON("/api/wu?e=today");
+    const t = await fetchJSON("/api/wu?e=today");
     state.today = hourlySeries(t.observations ?? []);
   } catch (err) { console.warn("today:", err); }
   try {
-    const w = await getJSON("/api/wu?e=week");
+    const w = await fetchJSON("/api/wu?e=week");
     state.week = w.summaries ?? w.observations ?? [];
   } catch (err) { console.warn("week:", err); }
   await buildPressureSeries();
@@ -721,6 +812,20 @@ async function loadDayAndWeek() {
   renderSubtitles();
   renderCharts();
   renderDays();
+}
+
+async function setRange(range) {
+  state.range = range;
+  document.querySelectorAll("#live-range button").forEach(b => b.classList.toggle("on", b.dataset.range === range));
+  if (range === "idag") {
+    await buildPressureSeries();
+    renderSubtitles();
+  }
+  renderCharts();
+}
+
+for (const btn of document.querySelectorAll("#live-range button")) {
+  btn.addEventListener("click", () => setRange(btn.dataset.range));
 }
 
 async function boot() {
