@@ -330,7 +330,7 @@ const state = {
   range: "idag",   // idag | 48h | vecka | manad
 };
 const RANGES = {
-  "48h": { days: 2, label: "48 tim", hourly: true },
+  "48h": { days: 3, label: "48 tim", hourly: true }, // 2 bakdagar + idag → rullande 48 h-fönster
   vecka: { days: 7, label: "veckan" },
   manad: { days: 30, label: "månaden" },
 };
@@ -614,20 +614,35 @@ async function buildRangeData() {
 
   if (hourly) {
     let archivePts = await collectHourly(past);
-    // Gårdagen finns inte i arkivet förrän nattens hämtning (eller alls,
-    // under backfillen) — komplettera med timvärden direkt från API:et
-    const yesterday = past[past.length - 1];
-    if (!archivePts.some(p => p.date === yesterday)) {
+    // Bakdagar som saknas i arkivet (nattens hämtning har inte gått, eller
+    // backfillen är inte ikapp) kompletteras med timvärden direkt från API:et
+    for (const [di, date] of past.entries()) {
+      if (archivePts.some(p => p.date === date)) continue;
       try {
-        const y = await fetchJSON("/api/wu?e=yesterday");
-        const di = past.length - 1;
-        archivePts = archivePts.concat(daySeries(y.observations ?? [])
-          .map(p => ({ ...p, x: di * 24 + p.h, date: yesterday })));
-      } catch (err) { console.warn("yesterday:", err); }
+        const r = await fetchJSON(`/api/wu?e=hourly&d=${date}`);
+        archivePts = archivePts.concat(daySeries(r.observations ?? [])
+          .map(p => ({ ...p, x: di * 24 + p.h, date })));
+      } catch (err) { console.warn("hourly", date, err); }
     }
-    const pts = [...archivePts, ...todayPtsHourly(past.length, today)];
+    let pts = [...archivePts, ...todayPtsHourly(past.length, today)];
+
+    // Äkta rullande fönster: exakt 48 timmar bakåt från nu (svensk tid)
+    const [nowH, nowM] = new Intl.DateTimeFormat("sv-SE",
+      { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit", hour12: false })
+      .format(new Date()).split(":").map(Number);
+    const nowAbs = past.length * 24 + nowH + nowM / 60;
+    const startAbs = nowAbs - 48;
+    pts = pts.filter(p => p.x + 1 > startAbs && p.x <= nowAbs)
+      .map(p => ({ ...p, x: Math.max(0, p.x - startAbs) }));
+    const xLabels = [];
+    dates.forEach((date, di) => {
+      const midnight = di * 24;
+      if (midnight >= startAbs && midnight <= nowAbs) {
+        xLabels.push({ label: dateLabel(date), x: midnight - startAbs });
+      }
+    });
     const covered = new Set(pts.map(p => p.date)).size;
-    return { dates, hourly, pts, covered };
+    return { dates, hourly, pts, covered, xMax: 48, xLabels, windowDays: 3 };
   }
 
   const days = await collectDaily(past);
@@ -648,13 +663,13 @@ async function renderRangeCharts() {
   const { label } = RANGES[state.range];
   const data = await buildRangeData();
   const { dates, hourly } = data;
-  const xLabels = rangeXLabels(dates, hourly);
+  const xLabels = hourly ? data.xLabels : rangeXLabels(dates, false);
   const gapNote = data.covered < dates.length ? " · äldre dygn fylls på när arkivet är ikapp" : "";
   const tempColor = css("--temp"), windColor = css("--wind");
 
   if (hourly) {
     const pts = data.pts;
-    const xMax = dates.length * 24 - 1;
+    const xMax = data.xMax;
     const nearest = x => pts.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, pts[0]);
     const tipT = p => `${dateLabel(p.date)} kl ${hh(p.h)}`;
 
@@ -668,8 +683,8 @@ async function renderRangeCharts() {
         `Senaste ${label} · min <b>${fmt(Math.min(...vs))}°</b> · max <b>${fmt(Math.max(...vs))}°</b>${gapNote}`;
     }
 
-    const bars = pts.map(p => ({ x: p.x, v: p.rain, t: `${dateLabel(p.date)} kl ${hh(p.h)}–${hh(p.h + 1)}` }));
-    barsChart("chart-rain", bars, dates.length * 24, { xLabels });
+    const bars = pts.map(p => ({ x: Math.round(p.x), v: p.rain, t: `${dateLabel(p.date)} kl ${hh(p.h)}–${hh(p.h + 1)}` }));
+    barsChart("chart-rain", bars, 49, { xLabels });
     document.getElementById("r-sub").innerHTML =
       `Senaste ${label} · totalt <b>${fmt(bars.reduce((a, b) => a + b.v, 0))} mm</b>${gapNote}`;
 

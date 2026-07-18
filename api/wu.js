@@ -7,24 +7,37 @@
  *   GET /api/wu?e=current   → observations/current    (senaste observationen)
  *   GET /api/wu?e=today     → observations/all/1day   (5-minutersvärden sedan midnatt)
  *   GET /api/wu?e=week      → dailysummary/7day       (dygnssummeringar senaste 7 dygnen)
- *   GET /api/wu?e=yesterday → history/hourly för gårdagen (svensk tid) —
- *                             fyller 48-timmarsvyn tills arkivet är ikapp
+ *   GET /api/wu?e=hourly&d=YYYY-MM-DD → history/hourly för ett av de tre
+ *       senaste dygnen (svensk tid) — fyller det rullande 48-timmarsfönstret
+ *       tills arkivet är ikapp
  *
  * Kräver miljövariabeln WU_API_KEY i Vercel-projektet.
  */
 
-function yesterdayCompact() {
-  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
-  const d = new Date(today + "T12:00:00Z");
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10).replaceAll("-", "");
+function stockholmToday() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
+}
+function addDays(iso, n) {
+  const d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 const ENDPOINTS = {
   current: { path: () => "observations/current", cache: 60 },
   today: { path: () => "observations/all/1day", cache: 60 },
   week: { path: () => "dailysummary/7day", cache: 600 },
-  yesterday: { path: () => `history/hourly?date=${yesterdayCompact()}`, cache: 3600 },
+  hourly: {
+    cache: 3600,
+    path: (query) => {
+      const d = query.d;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d ?? "")) return null;
+      const today = stockholmToday();
+      // Endast avslutade dygn nära nutid — äldre historik läses ur arkivet
+      if (d < addDays(today, -3) || d >= today) return null;
+      return `history/hourly?date=${d.replaceAll("-", "")}`;
+    },
+  },
 };
 
 export default async function handler(req, res) {
@@ -35,12 +48,15 @@ export default async function handler(req, res) {
 
   const endpoint = ENDPOINTS[req.query.e];
   if (!endpoint) {
-    return res.status(400).json({ error: "Ogiltig endpoint — använd ?e=current, ?e=today, ?e=week eller ?e=yesterday" });
+    return res.status(400).json({ error: "Ogiltig endpoint — använd ?e=current, ?e=today, ?e=week eller ?e=hourly&d=YYYY-MM-DD" });
   }
 
   const base = process.env.WU_API_BASE || "https://api.weather.com/v2/pws";
   const station = process.env.STATION_ID || "IBRMHULT2";
-  const path = endpoint.path();
+  const path = endpoint.path(req.query);
+  if (!path) {
+    return res.status(400).json({ error: "Ogiltigt datum — ?e=hourly kräver d=YYYY-MM-DD inom de tre senaste dygnen" });
+  }
   const sep = path.includes("?") ? "&" : "?";
   const url =
     `${base}/${path}${sep}stationId=${station}&format=json&units=m` +
