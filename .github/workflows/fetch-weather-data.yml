@@ -36,6 +36,9 @@ jobs:
         run: node scripts/fetch-history.mjs
 
       - name: Committa och pusha arkivet
+        # Körs även om hämtsteget failade — skriptet sparar alltid sin
+        # framgång till disk, och delresultat får inte gå förlorade.
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -45,5 +48,16 @@ jobs:
           else
             CURSOR=$(node -p "require('./data/manifest.json').lastFetched")
             git commit -m "Uppdatera väderarkivet t.o.m. $CURSOR"
-            git push
+            # main kan ha fått nya commits under den långa körningen —
+            # rebasa och försök igen i stället för att tappa arkivet
+            for i in 1 2 3 4 5; do
+              if git push; then
+                exit 0
+              fi
+              echo "Push misslyckades (försök $i) — rebasar mot main …"
+              git pull --rebase origin main
+              sleep $((i * 5))
+            done
+            echo "Push misslyckades efter 5 försök."
+            exit 1
           fi
