@@ -127,6 +127,7 @@
     border-radius: 10px; box-shadow: var(--shadow); padding: 20px;
   }
   .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .grid > * { min-width: 0; } /* låt kort krympa — brett innehåll scrollar i sitt kort */
   .grid .span2 { grid-column: 1 / -1; }
   @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
 
@@ -176,7 +177,7 @@
   .day .lo { color: var(--ink-3); }
   .day .rain { font-size: 11px; color: var(--rain); margin-top: 6px; min-height: 16px; font-variant-numeric: tabular-nums; }
 
-  table.stats { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+  table.stats { width: 100%; min-width: 620px; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
   table.stats th, table.stats td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--grid); }
   table.stats th:first-child, table.stats td:first-child { text-align: left; }
   table.stats th { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
@@ -384,7 +385,9 @@ function showTip(tip, wrap, x, y, html) {
 function mountChart(wrapId, draw) {
   const wrap = document.getElementById(wrapId);
   wrap.innerHTML = "";
-  const W = Math.max(wrap.clientWidth, 260);
+  // Dold flik → bredd 0; hoppa över och låt flikbytet rendera i rätt bredd
+  if (!wrap.clientWidth) return;
+  const W = wrap.clientWidth;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
   const tip = document.createElement("div");
   tip.className = "tooltip";
@@ -733,10 +736,16 @@ async function renderManad() {
 }
 
 /* ===== Flikar & uppstart =================================================== */
+const RENDERERS = { dag: renderDag, arsdag: renderArsdag, manad: renderManad };
+let activeView = "dag";
+
 for (const btn of document.querySelectorAll(".tabs button")) {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn));
     document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + btn.dataset.view));
+    activeView = btn.dataset.view;
+    // Rendera först när fliken är synlig — annars ritas diagrammen i bredd 0
+    RENDERERS[activeView]();
   });
 }
 
@@ -779,17 +788,16 @@ async function boot() {
   mmSel.value = manifest.lastFetched.slice(5, 7);
   mmSel.addEventListener("change", () => { renderManadChips().then(renderManad); });
 
-  await renderDag();
-  await renderArsdag();
+  // Rendera bara den synliga fliken — övriga renderas vid flikbyte
   await renderManadChips();
-  await renderManad();
+  await renderDag();
 }
 boot();
 
 let resizeRaf;
 addEventListener("resize", () => {
   cancelAnimationFrame(resizeRaf);
-  resizeRaf = requestAnimationFrame(() => { renderDag(); renderArsdag(); renderManad(); });
+  resizeRaf = requestAnimationFrame(() => RENDERERS[activeView]());
 });
 </script>
 
