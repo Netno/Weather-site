@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Historik · Brämhult väderstation</title>
+<style>
+  /* ===== Design tokens (samma som index.html) ============================== */
+  :root {
+    --bg: #F5F7F9;
+    --card: #FFFFFF;
+    --card-border: #E3E8EE;
+    --ink: #1B2530;
+    --ink-2: #4A5866;
+    --ink-3: #7C8A99;
+    --grid: #EAEEF2;
+    --axis: #C9D2DB;
+    --temp: #CE711A;
+    --temp-soft: rgba(206, 113, 26, 0.10);
+    --rain: #2E7CC4;
+    --rain-soft: rgba(46, 124, 196, 0.12);
+    --wind: #0F9182;
+    --badge-bg: #E7F3EC;
+    --badge-ink: #22623F;
+    --warn-bg: #FDF3E7;
+    --warn-ink: #9A560F;
+    --ok: #2E7D4F;
+    --shadow: 0 1px 2px rgba(27, 37, 48, 0.05), 0 4px 16px rgba(27, 37, 48, 0.04);
+    --tooltip-bg: #1B2530;
+    --tooltip-ink: #F5F7F9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10161D; --card: #18202A; --card-border: #232E3A; --ink: #E8EDF2;
+      --ink-2: #A6B2BF; --ink-3: #6E7C8B; --grid: #1F2934; --axis: #33404E;
+      --temp: #CF7414; --temp-soft: rgba(207, 116, 20, 0.14);
+      --rain: #4C8FD6; --rain-soft: rgba(76, 143, 214, 0.16);
+      --wind: #14A392;
+      --badge-bg: #16281E; --badge-ink: #6BC493;
+      --warn-bg: #2A2013; --warn-ink: #E0A45E; --ok: #4CAF7A;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+      --tooltip-bg: #E8EDF2; --tooltip-ink: #10161D;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F7F9; --card: #FFFFFF; --card-border: #E3E8EE; --ink: #1B2530;
+    --ink-2: #4A5866; --ink-3: #7C8A99; --grid: #EAEEF2; --axis: #C9D2DB;
+    --temp: #CE711A; --temp-soft: rgba(206, 113, 26, 0.10);
+    --rain: #2E7CC4; --rain-soft: rgba(46, 124, 196, 0.12);
+    --wind: #0F9182;
+    --badge-bg: #E7F3EC; --badge-ink: #22623F;
+    --warn-bg: #FDF3E7; --warn-ink: #9A560F; --ok: #2E7D4F;
+    --shadow: 0 1px 2px rgba(27, 37, 48, 0.05), 0 4px 16px rgba(27, 37, 48, 0.04);
+    --tooltip-bg: #1B2530; --tooltip-ink: #F5F7F9;
+  }
+  :root[data-theme="dark"] {
+    --bg: #10161D; --card: #18202A; --card-border: #232E3A; --ink: #E8EDF2;
+    --ink-2: #A6B2BF; --ink-3: #6E7C8B; --grid: #1F2934; --axis: #33404E;
+    --temp: #CF7414; --temp-soft: rgba(207, 116, 20, 0.14);
+    --rain: #4C8FD6; --rain-soft: rgba(76, 143, 214, 0.16);
+    --wind: #14A392;
+    --badge-bg: #16281E; --badge-ink: #6BC493;
+    --warn-bg: #2A2013; --warn-ink: #E0A45E; --ok: #4CAF7A;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+    --tooltip-bg: #E8EDF2; --tooltip-ink: #10161D;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "SF Pro Text", "Segoe UI Variable", "Segoe UI", system-ui, Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1080px; margin: 0 auto; padding: 24px 20px 48px; }
+
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px 16px; padding: 8px 4px 20px;
+  }
+  .station h1 { font-size: 21px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  .station .meta { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+  .station .meta .id { font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 12px; }
+  .nav { display: flex; gap: 4px; }
+  .nav a {
+    color: var(--ink-2); text-decoration: none; font-size: 13.5px; font-weight: 550;
+    padding: 5px 12px; border-radius: 100px;
+  }
+  .nav a:hover { background: var(--grid); }
+  .nav a[aria-current] { background: var(--temp-soft); color: var(--temp); }
+
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tabs button {
+    font: inherit; font-size: 13.5px; font-weight: 550; color: var(--ink-2);
+    background: none; border: 1px solid var(--card-border); border-radius: 100px;
+    padding: 6px 14px; cursor: pointer;
+  }
+  .tabs button:hover { background: var(--grid); }
+  .tabs button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .controls label { font-size: 13px; color: var(--ink-3); }
+  .controls input[type="date"], .controls select {
+    font: inherit; font-size: 14px; color: var(--ink);
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 8px;
+    padding: 6px 10px;
+  }
+  .controls button.step {
+    font: inherit; font-size: 14px; color: var(--ink-2); cursor: pointer;
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 8px;
+    padding: 6px 12px;
+  }
+  .controls button.step:hover { background: var(--grid); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chips button {
+    font: inherit; font-size: 13px; font-weight: 550; cursor: pointer;
+    background: var(--card); color: var(--ink-2);
+    border: 1px solid var(--card-border); border-radius: 100px; padding: 4px 12px;
+  }
+  .chips button.on { border-color: transparent; color: #fff; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 10px; box-shadow: var(--shadow); padding: 20px;
+  }
+  .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .grid .span2 { grid-column: 1 / -1; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+  .readings {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 18px 28px;
+  }
+  .reading .label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 2px;
+  }
+  .reading .val { font-size: 21px; font-weight: 550; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .reading .val small { font-size: 13px; font-weight: 450; color: var(--ink-3); margin-left: 2px; }
+  .reading .sub { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+
+  .chart-card h2 {
+    font-size: 12px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-2); margin: 0 0 2px;
+  }
+  .chart-card .subtitle { font-size: 13px; color: var(--ink-3); margin: 0 0 14px; }
+  .chart-card .subtitle b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chart-wrap { position: relative; }
+  .chart-wrap svg { display: block; width: 100%; height: auto; }
+  .chart-empty { color: var(--ink-3); font-size: 13px; padding: 40px 0; text-align: center; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-top: 10px; }
+  .legend .key { display: inline-block; width: 14px; height: 0; border-top: 2.5px solid; vertical-align: 3px; margin-right: 5px; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; z-index: 5;
+    background: var(--tooltip-bg); color: var(--tooltip-ink);
+    font-size: 12px; line-height: 1.45; font-variant-numeric: tabular-nums;
+    padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+    opacity: 0; transition: opacity 0.1s;
+  }
+  @media (prefers-reduced-motion: reduce) { .tooltip { transition: none; } }
+  .tooltip.on { opacity: 1; }
+  .tooltip .t-time { opacity: 0.65; }
+
+  .days { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 8px; max-width: 700px; }
+  .day { text-align: center; padding: 10px 4px 12px; border-radius: 8px; }
+  .day .dname { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .day .range { height: 96px; margin: 10px auto 8px; position: relative; width: 8px; }
+  .day .range .track { position: absolute; inset: 0; left: 3px; width: 2px; background: var(--grid); border-radius: 2px; }
+  .day .range .bar { position: absolute; left: 0; width: 8px; border-radius: 4px; background: linear-gradient(to bottom, var(--temp), var(--rain)); }
+  .day .hi, .day .lo { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .day .hi { font-weight: 600; }
+  .day .lo { color: var(--ink-3); }
+  .day .rain { font-size: 11px; color: var(--rain); margin-top: 6px; min-height: 16px; font-variant-numeric: tabular-nums; }
+
+  table.stats { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
+  table.stats th, table.stats td { text-align: right; padding: 7px 10px; border-bottom: 1px solid var(--grid); }
+  table.stats th:first-child, table.stats td:first-child { text-align: left; }
+  table.stats th { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  table.stats td:first-child { font-weight: 600; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: 0; }
+
+  footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
+  footer a { color: var(--ink-2); }
+  .view { display: none; }
+  .view.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <div class="station">
+      <h1>Brämhult väderstation</h1>
+      <div class="meta"><span class="id">IBRMHULT2</span> · 209 m ö.h. · Historik ur eget arkiv</div>
+    </div>
+    <nav class="nav">
+      <a href="/">Live</a>
+      <a href="/historik/" aria-current="page">Historik</a>
+    </nav>
+  </header>
+
+  <div class="tabs">
+    <button data-view="dag" class="active">Dag</button>
+    <button data-view="arsdag">Samma dag genom åren</button>
+    <button data-view="manad">Månadsjämförelse</button>
+  </div>
+
+  <!-- ===== Vy: Dag ======================================================== -->
+  <section class="view active" id="view-dag">
+    <div class="controls">
+      <button class="step" id="dag-prev" aria-label="Föregående dag">←</button>
+      <input type="date" id="dag-datum">
+      <button class="step" id="dag-next" aria-label="Nästa dag">→</button>
+      <span id="dag-namn" style="font-size:13px;color:var(--ink-3)"></span>
+    </div>
+    <div class="grid">
+      <div class="card span2"><div class="readings" id="dag-summering"></div></div>
+      <div class="card chart-card">
+        <h2>Temperatur</h2>
+        <p class="subtitle" id="dag-t-sub"></p>
+        <div class="chart-wrap" id="dag-chart-temp"></div>
+      </div>
+      <div class="card chart-card">
+        <h2>Nederbörd</h2>
+        <p class="subtitle" id="dag-r-sub"></p>
+        <div class="chart-wrap" id="dag-chart-rain"></div>
+      </div>
+      <div class="card span2 chart-card">
+        <h2>Vind</h2>
+        <p class="subtitle">Medelvind och byar per timme</p>
+        <div class="chart-wrap" id="dag-chart-wind"></div>
+        <div class="legend">
+          <span><span class="key" style="border-color: var(--wind)"></span>Medelvind</span>
+          <span><span class="key" style="border-color: var(--wind); border-top-style: dashed"></span>Byar</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Vy: Samma dag genom åren ====================================== -->
+  <section class="view" id="view-arsdag">
+    <div class="controls">
+      <label for="arsdag-dag">Datum</label>
+      <select id="arsdag-dag"></select>
+      <select id="arsdag-manad"></select>
+    </div>
+    <div class="grid">
+      <div class="card span2 chart-card">
+        <h2>Temperatur under dygnet, år för år</h2>
+        <p class="subtitle" id="arsdag-sub"></p>
+        <div class="chart-wrap" id="arsdag-chart"></div>
+        <div class="legend" id="arsdag-legend"></div>
+      </div>
+      <div class="card span2 chart-card">
+        <h2>Max, min och nederbörd</h2>
+        <p class="subtitle">Samma datum, alla år i arkivet</p>
+        <div class="days" id="arsdag-strip"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Vy: Månadsjämförelse ========================================== -->
+  <section class="view" id="view-manad">
+    <div class="controls">
+      <label for="manad-manad">Månad</label>
+      <select id="manad-manad"></select>
+      <span class="chips" id="manad-ar"></span>
+    </div>
+    <div class="grid">
+      <div class="card span2 chart-card">
+        <h2>Dygnets maxtemperatur</h2>
+        <p class="subtitle" id="manad-t-sub"></p>
+        <div class="chart-wrap" id="manad-chart-temp"></div>
+        <div class="legend" id="manad-legend"></div>
+      </div>
+      <div class="card span2 chart-card">
+        <h2>Ackumulerad nederbörd</h2>
+        <p class="subtitle">Summerat från månadens första dag</p>
+        <div class="chart-wrap" id="manad-chart-rain"></div>
+      </div>
+      <div class="card span2 chart-card">
+        <h2>Statistik</h2>
+        <p class="subtitle">Per valt år</p>
+        <div style="overflow-x:auto"><table class="stats" id="manad-stats"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Historiken läses ur stationens eget arkiv (<span id="arkiv-span">hämtar …</span>).<br>
+    Arkivet fylls på varje natt · <a href="/">till live-vyn</a>
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* =============================================================================
+   Historikvyer mot det statiska arkivet i data/. Ingen data hämtas från WU —
+   allt är förhämtat av det nattliga cron-jobbet.
+   ========================================================================== */
+const ELEV = 209.1;
+const ms = kmh => kmh / 3.6;
+const fmt = (n, d = 1) => n.toLocaleString("sv-SE", { minimumFractionDigits: d, maximumFractionDigits: d });
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const hh = h => ("0" + h).slice(-2);
+const MONTHS = ["januari", "februari", "mars", "april", "maj", "juni",
+  "juli", "augusti", "september", "oktober", "november", "december"];
+const WEEKDAYS = ["söndag", "måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag"];
+const YEAR_COLORS = ["#CE711A", "#2E7CC4", "#0F9182", "#9A6BD0", "#C2517A",
+  "#7A8C3F", "#C4A030", "#5B7A99", "#B0653A"];
+
+function seaLevel(p, tC) {
+  if (p == null) return null;
+  const t = tC ?? 10;
+  return p * Math.pow(1 - (0.0065 * ELEV) / (t + 0.0065 * ELEV + 273.15), -5.257);
+}
+
+/* ===== Arkivåtkomst med cache ============================================= */
+const cache = new Map();
+function getJSON(url) {
+  if (!cache.has(url)) {
+    cache.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null));
+  }
+  return cache.get(url);
+}
+const dailyYear = async y => await getJSON(`/data/daily/${y}.json`) ?? {};
+const hourlyMonth = async ym => await getJSON(`/data/hourly/${ym.slice(0, 4)}/${ym}.json`) ?? {};
+
+/* Timserie för en dag ur arkivets timvärden (samma bucketformat som live-vyn) */
+function daySeries(buckets) {
+  if (!buckets?.length) return [];
+  let prevCum = 0;
+  return buckets.map(o => {
+    const h = parseInt(o.obsTimeLocal.slice(11, 13), 10);
+    const cum = Math.max(prevCum, o.metric.precipTotal ?? 0);
+    const p = {
+      h,
+      temp: o.metric.tempAvg ?? o.metric.temp,
+      rain: Math.max(0, cum - prevCum),
+      wind: o.metric.windspeedAvg,
+      gust: o.metric.windgustHigh,
+    };
+    prevCum = cum;
+    return p;
+  }).filter(p => p.temp != null);
+}
+
+/* ===== Diagramhjälpare ===================================================== */
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+};
+const H = 230, PAD = { t: 14, r: 12, b: 26, l: 40 };
+const yScale = (lo, hi) => v => PAD.t + (hi - v) / (hi - lo) * (H - PAD.t - PAD.b);
+
+function axes(svg, W, yTicks, yFmt, xLabels) {
+  for (const { v, y } of yTicks) {
+    svg.append(el("line", { x1: PAD.l, x2: W - PAD.r, y1: y, y2: y, stroke: css("--grid"), "stroke-width": 1 }));
+    const t = el("text", { x: PAD.l - 8, y: y + 4, "text-anchor": "end", "font-size": 11, fill: css("--ink-3") });
+    t.textContent = yFmt(v);
+    svg.append(t);
+  }
+  for (const { label, x } of xLabels) {
+    const t = el("text", { x, y: H - 8, "text-anchor": "middle", "font-size": 11, fill: css("--ink-3") });
+    t.textContent = label;
+    svg.append(t);
+  }
+}
+
+function showTip(tip, wrap, x, y, html) {
+  tip.innerHTML = html;
+  tip.classList.add("on");
+  const w = tip.offsetWidth;
+  tip.style.left = Math.min(Math.max(x - w / 2, 4), wrap.clientWidth - w - 4) + "px";
+  tip.style.top = (y - tip.offsetHeight - 12) + "px";
+}
+
+function mountChart(wrapId, draw) {
+  const wrap = document.getElementById(wrapId);
+  wrap.innerHTML = "";
+  const W = Math.max(wrap.clientWidth, 260);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
+  const tip = document.createElement("div");
+  tip.className = "tooltip";
+  wrap.append(svg, tip);
+  if (draw(svg, tip, W) === false) {
+    wrap.innerHTML = '<div class="chart-empty">Ingen data för det här valet ännu</div>';
+  }
+}
+
+/* Generiskt flerseriediagram med krysshårstooltip.
+   series: [{ label, color, pts: [{x, v}] }], x i [0, xMax] */
+function multiLine(wrapId, series, opts) {
+  mountChart(wrapId, (svg, tip, W) => {
+    const all = series.flatMap(s => s.pts.map(p => p.v));
+    if (!all.length) return false;
+    const lo = opts.yLo ?? Math.floor(Math.min(...all)) - 1;
+    const hi = opts.yHi ?? Math.ceil(Math.max(...all)) + 1;
+    const sy = yScale(lo, hi);
+    const sx = x => PAD.l + x / opts.xMax * (W - PAD.l - PAD.r);
+    const ticks = [];
+    const step = hi - lo > 24 ? 8 : hi - lo > 12 ? 4 : 2;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+    axes(svg, W, ticks, opts.yFmt ?? (v => v), opts.xLabels.map(l => ({ label: l.label, x: sx(l.x) })));
+
+    for (const s of series) {
+      if (!s.pts.length) continue;
+      const d = s.pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.v)).join(" ");
+      svg.append(el("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", opacity: 0.9 }));
+    }
+
+    const cross = el("line", { y1: PAD.t, y2: H - PAD.b, stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
+    svg.append(cross);
+    svg.addEventListener("pointermove", e => {
+      const r = svg.getBoundingClientRect();
+      const xGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * opts.xMax;
+      const rows = [];
+      let anchorX = null, anchorY = PAD.t;
+      for (const s of series) {
+        if (!s.pts.length) continue;
+        const p = s.pts.reduce((b, q) => Math.abs(q.x - xGuess) < Math.abs(b.x - xGuess) ? q : b, s.pts[0]);
+        if (Math.abs(p.x - xGuess) > opts.snap) continue;
+        rows.push(`<span style="color:${s.color}">●</span> ${s.label} <b>${fmt(p.v)}</b>`);
+        anchorX = sx(p.x);
+      }
+      if (!rows.length || anchorX == null) { cross.setAttribute("visibility", "hidden"); tip.classList.remove("on"); return; }
+      cross.setAttribute("x1", anchorX); cross.setAttribute("x2", anchorX); cross.setAttribute("visibility", "visible");
+      showTip(tip, svg.parentElement, anchorX, anchorY + 40,
+        `<span class="t-time">${opts.tipTitle(xGuess)}</span><br>${rows.join("<br>")}`);
+    });
+    svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tip.classList.remove("on"); });
+  });
+}
+
+/* ===== Gemensamt tillstånd ================================================= */
+let manifest = null;
+let years = [];
+
+/* ===== Vy: Dag ============================================================= */
+async function renderDag() {
+  const date = document.getElementById("dag-datum").value;
+  if (!date) return;
+  const d = new Date(date + "T12:00:00");
+  document.getElementById("dag-namn").textContent = `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+
+  const [dayObs, monthData] = await Promise.all([
+    dailyYear(date.slice(0, 4)).then(y => y[date] ?? null),
+    hourlyMonth(date.slice(0, 7)),
+  ]);
+  const series = daySeries(monthData[date]);
+
+  const sum = document.getElementById("dag-summering");
+  if (!dayObs) {
+    sum.innerHTML = `<div class="chart-empty" style="grid-column:1/-1">${
+      date > manifest.lastFetched ? "Det här dygnet har inte arkiverats ännu — arkivet är framme vid " + manifest.lastFetched + "."
+      : "Ingen data för det här dygnet (stationen var offline)."}</div>`;
+  } else {
+    const m = dayObs.metric;
+    const pMid = seaLevel((m.pressureMax + m.pressureMin) / 2, m.tempAvg);
+    sum.innerHTML = [
+      { label: "Max", val: `${fmt(m.tempHigh)}<small>°C</small>` },
+      { label: "Min", val: `${fmt(m.tempLow)}<small>°C</small>` },
+      { label: "Nederbörd", val: `${fmt(m.precipTotal)}<small>mm</small>` },
+      { label: "Kraftigaste by", val: `${fmt(ms(m.windgustHigh))}<small>m/s</small>` },
+      { label: "Medelvind", val: `${fmt(ms(m.windspeedAvg))}<small>m/s</small>` },
+      { label: "Lufttryck", val: `${fmt(pMid, 0)}<small>hPa</small>`, sub: "havsnivå, dygnsmitt" },
+      { label: "Luftfuktighet", val: `${Math.round(dayObs.humidityAvg)}<small>%</small>`, sub: "dygnsmedel" },
+    ].map(c => `
+      <div class="reading">
+        <div class="label">${c.label}</div>
+        <div class="val">${c.val}</div>
+        <div class="sub">${c.sub ?? ""}</div>
+      </div>`).join("");
+  }
+
+  document.getElementById("dag-t-sub").innerHTML = dayObs
+    ? `Min <b>${fmt(dayObs.metric.tempLow)}°</b> · max <b>${fmt(dayObs.metric.tempHigh)}°</b>` : "";
+  document.getElementById("dag-r-sub").innerHTML = dayObs
+    ? `Totalt <b>${fmt(dayObs.metric.precipTotal)} mm</b>` : "";
+
+  mountChart("dag-chart-temp", (svg, tip, W) => {
+    if (!series.length) return false;
+    const temps = series.map(p => p.temp);
+    const lo = Math.floor(Math.min(...temps)) - 1, hi = Math.ceil(Math.max(...temps)) + 1;
+    const sy = yScale(lo, hi);
+    const sx = h => PAD.l + h / 23 * (W - PAD.l - PAD.r);
+    const step = hi - lo > 12 ? 4 : 2;
+    const ticks = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+    axes(svg, W, ticks, v => v + "°", [0, 6, 12, 18].map(h => ({ label: hh(h), x: sx(h) })));
+    const pts = series.map(p => [sx(p.h), sy(p.temp)]);
+    const line = pts.map((p, i) => (i ? "L" : "M") + p[0] + " " + p[1]).join(" ");
+    const base = sy(lo);
+    svg.append(el("path", { d: `${line} L ${pts[pts.length - 1][0]} ${base} L ${pts[0][0]} ${base} Z`, fill: css("--temp-soft") }));
+    svg.append(el("path", { d: line, fill: "none", stroke: css("--temp"), "stroke-width": 2, "stroke-linejoin": "round" }));
+    svg.addEventListener("pointermove", e => {
+      const r = svg.getBoundingClientRect();
+      const hGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * 23;
+      const p = series.reduce((b, q) => Math.abs(q.h - hGuess) < Math.abs(b.h - hGuess) ? q : b, series[0]);
+      showTip(tip, svg.parentElement, sx(p.h), sy(p.temp), `<span class="t-time">kl ${hh(p.h)}</span><br><b>${fmt(p.temp)} °C</b>`);
+    });
+    svg.addEventListener("pointerleave", () => tip.classList.remove("on"));
+  });
+
+  mountChart("dag-chart-rain", (svg, tip, W) => {
+    if (!series.length) return false;
+    const hi = Math.max(2, Math.ceil(Math.max(...series.map(p => p.rain)) * 2) / 2 + 0.5);
+    const sy = yScale(0, hi);
+    const slot = (W - PAD.l - PAD.r) / 24;
+    const bw = Math.max(slot - 2, 3);
+    const ticks = [];
+    const tickStep = hi > 4 ? 1 : 0.5;
+    for (let v = 0; v <= hi; v += tickStep) ticks.push({ v, y: sy(v) });
+    axes(svg, W, ticks, v => fmt(v), [0, 6, 12, 18].map(h => ({ label: hh(h), x: PAD.l + (h + 0.5) * slot })));
+    for (const p of series) {
+      const x = PAD.l + p.h * slot + (slot - bw) / 2;
+      const y = sy(p.rain), base = sy(0);
+      const zero = p.rain < 0.05;
+      const bar = el("rect", { x, y: zero ? base - 2 : y, width: bw, height: zero ? 2 : base - y, rx: 2,
+        fill: zero ? css("--grid") : css("--rain") });
+      bar.addEventListener("pointerenter", () => showTip(tip, svg.parentElement, x + bw / 2, zero ? base - 2 : y,
+        `<span class="t-time">kl ${hh(p.h)}–${hh(p.h + 1)}</span><br><b>${fmt(p.rain)} mm</b>`));
+      bar.addEventListener("pointerleave", () => tip.classList.remove("on"));
+      svg.append(bar);
+    }
+  });
+
+  mountChart("dag-chart-wind", (svg, tip, W) => {
+    const data = series.filter(p => p.wind != null);
+    if (!data.length) return false;
+    const hi = Math.max(4, Math.ceil(Math.max(...data.map(p => ms(p.gust)))) + 1);
+    const sy = yScale(0, hi);
+    const sx = h => PAD.l + h / 23 * (W - PAD.l - PAD.r);
+    const step = hi > 12 ? 4 : 2;
+    const ticks = [];
+    for (let v = 0; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+    axes(svg, W, ticks, v => v, [0, 6, 12, 18].map(h => ({ label: hh(h), x: sx(h) })));
+    const path = (get, dash) => {
+      const d = data.map((p, i) => (i ? "L" : "M") + sx(p.h) + " " + sy(get(p))).join(" ");
+      const attrs = { d, fill: "none", stroke: css("--wind"), "stroke-width": 2, "stroke-linejoin": "round" };
+      if (dash) { attrs["stroke-dasharray"] = "5 4"; attrs["stroke-width"] = 1.5; attrs.opacity = 0.75; }
+      svg.append(el("path", attrs));
+    };
+    path(p => ms(p.wind), false);
+    path(p => ms(p.gust), true);
+    svg.addEventListener("pointermove", e => {
+      const r = svg.getBoundingClientRect();
+      const hGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * 23;
+      const p = data.reduce((b, q) => Math.abs(q.h - hGuess) < Math.abs(b.h - hGuess) ? q : b, data[0]);
+      showTip(tip, svg.parentElement, sx(p.h), sy(ms(p.gust)),
+        `<span class="t-time">kl ${hh(p.h)}</span><br>Medel <b>${fmt(ms(p.wind))}</b> · byar <b>${fmt(ms(p.gust))}</b> m/s`);
+    });
+    svg.addEventListener("pointerleave", () => tip.classList.remove("on"));
+  });
+}
+
+function stepDag(days) {
+  const input = document.getElementById("dag-datum");
+  const d = new Date(input.value + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  const iso = d.toLocaleDateString("sv-SE");
+  if (iso < manifest.firstDate || iso > manifest.lastFetched) return;
+  input.value = iso;
+  renderDag();
+}
+
+/* ===== Vy: Samma dag genom åren =========================================== */
+async function renderArsdag() {
+  const mm = document.getElementById("arsdag-manad").value;
+  const dd = document.getElementById("arsdag-dag").value;
+  const label = `${parseInt(dd, 10)} ${MONTHS[parseInt(mm, 10) - 1]}`;
+  document.getElementById("arsdag-sub").innerHTML = `Timvärden den <b>${label}</b> varje år som finns i arkivet`;
+
+  const perYear = await Promise.all(years.map(async y => {
+    const date = `${y}-${mm}-${dd}`;
+    const dObs = (await dailyYear(y))[date] ?? null;
+    return { year: y, date, daily: dObs };
+  }));
+  const withData = perYear.filter(p => p.daily);
+
+  // Remsan: max/min + regn per år
+  const strip = document.getElementById("arsdag-strip");
+  if (!withData.length) {
+    strip.innerHTML = '<div class="chart-empty" style="grid-column:1/-1">Ingen data för det här datumet ännu — arkivet täcker ' +
+      manifest.firstDate + ' till ' + manifest.lastFetched + '.</div>';
+  } else {
+    const lo = Math.min(...withData.map(p => p.daily.metric.tempLow));
+    const hi = Math.max(...withData.map(p => p.daily.metric.tempHigh));
+    const span = Math.max(hi - lo, 1);
+    strip.innerHTML = withData.map(p => {
+      const m = p.daily.metric;
+      return `<div class="day">
+        <div class="dname">${p.year}</div>
+        <div class="hi">${fmt(m.tempHigh, 0)}°</div>
+        <div class="range"><div class="track"></div>
+          <div class="bar" style="top:${(hi - m.tempHigh) / span * 100}%; height:${(m.tempHigh - m.tempLow) / span * 100}%"></div></div>
+        <div class="lo">${fmt(m.tempLow, 0)}°</div>
+        <div class="rain">${m.precipTotal > 0 ? "☂ " + fmt(m.precipTotal) + " mm" : ""}</div>
+      </div>`;
+    }).join("");
+  }
+
+  // Överlagrade timkurvor
+  const series = (await Promise.all(withData.map(async (p, i) => {
+    const month = await hourlyMonth(p.date.slice(0, 7));
+    const s = daySeries(month[p.date]);
+    return { label: p.year, color: YEAR_COLORS[i % YEAR_COLORS.length],
+      pts: s.map(q => ({ x: q.h, v: q.temp })) };
+  }))).filter(s => s.pts.length);
+
+  document.getElementById("arsdag-legend").innerHTML = series.map(s =>
+    `<span><span class="key" style="border-color:${s.color}"></span>${s.label}</span>`).join("");
+
+  multiLine("arsdag-chart", series, {
+    xMax: 23, snap: 1.5,
+    yFmt: v => v + "°",
+    xLabels: [0, 6, 12, 18].map(h => ({ label: hh(h), x: h })),
+    tipTitle: x => `kl ${hh(Math.round(Math.min(Math.max(x, 0), 23)))}`,
+  });
+}
+
+/* ===== Vy: Månadsjämförelse =============================================== */
+const manadState = { selected: new Set() };
+
+async function yearsWithMonth(mm) {
+  const out = [];
+  for (const y of years) {
+    const d = await dailyYear(y);
+    if (Object.keys(d).some(k => k.slice(5, 7) === mm && d[k])) out.push(y);
+  }
+  return out;
+}
+
+async function renderManadChips() {
+  const mm = document.getElementById("manad-manad").value;
+  const avail = await yearsWithMonth(mm);
+  // Behåll giltiga val; fyll upp till 5 med senaste åren
+  manadState.selected = new Set([...manadState.selected].filter(y => avail.includes(y)));
+  for (const y of [...avail].reverse()) {
+    if (manadState.selected.size >= 5) break;
+    manadState.selected.add(y);
+  }
+  const box = document.getElementById("manad-ar");
+  box.innerHTML = "";
+  avail.forEach(y => {
+    const btn = document.createElement("button");
+    btn.textContent = y;
+    const idx = [...manadState.selected].sort().indexOf(y);
+    if (manadState.selected.has(y)) {
+      btn.classList.add("on");
+      btn.style.background = YEAR_COLORS[idx % YEAR_COLORS.length];
+    }
+    btn.addEventListener("click", () => {
+      if (manadState.selected.has(y)) manadState.selected.delete(y);
+      else if (manadState.selected.size < 5) manadState.selected.add(y);
+      renderManadChips().then(renderManad);
+    });
+    box.append(btn);
+  });
+  if (!avail.length) box.innerHTML = '<span style="font-size:13px;color:var(--ink-3)">Inga år med den månaden i arkivet ännu</span>';
+}
+
+async function renderManad() {
+  const mm = document.getElementById("manad-manad").value;
+  const monthName = MONTHS[parseInt(mm, 10) - 1];
+  const sel = [...manadState.selected].sort();
+  document.getElementById("manad-t-sub").innerHTML =
+    `<b>${monthName.charAt(0).toUpperCase() + monthName.slice(1)}</b> · ${sel.length ? sel.join(", ") : "välj år ovan"}`;
+
+  const daysInMonth = 31;
+  const perYear = await Promise.all(sel.map(async (y, i) => {
+    const d = await dailyYear(y);
+    const days = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const key = `${y}-${mm}-${hh(day)}`;
+      days.push({ day, obs: d[key] ?? null });
+    }
+    return { year: y, color: YEAR_COLORS[i % YEAR_COLORS.length], days };
+  }));
+
+  document.getElementById("manad-legend").innerHTML = perYear.map(p =>
+    `<span><span class="key" style="border-color:${p.color}"></span>${p.year}</span>`).join("");
+
+  multiLine("manad-chart-temp", perYear.map(p => ({
+    label: p.year, color: p.color,
+    pts: p.days.filter(d => d.obs).map(d => ({ x: d.day, v: d.obs.metric.tempHigh })),
+  })), {
+    xMax: daysInMonth, snap: 0.6,
+    yFmt: v => v + "°",
+    xLabels: [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
+    tipTitle: x => `${Math.round(Math.min(Math.max(x, 1), 31))} ${monthName}`,
+  });
+
+  multiLine("manad-chart-rain", perYear.map(p => {
+    let cum = 0;
+    return { label: p.year, color: p.color,
+      pts: p.days.filter(d => d.obs).map(d => { cum += d.obs.metric.precipTotal ?? 0; return { x: d.day, v: cum }; }) };
+  }), {
+    xMax: daysInMonth, snap: 0.6, yLo: 0,
+    yFmt: v => v,
+    xLabels: [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
+    tipTitle: x => `t.o.m. ${Math.round(Math.min(Math.max(x, 1), 31))} ${monthName}`,
+  });
+
+  const table = document.getElementById("manad-stats");
+  if (!perYear.length) { table.innerHTML = ""; return; }
+  const rows = perYear.map(p => {
+    const obs = p.days.filter(d => d.obs).map(d => d.obs.metric);
+    if (!obs.length) return null;
+    const avg = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
+    return { year: p.year, color: p.color, n: obs.length,
+      avgHigh: avg(obs.map(o => o.tempHigh)), avgLow: avg(obs.map(o => o.tempLow)),
+      maxHigh: Math.max(...obs.map(o => o.tempHigh)), minLow: Math.min(...obs.map(o => o.tempLow)),
+      rain: obs.reduce((a, o) => a + (o.precipTotal ?? 0), 0),
+      rainDays: obs.filter(o => (o.precipTotal ?? 0) >= 0.1).length };
+  }).filter(Boolean);
+  table.innerHTML = `
+    <thead><tr><th>År</th><th>Medelmax</th><th>Medelmin</th><th>Varmast</th><th>Kallast</th>
+      <th>Nederbörd</th><th>Regndagar</th><th>Dagar med data</th></tr></thead>
+    <tbody>${rows.map(r => `
+      <tr>
+        <td><span class="swatch" style="background:${r.color}"></span>${r.year}</td>
+        <td>${fmt(r.avgHigh)}°</td><td>${fmt(r.avgLow)}°</td>
+        <td>${fmt(r.maxHigh)}°</td><td>${fmt(r.minLow)}°</td>
+        <td>${fmt(r.rain)} mm</td><td>${r.rainDays}</td><td>${r.n}</td>
+      </tr>`).join("")}</tbody>`;
+}
+
+/* ===== Flikar & uppstart =================================================== */
+for (const btn of document.querySelectorAll(".tabs button")) {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + btn.dataset.view));
+  });
+}
+
+async function boot() {
+  manifest = await getJSON("/data/manifest.json");
+  if (!manifest) {
+    document.querySelector(".page").insertAdjacentHTML("beforeend",
+      '<div class="chart-empty">Arkivet är inte tillgängligt ännu.</div>');
+    return;
+  }
+  document.getElementById("arkiv-span").textContent =
+    `${manifest.firstDate} – ${manifest.lastFetched}`;
+  const firstYear = parseInt(manifest.firstDate.slice(0, 4), 10);
+  const lastYear = parseInt(manifest.lastFetched.slice(0, 4), 10);
+  years = [];
+  for (let y = firstYear; y <= lastYear; y++) years.push(String(y));
+
+  // Dag
+  const dagInput = document.getElementById("dag-datum");
+  dagInput.min = manifest.firstDate;
+  dagInput.max = manifest.lastFetched;
+  dagInput.value = manifest.lastFetched;
+  dagInput.addEventListener("change", renderDag);
+  document.getElementById("dag-prev").addEventListener("click", () => stepDag(-1));
+  document.getElementById("dag-next").addEventListener("click", () => stepDag(1));
+
+  // Årsdag: dag/månad-väljare
+  const dSel = document.getElementById("arsdag-dag");
+  const mSel = document.getElementById("arsdag-manad");
+  for (let d = 1; d <= 31; d++) dSel.append(new Option(String(d), hh(d)));
+  MONTHS.forEach((m, i) => mSel.append(new Option(m, hh(i + 1))));
+  dSel.value = manifest.lastFetched.slice(8, 10);
+  mSel.value = manifest.lastFetched.slice(5, 7);
+  dSel.addEventListener("change", renderArsdag);
+  mSel.addEventListener("change", renderArsdag);
+
+  // Månad
+  const mmSel = document.getElementById("manad-manad");
+  MONTHS.forEach((m, i) => mmSel.append(new Option(m, hh(i + 1))));
+  mmSel.value = manifest.lastFetched.slice(5, 7);
+  mmSel.addEventListener("change", () => { renderManadChips().then(renderManad); });
+
+  await renderDag();
+  await renderArsdag();
+  await renderManadChips();
+  await renderManad();
+}
+boot();
+
+let resizeRaf;
+addEventListener("resize", () => {
+  cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => { renderDag(); renderArsdag(); renderManad(); });
+});
+</script>
+
+</body>
+</html>
