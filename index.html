@@ -396,11 +396,12 @@ function renderStatus() {
   if (!obs) { elS.textContent = "Ingen kontakt med stationen"; dot.classList.add("stale"); return; }
   const ageMin = Math.round((Date.now() / 1000 - obs.epoch) / 60);
   const time = obs.obsTimeLocal.slice(11, 16);
+  const via = state.currentSource === "acurite" ? ' <span style="opacity:.7">· via AcuRite</span>' : "";
   if (ageMin <= 20) {
-    elS.innerHTML = `Senaste observation <b>${time}</b>`;
+    elS.innerHTML = `Senaste observation <b>${time}</b>${via}`;
     dot.classList.remove("stale");
   } else {
-    elS.innerHTML = `Senast <b>${time}</b> (${ageMin} min sedan)`;
+    elS.innerHTML = `Senast <b>${time}</b> (${ageMin} min sedan)${via}`;
     dot.classList.add("stale");
   }
 }
@@ -972,36 +973,28 @@ function renderSubtitles() {
 
 /* ===== Laddning & uppdatering ============================================== */
 async function loadAcurite() {
-  try {
-    const data = await fetchJSON("/api/acurite");
-    if (data.status !== "ok" || !data.atlas) return; // saknas variabler / API ändrat — visa inget
-    state.acurite = data.atlas;
-    state.acuriteToday = (data.todaySeries ?? []).map(p => ({
-      h: p.h,
-      lux: inBounds(p.lux, "lux"),
-      uv: inBounds(p.uv, "uv"),
-      sec: inBounds(p.sec, "sec"),
-    }));
-    renderHero();
-    if (state.range === "idag") {
-      const luxMax = Math.max(0, ...state.acuriteToday.map(p => p.lux ?? 0));
-      const uvMax = Math.max(0, ...state.acuriteToday.map(p => p.uv ?? 0));
-      document.getElementById("lx-sub").innerHTML = `Idag · max <b>${luxMax.toLocaleString("sv-SE")} lux</b> · stationens sensor`;
-      document.getElementById("uv-sub").innerHTML = `Idag · max <b>${fmt(uvMax, 0)}</b> · stationens sensor`;
-    }
-    renderCharts();
-    const bx = state.acurite.lightning;
-    const elBx = document.getElementById("bx-sensor");
-    if (bx && (bx.dailyStrikes != null || bx.count != null)) {
-      const count = bx.dailyStrikes != null
-        ? `idag <b>${bx.dailyStrikes}</b> nedslag`
-        : `räknare <b>${bx.count}</b>`;
-      elBx.innerHTML = `Stationens blixtsensor: ${count}` +
-        (bx.lastKm != null ? ` · senaste nedslag <b>≈ ${bx.lastKm} km</b> bort` : "") +
-        (bx.closestKm != null && bx.closestKm !== bx.lastKm ? ` · närmaste <b>≈ ${bx.closestKm} km</b>` : "");
-      elBx.style.display = "";
-    }
-  } catch (err) { console.warn("acurite:", err); }
+  const a = await fetchAcurite();
+  if (!a) return; // saknas variabler / API ändrat — visa inget
+  state.acuriteRaw = a;
+  renderHero();
+  if (state.range === "idag") {
+    const luxMax = Math.max(0, ...state.acuriteToday.map(p => p.lux ?? 0));
+    const uvMax = Math.max(0, ...state.acuriteToday.map(p => p.uv ?? 0));
+    document.getElementById("lx-sub").innerHTML = `Idag · max <b>${luxMax.toLocaleString("sv-SE")} lux</b> · stationens sensor`;
+    document.getElementById("uv-sub").innerHTML = `Idag · max <b>${fmt(uvMax, 0)}</b> · stationens sensor`;
+  }
+  renderCharts();
+  const bx = state.acurite.lightning;
+  const elBx = document.getElementById("bx-sensor");
+  if (bx && (bx.dailyStrikes != null || bx.count != null)) {
+    const count = bx.dailyStrikes != null
+      ? `idag <b>${bx.dailyStrikes}</b> nedslag`
+      : `räknare <b>${bx.count}</b>`;
+    elBx.innerHTML = `Stationens blixtsensor: ${count}` +
+      (bx.lastKm != null ? ` · senaste nedslag <b>≈ ${bx.lastKm} km</b> bort` : "") +
+      (bx.closestKm != null && bx.closestKm !== bx.lastKm ? ` · närmaste <b>≈ ${bx.closestKm} km</b>` : "");
+    elBx.style.display = "";
+  }
 }
 
 /* Historisk jämförelse för dagens datum — WU-arkivet + stationens sensorer */
@@ -1041,31 +1034,144 @@ async function loadDennaDag() {
   } catch (err) { console.warn("denna dag:", err); }
 }
 
+/* ===== AcuRite-fallback ====================================================
+   AcuRite är källan WU själv matas från, på en separat inloggning. När
+   WU-proxyn ligger nere bygger vi live-vyn ur AcuRite i stället. */
+const acuLocalTime = iso => {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(iso ? new Date(iso) : new Date()).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
+};
+
+/* AcuRite-atlas → WU-format (tryck konverteras havsnivå→station så all
+   nedströmskod som gör seaLevel() ger tillbaka rätt havsnivåvärde). */
+function acuriteToObs(atlas) {
+  const c = atlas?.current;
+  if (!c || c.temp == null) return null;
+  return {
+    stationID: "IBRMHULT2",
+    obsTimeLocal: acuLocalTime(atlas.lastCheckIn),
+    epoch: Math.floor((atlas.lastCheckIn ? new Date(atlas.lastCheckIn).getTime() : Date.now()) / 1000),
+    winddir: c.windDir ?? 0,
+    humidity: c.humidity ?? 0,
+    uv: atlas.uv ?? null,
+    solarRadiation: null,
+    metric: {
+      temp: c.temp,
+      heatIndex: c.feelsLike ?? c.temp,
+      windChill: c.feelsLike ?? c.temp,
+      dewpt: c.dewpt ?? c.temp,
+      windSpeed: c.windAvg ?? c.windNow ?? 0,
+      windGust: c.windNow ?? c.windAvg ?? 0,
+      pressure: toStationPressure(c.pressureSL, c.temp),
+      precipTotal: c.rainToday ?? 0,
+      precipRate: 0,
+    },
+  };
+}
+
+/* AcuRite-timserie (data.todaySeries) → state.today-punkter (WU-form) */
+function acuriteTodayToSeries(ts) {
+  if (!ts?.length) return [];
+  let prevCum = 0;
+  return ts.filter(p => p.temp != null).map(p => {
+    const cum = Math.max(prevCum, p.rainCum ?? prevCum);
+    const point = {
+      h: p.h, temp: p.temp,
+      rain: Math.max(0, cum - prevCum),
+      wind: p.wind ?? null, gust: p.wind ?? null,
+      pressure: p.pressureSL != null ? toStationPressure(p.pressureSL, p.temp) : null,
+    };
+    prevCum = cum;
+    return point;
+  });
+}
+
+/* 7-dygnsremsa ur AcuRite-dygnsaggregatet + dagens serie för idag */
+async function acuriteWeek() {
+  const agg = await acuriteDaily();
+  const today = todayIso();
+  const out = [];
+  for (let i = 6; i >= 1; i--) {
+    const date = addDaysIso(today, -i);
+    const a = agg[date];
+    if (a && (a.tMax != null || a.tMin != null)) {
+      out.push({ obsTimeLocal: date + " 12:00:00",
+        metric: { tempHigh: a.tMax, tempLow: a.tMin, precipTotal: a.rainDay } });
+    }
+  }
+  if (state.today.length) {
+    const temps = state.today.map(p => p.temp);
+    out.push({ obsTimeLocal: today + " 12:00:00",
+      metric: { tempHigh: Math.max(...temps), tempLow: Math.min(...temps),
+        precipTotal: state.current?.metric.precipTotal ?? state.today.reduce((a, p) => a + p.rain, 0) } });
+  }
+  return out;
+}
+
+async function fetchAcurite() {
+  try {
+    const a = await fetchJSON("/api/acurite");
+    if (a.status !== "ok" || !a.atlas) return null;
+    state.acurite = a.atlas;
+    state.acuriteToday = (a.todaySeries ?? []).map(p => ({
+      h: p.h, lux: inBounds(p.lux, "lux"), uv: inBounds(p.uv, "uv"), sec: inBounds(p.sec, "sec"),
+      temp: inBounds(p.temp, "temp"), wind: inBounds(p.wind, "windKph"),
+      winddir: p.winddir, pressureSL: inBounds(p.pressureSL, "pressureRaw"), rainCum: p.rainCum,
+    }));
+    return a;
+  } catch (err) { console.warn("acurite:", err); return null; }
+}
+
 async function loadCurrent() {
+  let obs = null;
+  state.currentSource = "wu";
   try {
     const data = await fetchJSON("/api/wu?e=current");
-    const obs = data.observations?.[0];
+    obs = data.observations?.[0];
     if (!obs) throw new Error("tomt svar");
-    state.current = obs;
-    showBanner(null);
-  } catch (err) {
-    console.warn("current:", err);
-    if (!state.current) showBanner("Kunde inte hämta data från stationen just nu — försöker igen automatiskt.");
+  } catch (err) { console.warn("WU current:", err); }
+
+  if (!obs) {
+    // WU nere → fall tillbaka på AcuRite (stationens egen källa)
+    const a = state.acuriteRaw ?? await fetchAcurite();
+    const fromAcu = a && acuriteToObs(a.atlas);
+    if (fromAcu) { obs = fromAcu; state.currentSource = "acurite"; }
   }
+
+  if (obs) { state.current = obs; showBanner(null); }
+  else if (!state.current) showBanner("Kunde inte hämta data från stationen just nu — försöker igen automatiskt.");
+
   renderStatus();
   renderHero();
   renderSubtitles();
 }
 
 async function loadDayAndWeek() {
+  let gotToday = false, gotWeek = false;
   try {
     const t = await fetchJSON("/api/wu?e=today");
     state.today = hourlySeries(t.observations ?? []);
-  } catch (err) { console.warn("today:", err); }
+    gotToday = state.today.length > 0;
+  } catch (err) { console.warn("WU today:", err); }
   try {
     const w = await fetchJSON("/api/wu?e=week");
     state.week = (w.summaries ?? w.observations ?? []).map(o => o?.metric ? cleanDailyObs(o) : o);
-  } catch (err) { console.warn("week:", err); }
+    gotWeek = state.week.length > 0;
+  } catch (err) { console.warn("WU week:", err); }
+
+  if (!gotToday || !gotWeek) {
+    // WU nere → bygg dagens serie och veckan ur AcuRite
+    state.acuriteRaw = await fetchAcurite();
+    if (!gotToday) {
+      const s = acuriteTodayToSeries(state.acuriteToday);
+      if (s.length) state.today = s;
+    }
+    if (!gotWeek) state.week = await acuriteWeek();
+  }
+
   await buildPressureSeries();
   renderHero();
   renderSubtitles();

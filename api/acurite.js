@@ -92,6 +92,11 @@ function parseDaySeries(day) {
   put("14", "lux", "LUX");
   put("13", "uv", "");
   put("15", "sec", "SEC");
+  put("1", "temp", "C");
+  put("3", "wind", "KPH");
+  put("4", "winddir", "");
+  put("9", "pressureSL", "HPA");
+  put("11", "rainCum", "MM"); // dygnsackumulerat regn → diff till per timme
   return [...byH.values()].sort((a, b) => a.h - b.h);
 }
 
@@ -115,6 +120,20 @@ function extractAtlas(hub) {
       count: num("Lightning Strike Count"),
       closestKm: num("Lightning Closest Strike Distance"),
       lastKm: num("Lightning Last Strike Distance"),
+    },
+    // Aktuella utomhusförhållanden — låter live-sidan visa stationen även
+    // när WU-proxyn ligger nere (AcuRite är källan WU själv matas från).
+    // Vind i km/h, tryck i hPa (havsnivå), temp/daggpunkt i °C, regn i mm.
+    current: {
+      temp: num("Temperature"),
+      humidity: num("Humidity"),
+      dewpt: num("Dew Point"),
+      feelsLike: num("Feels Like"),
+      windAvg: num("Wind Speed Average"),
+      windNow: num("Wind Speed"),
+      windDir: num("Wind Direction"),
+      pressureSL: num("Pressure"),
+      rainToday: num("Rainfall"),
     },
   };
 }

@@ -23,6 +23,13 @@ function seaLevel(p, tC) {
   const t = tC ?? 10;
   return p * Math.pow(1 - (0.0065 * ELEV) / (t + 0.0065 * ELEV + 273.15), -5.257);
 }
+// Omvänt: havsnivåtryck → stationstryck (AcuRite ger redan havsnivå, WU ger
+// stationstryck — konverteras hit så all vidare kod kan behandla dem lika)
+function toStationPressure(slHpa, tC) {
+  if (slHpa == null) return null;
+  const t = tC ?? 10;
+  return slHpa * Math.pow(1 - (0.0065 * ELEV) / (t + 0.0065 * ELEV + 273.15), 5.257);
+}
 
 /* ===== Datum =============================================================== */
 const addDaysIso = (iso, n) => {
