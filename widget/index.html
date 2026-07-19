@@ -54,6 +54,20 @@
   .arrow { display: inline-block; color: var(--wind); font-size: .8em; }
   .um { color: var(--rain); font-size: .82em; margin-right: 1px; }
   .dim { color: var(--ink-3); }
+
+  .wsun { text-align: right; font-size: 12px; color: var(--ink-3); margin: -2px 0 10px; font-variant-numeric: tabular-nums; }
+  .wsun b { color: var(--ink-2); font-weight: 600; }
+
+  .wfc { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .wfc-head { font-size: 11px; color: var(--ink-3); margin-bottom: 8px; letter-spacing: .05em; text-transform: uppercase; }
+  .wfc-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
+  .wfc-day { text-align: center; min-width: 0; }
+  .wfc-day .d { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .02em; }
+  .wfc-day .i { font-size: 19px; line-height: 1.35; }
+  .wfc-day .t { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wfc-day .t b { font-weight: 650; }
+  .wfc-day .t .lo { color: var(--ink-3); }
+
   .foot { margin-top: 10px; text-align: right; }
   .foot a { color: var(--ink-3); font-size: 11px; text-decoration: none; }
   .foot a:hover { color: var(--ink-2); }
@@ -65,6 +79,7 @@
       <div class="name">Brämhult <small>IBRMHULT2</small></div>
       <div class="when"><span class="live"></span><span id="when">—</span></div>
     </div>
+    <div class="wsun">☀️ <b id="sunup">–</b> &nbsp;·&nbsp; 🌙 <b id="sundn">–</b></div>
     <div class="grid">
       <div class="cell"><div class="val temp"><span id="temp">–</span><span class="u">°C</span></div><div class="lab">Temp</div></div>
       <div class="cell"><div class="val"><span id="wind">–</span><span class="u">m/s</span> <span class="arrow" id="warr">➤</span></div><div class="lab">Vind</div></div>
@@ -75,6 +90,10 @@
       <div class="cell"><div class="val" id="strk">–</div><div class="lab">Blixtar idag</div></div>
       <div class="cell"><div class="val"><span id="feels">–</span><span class="u">°C</span></div><div class="lab">Känns som</div></div>
     </div>
+    <div class="wfc" id="wfc" hidden>
+      <div class="wfc-head">Prognos · SMHI</div>
+      <div class="wfc-days" id="fcdays"></div>
+    </div>
     <div class="foot"><a href="https://weather.rickmark.se" target="_blank" rel="noopener">weather.rickmark.se →</a></div>
   </div>
 
@@ -84,8 +103,52 @@ const $ = (id) => document.getElementById(id);
 const num = (v, d = 0) => (typeof v === "number" && isFinite(v))
   ? v.toLocaleString("sv-SE", { minimumFractionDigits: d, maximumFractionDigits: d }) : "–";
 const DIRS = ["N","NNO","NO","ONO","O","OSO","SO","SSO","S","SSV","SV","VSV","V","VNV","NV","NNV"];
+const DAY_NAMES = ["Sön","Mån","Tis","Ons","Tor","Fre","Lör"];
+const WSYMB = { 1:"☀️",2:"🌤️",3:"⛅",4:"🌤️",5:"☁️",6:"☁️",7:"🌫️",8:"🌦️",9:"🌦️",10:"🌧️",11:"⛈️",12:"🌨️",13:"🌨️",14:"🌨️",15:"🌨️",16:"🌨️",17:"❄️",18:"🌧️",19:"🌧️",20:"🌧️",21:"⛈️",22:"🌨️",23:"🌨️",24:"🌨️",25:"🌨️",26:"❄️",27:"❄️" };
+const STATION_LAT = 57.7216, STATION_LON = 13.01;
+const todayStockholm = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
 const whenText = (iso) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(iso ? new Date(iso) : new Date());
 async function fetchJSON(u) { const r = await fetch(u, { cache: "no-store" }); if (!r.ok) throw 0; return r.json(); }
+
+// Soluppgång/-nedgång (lokal tid) via timvinkeln + tidsekvation
+function sunTimes(dateStr) {
+  const rad = Math.PI / 180;
+  const noon = new Date(dateStr + "T12:00:00Z");
+  const n = (noon - Date.UTC(noon.getUTCFullYear(), 0, 0)) / 864e5;
+  const decl = -23.44 * Math.cos((2 * Math.PI / 365) * (n + 10)) * rad;
+  const lat = STATION_LAT * rad;
+  const cosH = (Math.sin(-0.833 * rad) - Math.sin(lat) * Math.sin(decl)) / (Math.cos(lat) * Math.cos(decl));
+  if (cosH < -1 || cosH > 1) return null;
+  const H0 = Math.acos(cosH) / rad / 15;
+  const B = (2 * Math.PI / 364) * (n - 81);
+  const eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+  const local = (h) => {
+    const d = new Date(Date.UTC(noon.getUTCFullYear(), noon.getUTCMonth(), noon.getUTCDate()) + (h - STATION_LON / 15 - eot / 60) * 3600e3);
+    return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  };
+  return { rise: local(12 - H0), set: local(12 + H0) };
+}
+function paintSun() {
+  const s = sunTimes(todayStockholm());
+  if (!s) return;
+  $("sunup").textContent = s.rise;
+  $("sundn").textContent = s.set;
+}
+async function loadForecast() {
+  try {
+    const fc = await fetchJSON("/api/smhi");
+    if (!fc?.daily?.length) return;
+    const today = todayStockholm();
+    const days = fc.daily.filter((d) => d.tMax != null).slice(0, 5);
+    $("fcdays").innerHTML = days.map((d) => {
+      const dt = new Date(d.date + "T12:00:00");
+      const name = d.date === today ? "Idag" : DAY_NAMES[dt.getDay()];
+      return `<div class="wfc-day"><div class="d">${name}</div><div class="i">${WSYMB[d.noon] || ""}</div>` +
+             `<div class="t"><b>${Math.round(d.tMax)}°</b> <span class="lo">${Math.round(d.tMin)}°</span></div></div>`;
+    }).join("");
+    $("wfc").hidden = false;
+  } catch {}
+}
 
 function paint(o) {
   $("temp").textContent = num(o.temp, 1);
@@ -121,8 +184,11 @@ async function load() {
       strikes: null, feels: o.metric.temp >= 20 ? o.metric.heatIndex : o.metric.windChill, time: o.obsTimeLocal });
   } catch {}
 }
+paintSun();
 load();
+loadForecast();
 setInterval(load, 120000);
+setInterval(loadForecast, 1800000);
 </script>
 </body>
 </html>
