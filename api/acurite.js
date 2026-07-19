@@ -94,6 +94,63 @@ function extractAtlas(hub) {
   };
 }
 
+/* Probe-läge (?probe=1): kartlägg historik/chart-endpoints. Returnerar
+   strukturinfo (fältnamn, id:n) och statuskod per kandidat-URL — aldrig
+   mätvärden från inomhussensorer. Används en gång för att hitta rätt väg,
+   sedan byggs den riktiga historikhämtningen mot det som svarar. */
+async function probe(res) {
+  const detail = await apiGet(`/accounts/${session.accountId}/dashboard/hubs`).then(async list => {
+    const hubs = list?.account_hubs ?? list?.hubs ?? (Array.isArray(list) ? list : []);
+    return { hubId: hubs[0]?.id, detail: await apiGet(`/accounts/${session.accountId}/dashboard/hubs/${hubs[0]?.id ?? ""}`) };
+  });
+  const { hubId } = detail;
+  const devices = detail.detail?.devices ?? [];
+  const atlas = devices.find(d => /atlas/i.test(d.name ?? "")) ?? devices[0];
+  const deviceId = atlas?.id ?? atlas?.device_id ?? null;
+  const sensors = [...(atlas?.sensors ?? []), ...(atlas?.wired_sensors ?? [])];
+  const lightning = sensors.find(s => /strike count/i.test(s.sensor_name ?? ""));
+  const sensorId = lightning?.id ?? lightning?.sensor_id ?? null;
+
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
+  const from = new Date(today + "T12:00:00Z"); from.setUTCDate(from.getUTCDate() - 6);
+  const fromIso = from.toISOString().slice(0, 10);
+  const a = session.accountId;
+  const candidates = [
+    `/accounts/${a}/dashboard/hubs/${hubId}/chart?device_id=${deviceId}&sensor_id=${sensorId}&date_from=${fromIso}&date_to=${today}`,
+    `/accounts/${a}/hubs/${hubId}/chart?device_id=${deviceId}&sensor_id=${sensorId}&date_from=${fromIso}&date_to=${today}`,
+    `/accounts/${a}/devices/${deviceId}/sensors/${sensorId}/chart?date_from=${fromIso}&date_to=${today}`,
+    `/devices/${deviceId}/sensors/${sensorId}/chart?date_from=${fromIso}&date_to=${today}`,
+    `/accounts/${a}/dashboard/hubs/${hubId}/history?date_from=${fromIso}&date_to=${today}`,
+    `/accounts/${a}/exports?device_id=${deviceId}`,
+  ];
+  const attempts = [];
+  for (const path of candidates) {
+    try {
+      const r = await fetch(`${BASE}${path}`, { headers: { "x-one-vue-token": session.token, Accept: "application/json" } });
+      const text = await r.text();
+      attempts.push({ path, status: r.status, sample: text.slice(0, 400) });
+    } catch (err) {
+      attempts.push({ path, status: "nätverksfel", sample: String(err.message).slice(0, 200) });
+    }
+  }
+
+  return res.status(200).json({
+    status: "probe",
+    hubId,
+    hubKeys: Object.keys(detail.detail ?? {}),
+    devices: devices.map(d => ({
+      name: d.name ?? null,
+      keys: Object.keys(d),
+      id: d.id ?? d.device_id ?? null,
+      sensorFieldNames: (d.sensors?.[0]) ? Object.keys(d.sensors[0]) : [],
+      sensorIds: [...(d.sensors ?? []), ...(d.wired_sensors ?? [])].map(s => ({
+        id: s.id ?? s.sensor_id ?? null, name: s.sensor_name ?? null,
+      })),
+    })),
+    attempts,
+  });
+}
+
 export default async function handler(req, res) {
   const email = process.env.MYACURITE_EMAIL;
   const password = process.env.MYACURITE_PASSWORD;
@@ -107,6 +164,10 @@ export default async function handler(req, res) {
   try {
     if (!session.token || Date.now() - session.at > TOKEN_TTL) {
       await login(email, password);
+    }
+
+    if (req.query?.probe === "1" && session.accountId) {
+      return await probe(res);
     }
 
     if (!session.accountId) {
