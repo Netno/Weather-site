@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brämhult väderstation · IBRMHULT2</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("theme")||"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <style>
   /* ===== Design tokens ===================================================== */
   :root {
@@ -100,6 +101,12 @@
     font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase;
     padding: 3px 10px; border-radius: 100px;
   }
+  .theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; padding: 0; color: var(--ink-2); cursor: pointer;
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 100px;
+  }
+  .theme-toggle:hover { background: var(--grid); color: var(--ink); }
 
   /* ===== Cards & grid ====================================================== */
   .card {
@@ -189,6 +196,7 @@
     <div class="status">
       <span><span class="dot"></span>Senaste observation <b id="obs-time">–</b></span>
       <span class="mock-badge">Mockdata</span>
+      <button class="theme-toggle" id="theme-toggle" type="button"></button>
     </div>
   </header>
 
@@ -375,6 +383,7 @@ const el = (tag, attrs) => {
 };
 const H = 210, PAD = { t: 14, r: 12, b: 26, l: 38 };
 
+const mockRenders = []; // för omritning vid temabyte (SVG bakar in färgerna)
 function makeChart(wrapId, draw) {
   const wrap = document.getElementById(wrapId);
   const render = () => {
@@ -387,6 +396,7 @@ function makeChart(wrapId, draw) {
     draw(svg, tip, W);
   };
   render();
+  mockRenders.push(render);
   let raf;
   new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); }).observe(wrap);
 }
@@ -555,6 +565,28 @@ makeChart("chart-pressure", (svg, tip, W) => {
       <div class="rain">${d.rain > 0 ? "☂ " + fmt(d.rain) + " mm" : ""}</div>
     </div>`;
   }).join("");
+}
+
+/* ===== Temaväxlare (mörkt som standard, val sparas) ======================== */
+{
+  const btn = document.getElementById("theme-toggle");
+  const icons = {
+    toLight: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.6M12 19.4V21M4.4 4.4l1.1 1.1M18.5 18.5l1.1 1.1M3 12h1.6M19.4 12H21M4.4 19.6l1.1-1.1M18.5 5.5l1.1-1.1"/></svg>',
+    toDark: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 1 0 9.8 9.8z"/></svg>',
+  };
+  const paint = () => {
+    const dark = (document.documentElement.dataset.theme || "dark") === "dark";
+    btn.innerHTML = dark ? icons.toLight : icons.toDark;
+    btn.setAttribute("aria-label", dark ? "Byt till ljust tema" : "Byt till mörkt tema");
+  };
+  paint();
+  btn.addEventListener("click", () => {
+    const next = (document.documentElement.dataset.theme || "dark") === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    paint();
+    mockRenders.forEach(r => r()); // rita om diagrammen med nya färgerna
+  });
 }
 </script>
 

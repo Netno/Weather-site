@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Historik · Brämhult väderstation</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("theme")||"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <style>
   /* ===== Design tokens (samma som index.html) ============================== */
   :root {
@@ -91,6 +92,12 @@
   }
   .nav a:hover { background: var(--grid); }
   .nav a[aria-current] { background: var(--temp-soft); color: var(--temp); }
+  .theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; padding: 0; color: var(--ink-2); cursor: pointer;
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 100px;
+  }
+  .theme-toggle:hover { background: var(--grid); color: var(--ink); }
 
   .notice {
     display: none;
@@ -208,6 +215,7 @@
     <nav class="nav">
       <a href="/">Live</a>
       <a href="/historik/" aria-current="page">Historik</a>
+      <button class="theme-toggle" id="theme-toggle" type="button"></button>
     </nav>
   </header>
 
@@ -1211,6 +1219,7 @@ for (const btn of document.querySelectorAll(".tabs button")) {
 }
 
 async function boot() {
+  setupThemeToggle(); // resize-eventet ritar om aktiv flik med nya temat
   manifest = await getArchive("/data/manifest.json");
   if (!manifest) {
     document.querySelector(".page").insertAdjacentHTML("beforeend",

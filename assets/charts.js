@@ -39,6 +39,38 @@ const dateLabel = iso => `${parseInt(iso.slice(8, 10), 10)} ${MONTHS[parseInt(is
 // Stationens dygn, inte besökarens — allt datumräknande sker i svensk tid
 const todayIso = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
 
+/* ===== Tema (mörkt som standard, val sparas i localStorage) ================
+   Standardtemat sätts av en liten inline-skript i <head> före first paint;
+   den här knappen låter besökaren växla och kommer ihåg valet. */
+const THEME_ICONS = {
+  // ikonen visar temat man byter TILL
+  toLight: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.6M12 19.4V21M4.4 4.4l1.1 1.1M18.5 18.5l1.1 1.1M3 12h1.6M19.4 12H21M4.4 19.6l1.1-1.1M18.5 5.5l1.1-1.1"/></svg>',
+  toDark: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 1 0 9.8 9.8z"/></svg>',
+};
+const currentTheme = () => document.documentElement.dataset.theme || "dark";
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("theme", t); } catch (e) { /* privat läge — kör ändå */ }
+}
+function setupThemeToggle(onChange) {
+  const btn = document.getElementById("theme-toggle");
+  if (!btn) return;
+  const paint = () => {
+    const dark = currentTheme() === "dark";
+    btn.innerHTML = dark ? THEME_ICONS.toLight : THEME_ICONS.toDark;
+    btn.setAttribute("aria-label", dark ? "Byt till ljust tema" : "Byt till mörkt tema");
+    btn.setAttribute("title", dark ? "Ljust tema" : "Mörkt tema");
+  };
+  paint();
+  btn.addEventListener("click", () => {
+    applyTheme(currentTheme() === "dark" ? "light" : "dark");
+    paint();
+    // SVG-diagrammen bakar in färgerna vid ritning → rita om med nya temat
+    dispatchEvent(new Event("resize"));
+    if (onChange) onChange();
+  });
+}
+
 /* ===== Datatvätt ===========================================================
    Sensorglitchar (lösa kablar, döende batterier) ger fysiskt omöjliga
    värden — rådatan innehåller t.ex. −117 °C, 378 km/h och 1 874 hPa.

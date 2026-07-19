@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brämhult väderstation · IBRMHULT2</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("theme")||"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
 <style>
   /* ===== Design tokens ===================================================== */
   :root {
@@ -111,6 +112,12 @@
     padding: 5px 12px; border-radius: 100px;
   }
   .nav-link:hover { background: var(--grid); }
+  .theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; padding: 0; color: var(--ink-2); cursor: pointer;
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 100px;
+  }
+  .theme-toggle:hover { background: var(--grid); color: var(--ink); }
 
   .banner {
     display: none;
@@ -221,6 +228,7 @@
       <span><span class="dot" id="dot"></span><span id="obs-status">Hämtar …</span></span>
       <span class="live-badge">Live</span>
       <a class="nav-link" href="/historik/">Historik →</a>
+      <button class="theme-toggle" id="theme-toggle" type="button"></button>
     </div>
   </header>
 
@@ -1089,6 +1097,7 @@ function mountLightningMap() {
 }
 
 async function boot() {
+  setupThemeToggle(mountLightningMap); // byt kartstil (mörk/ljus) med temat
   mountLightningMap();
   await loadDayAndWeek();
   await loadCurrent();
