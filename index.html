@@ -213,14 +213,14 @@
   .day .lo { color: var(--ink-3); }
   .day .rain { font-size: 11px; color: var(--rain); margin-top: 6px; min-height: 16px; font-variant-numeric: tabular-nums; }
 
-  /* En rad, kompakt — alla dagar bredvid varandra (skrollar om de blir många) */
-  .fc-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(56px, 1fr); gap: 6px; margin-bottom: 4px; overflow-x: auto; scrollbar-width: thin; }
-  .fc-day { text-align: center; padding: 6px 2px 7px; border-radius: 8px; cursor: pointer; transition: background .12s; -webkit-tap-highlight-color: transparent; }
+  /* En rad, kompakt — kolumnerna krymper så alla dagar ryms utan skroll */
+  .fc-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 5px; margin-bottom: 4px; overflow: hidden; }
+  .fc-day { min-width: 0; text-align: center; padding: 6px 1px 7px; border-radius: 8px; cursor: pointer; transition: background .12s; -webkit-tap-highlight-color: transparent; }
   .fc-day:active { background: var(--grid); }
   .fc-day.today { background: var(--temp-soft); }
-  .fc-day .dname { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
-  .fc-day .icon { font-size: 21px; line-height: 1.15; }
-  .fc-day .temps { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .fc-day .dname { font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+  .fc-day .icon { font-size: 20px; line-height: 1.15; }
+  .fc-day .temps { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .fc-day .temps b { font-weight: 600; }
   .fc-day .temps .lo { color: var(--ink-3); }
   .fc-day .rain { font-size: 10px; color: var(--rain); min-height: 12px; font-variant-numeric: tabular-nums; }
