@@ -690,7 +690,7 @@ chart("chart-wind", (svg, tip, W) => {
 /* Lufttryck idag (upp till 3 dygn ur arkivet) */
 chart("chart-pressure", (svg, tip, W) => {
   const pts = state.pressurePts;
-  if (pts.length < 2) return false;
+  if (!pts.length) return false;
   const xMax = state.pressureDays * 24 - 1;
   const vals = pts.map(p => p.v);
   const lo = Math.floor(Math.min(...vals)) - 1, hi = Math.ceil(Math.max(...vals)) + 1;
@@ -1017,6 +1017,18 @@ async function buildPressureSeries() {
   for (const p of state.today) {
     if (p.pressure == null) continue;
     pts.push({ x: dayOffset * 24 + p.h, v: seaLevel(p.pressure, p.temp), t: `Idag kl ${hh(p.h)}:00` });
+  }
+  // Aktuell mätning som färsk slutpunkt → grafen har alltid data, även strax
+  // efter midnatt när dagens timserie bara har en enda punkt.
+  const cur = state.current;
+  if (cur?.metric?.pressure != null) {
+    const now = new Date();
+    const nowH = now.getHours() + now.getMinutes() / 60;
+    const lastTodayH = pts.length && pts[pts.length - 1].x >= dayOffset * 24
+      ? pts[pts.length - 1].x - dayOffset * 24 : -1;
+    if (nowH - lastTodayH > 0.25) {
+      pts.push({ x: dayOffset * 24 + nowH, v: seaLevel(cur.metric.pressure, cur.metric.temp), t: "Nu" });
+    }
   }
   labels.push(archived.length ? { label: "Idag", x: dayOffset * 24 + 12 }
     : { label: "06", x: 6 }, ...(archived.length ? [] : [{ label: "12", x: 12 }, { label: "18", x: 18 }]));
@@ -1526,8 +1538,8 @@ addEventListener("resize", () => { if (state.forecast) requestAnimationFrame(ren
 async function boot() {
   setupThemeToggle(mountLightningMap); // byt kartstil (mörk/ljus) med temat
   mountLightningMap();
+  await loadCurrent();      // sätt state.current först så tryckgrafen kan seedas med nuvärdet
   await loadDayAndWeek();
-  await loadCurrent();
   loadDennaDag();
   loadForecast();
   setInterval(loadCurrent, 120_000);
