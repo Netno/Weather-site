@@ -235,7 +235,9 @@
   .fc-hour .tp { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .fc-hour .wnd { font-size: 10.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-top: 2px; }
   .fc-hour .wnd .arr { display: inline-block; }
-  .fc-hour .pr { font-size: 10.5px; color: var(--rain); min-height: 14px; font-variant-numeric: tabular-nums; }
+  .fc-hour .pr { font-size: 10.5px; min-height: 14px; font-variant-numeric: tabular-nums; }
+  .fc-hour .pr .mm { color: var(--rain); }
+  .fc-hour .pr .pp { color: var(--ink-3); }
 
   footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
   footer a { color: var(--ink-2); }
@@ -1321,12 +1323,15 @@ function renderForecastDay(date) {
     const wind = r.ws != null
       ? `<span class="arr" style="transform:rotate(${(r.wd ?? 0) + 180}deg)">↑</span> ${fmt(r.ws, 0)}${gust}`
       : "";
+    const prec = r.precip >= 0.1
+      ? `<span class="mm">${fmt(r.precip)}</span>`
+      : (r.pprob >= 20 ? `<span class="pp">${fmt(r.pprob, 0)}%</span>` : "");
     return `<div class="fc-hour" title="${text}">
       <div class="hh">${String(fcHour(r.time)).padStart(2, "0")}</div>
       <div class="ic">${icon}</div>
       <div class="tp">${fmt(r.t, 0)}°</div>
       <div class="wnd">${wind}</div>
-      <div class="pr">${r.precip > 0 ? fmt(r.precip) : ""}</div>
+      <div class="pr">${prec}</div>
     </div>`;
   }).join("");
 
