@@ -1277,7 +1277,9 @@ function renderForecast() {
   if (!fc?.daily?.length) return;
   const today = todayIso();
   const hourDays = state.fcHourDays ?? new Set();
-  const days = fc.daily.filter(d => d.tMax != null).slice(0, 10);
+  // Visa bara dagar som har timprognos (SMHI ger timupplösning ~4 dygn) —
+  // då är varje dag i remsan klickbar.
+  const days = fc.daily.filter(d => d.tMax != null && hourDays.has(d.date));
   if (!days.length) return;
 
   document.getElementById("fc-days").innerHTML = days.map(d => {
