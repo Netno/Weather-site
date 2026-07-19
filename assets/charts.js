@@ -353,6 +353,16 @@ function axes(svg, W, yTicks, yFmt, xLabels) {
   }
 }
 
+/* Y-axelsteg som ger ~5 hjälplinjer oavsett storleksordning (1/2/5·10ⁿ).
+   Den fasta trappan 2/4/8 fungerade bara för små spann (temp, vind) och
+   sprängde lux/ljustid (0–60 000) till tusentals överlappande etiketter. */
+function niceStep(span, target = 5) {
+  const raw = (span || 1) / target;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  return (norm > 5 ? 10 : norm > 2 ? 5 : norm > 1 ? 2 : 1) * mag;
+}
+
 function showTip(tip, wrap, x, y, html) {
   tip.innerHTML = html;
   tip.classList.add("on");
@@ -390,7 +400,7 @@ function multiLine(wrapId, series, opts) {
     const sy = yScale(lo, hi);
     const sx = x => PAD.l + x / opts.xMax * (W - PAD.l - PAD.r);
     const ticks = [];
-    const step = hi - lo > 24 ? 8 : hi - lo > 12 ? 4 : 2;
+    const step = niceStep(hi - lo);
     for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
     axes(svg, W, ticks, opts.yFmt ?? (v => v), opts.xLabels.map(l => ({ label: l.label, x: sx(l.x) })));
 
