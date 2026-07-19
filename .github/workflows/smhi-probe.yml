@@ -7,25 +7,21 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Kolla driftsatt sida och API
+      - name: Vilka dagar är klickbara?
         run: |
-          SITE="https://weather-site-delta-ochre.vercel.app"
-          echo "=== /api/smhi ==="
-          code=$(curl -s -o /tmp/api -w "%{http_code}" "$SITE/api/smhi")
-          echo "HTTP $code"
+          curl -s "https://weather-site-delta-ochre.vercel.app/api/smhi" -o /tmp/api
           python3 - <<'PY'
           import json
-          try:
-              d = json.load(open("/tmp/api"))
-              print("referenceTime:", d.get("referenceTime"))
-              print("hourly:", len(d.get("hourly", [])), "daily:", len(d.get("daily", [])))
-              if d.get("hourly"): print("hourly[0]:", d["hourly"][0])
-          except Exception as e:
-              print("kunde inte parsa:", e); print(open("/tmp/api").read()[:200])
+          from datetime import datetime, timezone, timedelta
+          d = json.load(open("/tmp/api"))
+          # Efterlikna frontendens fcDay: svensk lokal tid (sommar = UTC+2)
+          def sthlm(iso):
+              t = datetime.fromisoformat(iso.replace("Z","+00:00")).astimezone(timezone(timedelta(hours=2)))
+              return t.strftime("%Y-%m-%d")
+          hourDays = sorted({ sthlm(r["time"]) for r in d["hourly"] })
+          dailyDates = [x["date"] for x in d["daily"]]
+          print("hourly-dagar (klickbara):", hourDays)
+          print("daily-datum (visas):", dailyDates)
+          pick = [dt for dt in dailyDates if dt in set(hourDays)]
+          print(f"KLICKBARA dagar: {len(pick)} av {len(dailyDates)} ->", pick)
           PY
-          echo; echo "=== index.html: vilken kod serverar Vercel? ==="
-          curl -s "$SITE/" -o /tmp/idx
-          for marker in selectForecastDay fcHourDays "fc-hours" "renderForecastDay" "Prognos"; do
-            if grep -q "$marker" /tmp/idx; then echo "  har: $marker"; else echo "  SAKNAR: $marker"; fi
-          done
-          echo "index.html-storlek: $(wc -c </tmp/idx) byte"
