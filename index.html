@@ -213,6 +213,30 @@
   .day .lo { color: var(--ink-3); }
   .day .rain { font-size: 11px; color: var(--rain); margin-top: 6px; min-height: 16px; font-variant-numeric: tabular-nums; }
 
+  .fc-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 8px; margin-bottom: 4px; }
+  .fc-day { text-align: center; padding: 10px 4px 12px; border-radius: 8px; }
+  .fc-day.today { background: var(--temp-soft); }
+  .fc-day .dname { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .fc-day .icon { font-size: 26px; line-height: 1.3; }
+  .fc-day .hi { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .fc-day .lo { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .fc-day .rain { font-size: 11px; color: var(--rain); margin-top: 4px; min-height: 15px; font-variant-numeric: tabular-nums; }
+  .fc-day.pickable { cursor: pointer; transition: background .12s; }
+  .fc-day.pickable:hover { background: var(--grid); }
+  .fc-day.sel { background: var(--temp-soft); box-shadow: inset 0 0 0 1.5px var(--temp); }
+
+  .fc-detail { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 12px; }
+  .fc-detail-head { font-size: 12.5px; color: var(--ink-3); margin: 0 0 10px; }
+  .fc-hours { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+  .fc-hour { flex: 0 0 auto; width: 56px; text-align: center; padding: 8px 2px; border-radius: 8px; background: var(--grid); }
+  .fc-hour .wnd { white-space: nowrap; }
+  .fc-hour .hh { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .fc-hour .ic { font-size: 20px; line-height: 1.5; }
+  .fc-hour .tp { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .fc-hour .wnd { font-size: 10.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .fc-hour .wnd .arr { display: inline-block; }
+  .fc-hour .pr { font-size: 10.5px; color: var(--rain); min-height: 14px; font-variant-numeric: tabular-nums; }
+
   footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
   footer a { color: var(--ink-2); }
 </style>
@@ -237,6 +261,17 @@
 
   <div class="grid">
     <div class="card span2 hero" id="hero"><div class="chart-empty">Hämtar senaste observationen …</div></div>
+
+    <div class="card span2 chart-card" id="forecast" style="display:none">
+      <h2>Prognos</h2>
+      <p class="subtitle" id="fc-sub">Kommande dygn</p>
+      <div class="fc-days" id="fc-days"></div>
+      <div class="fc-detail" id="fc-detail" style="display:none">
+        <p class="fc-detail-head" id="fc-detail-head"></p>
+        <div class="fc-hours" id="fc-hours"></div>
+        <div class="chart-wrap" id="chart-forecast"></div>
+      </div>
+    </div>
 
     <div class="card span2 chart-card" id="denna-dag" style="display:none">
       <h2>Denna dag genom åren</h2>
@@ -366,6 +401,7 @@ const state = {
   range: "idag",   // idag | 48h | vecka | manad
   acurite: null,   // stationens egna sensorer via /api/acurite (blixt, lux)
   acuriteToday: [],// dagens timserie för lux/uv från samma endpoint
+  forecast: null,  // SMHI-prognos via /api/smhi (timserie + dygn)
 };
 
 /* Timpunkter för en periods datum: bakdagar ur arkivet, idag från API:et */
@@ -1194,16 +1230,136 @@ function mountLightningMap() {
     `&Advertisment=0&MapStyle=${dark ? 3 : 0}#7/57.72/13.01`;
 }
 
+/* ===== Prognos (SMHI) ======================================================
+   /api/smhi ger färdigtuggad prognos (timserie + dygn). Ingen nyckel krävs;
+   Vercels edge-cache håller svaret så SMHI aldrig belastas per besökare.
+   Wsymb2 (1–27) tolkas till ikon + kort svensk text. */
+const WSYMB = {
+  1: ["☀️", "Klart"], 2: ["🌤️", "Mest klart"], 3: ["⛅", "Växlande moln"], 4: ["🌤️", "Halvklart"],
+  5: ["☁️", "Molnigt"], 6: ["☁️", "Mulet"], 7: ["🌫️", "Dimma"], 8: ["🌦️", "Lätta skurar"],
+  9: ["🌦️", "Regnskurar"], 10: ["🌧️", "Kraftiga skurar"], 11: ["⛈️", "Åskväder"],
+  12: ["🌨️", "Lätt snöblask"], 13: ["🌨️", "Snöblask"], 14: ["🌨️", "Kraftig snöblask"],
+  15: ["🌨️", "Lätta snöbyar"], 16: ["🌨️", "Snöbyar"], 17: ["❄️", "Kraftiga snöbyar"],
+  18: ["🌧️", "Lätt regn"], 19: ["🌧️", "Regn"], 20: ["🌧️", "Kraftigt regn"], 21: ["⛈️", "Åska"],
+  22: ["🌨️", "Lätt snöblask"], 23: ["🌨️", "Snöblask"], 24: ["🌨️", "Kraftig snöblask"],
+  25: ["🌨️", "Lätt snöfall"], 26: ["❄️", "Snöfall"], 27: ["❄️", "Kraftigt snöfall"],
+};
+const wsymb = code => WSYMB[code] ?? ["", ""];
+const fcFmt = opts => iso => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", ...opts }).format(new Date(iso));
+const fcDay = fcFmt({});                              // YYYY-MM-DD (svensk tid)
+const fcHour = iso => +fcFmt({ hour: "2-digit", hour12: false })(iso).replace(/\D/g, ""); // 0–23
+
+async function loadForecast() {
+  try {
+    const fc = await fetchJSON("/api/smhi");
+    if (!fc?.daily?.length) return;
+    state.forecast = fc;
+    // Standardval: idag om timdata finns, annars första dygnet med timdata
+    const hourDays = new Set(fc.hourly.map(r => fcDay(r.time)));
+    if (!state.fcSel || !hourDays.has(state.fcSel)) {
+      state.fcSel = hourDays.has(todayIso()) ? todayIso() : [...hourDays][0];
+    }
+    renderForecast();
+  } catch (err) { console.warn("smhi:", err); }
+}
+
+function renderForecast() {
+  const fc = state.forecast;
+  if (!fc?.daily?.length) return;
+  const today = todayIso();
+  const hourDays = new Set(fc.hourly.map(r => fcDay(r.time)));
+  const days = fc.daily.filter(d => d.tMax != null).slice(0, 10);
+  if (!days.length) return;
+
+  document.getElementById("fc-days").innerHTML = days.map(d => {
+    const date = new Date(d.date + "T12:00:00");
+    const isToday = d.date === today;
+    const pickable = hourDays.has(d.date);
+    const [icon, text] = wsymb(d.noon);
+    const name = isToday ? "Idag" : `${DAY_NAMES[date.getDay()]} ${date.getDate()}`;
+    const cls = ["fc-day", isToday && "today", pickable && "pickable", d.date === state.fcSel && "sel"].filter(Boolean).join(" ");
+    return `<div class="${cls}" data-date="${d.date}" title="${text}">
+      <div class="dname">${name}</div>
+      <div class="icon">${icon}</div>
+      <div class="hi">${fmt(d.tMax, 0)}°</div>
+      <div class="lo">${fmt(d.tMin, 0)}°</div>
+      <div class="rain">${d.precip > 0 ? "☂ " + fmt(d.precip) + " mm" : ""}</div>
+    </div>`;
+  }).join("");
+  for (const cell of document.querySelectorAll("#fc-days .fc-day.pickable")) {
+    cell.addEventListener("click", () => { state.fcSel = cell.dataset.date; renderForecast(); });
+  }
+
+  const rainDays = days.filter(d => d.precip > 0.1).length;
+  document.getElementById("fc-sub").innerHTML =
+    `Kommande ${days.length} dygn · från SMHI` +
+    (rainDays ? ` · nederbörd ${rainDays} ${rainDays === 1 ? "dag" : "dagar"}` : " · mestadels uppehåll") +
+    ` · <span style="opacity:.7">välj dag för timprognos</span>`;
+
+  renderForecastDay(state.fcSel);
+  document.getElementById("forecast").style.display = "";
+}
+
+/* Timprognos för vald dag: horisontell tim-strip + temperaturkurva */
+function renderForecastDay(date) {
+  const detail = document.getElementById("fc-detail");
+  const rows = (state.forecast?.hourly ?? []).filter(r => fcDay(r.time) === date && typeof r.t === "number");
+  if (!rows.length) { detail.style.display = "none"; return; }
+  detail.style.display = "";
+
+  const dObj = new Date(date + "T12:00:00");
+  const dayName = date === todayIso() ? "idag" : `${DAY_NAMES[dObj.getDay()].toLowerCase()} ${dObj.getDate()} ${MONTHS[dObj.getMonth()]}`;
+  const tHi = Math.max(...rows.map(r => r.t)), tLo = Math.min(...rows.map(r => r.t));
+  const pSum = rows.reduce((a, r) => a + (r.precip || 0), 0);
+  document.getElementById("fc-detail-head").innerHTML =
+    `Timprognos ${dayName} · <b>${fmt(tHi, 0)}°</b> / <b>${fmt(tLo, 0)}°</b>` +
+    (pSum > 0.1 ? ` · nederbörd <b>${fmt(pSum)} mm</b>` : " · uppehåll");
+
+  document.getElementById("fc-hours").innerHTML = rows.map(r => {
+    const [icon, text] = wsymb(r.symb);
+    const gust = r.gust != null && r.gust >= (r.ws ?? 0) + 1 ? ` (${fmt(r.gust, 0)})` : "";
+    const wind = r.ws != null
+      ? `<span class="arr" style="transform:rotate(${(r.wd ?? 0) + 180}deg)">↑</span> ${fmt(r.ws, 0)}${gust}`
+      : "";
+    return `<div class="fc-hour" title="${text}">
+      <div class="hh">${String(fcHour(r.time)).padStart(2, "0")}</div>
+      <div class="ic">${icon}</div>
+      <div class="tp">${fmt(r.t, 0)}°</div>
+      <div class="wnd">${wind}</div>
+      <div class="pr">${r.precip > 0 ? fmt(r.precip) : ""}</div>
+    </div>`;
+  }).join("");
+
+  const pts = rows.map((r, i) => ({ x: i, v: r.t }));
+  if (pts.length > 1) {
+    const xLabels = rows
+      .map((r, i) => ({ i, h: fcHour(r.time) }))
+      .filter(o => o.h % 6 === 0)
+      .map(o => ({ label: String(o.h).padStart(2, "0"), x: o.i }));
+    const tipTitle = xGuess => {
+      const r = rows[Math.max(0, Math.min(rows.length - 1, Math.round(xGuess)))];
+      return r ? `kl ${String(fcHour(r.time)).padStart(2, "0")}:00` : "";
+    };
+    multiLine("chart-forecast", [{ label: "Temp", color: css("--temp"), pts }],
+      { xMax: pts.length - 1, snap: 1.5, area: true, xLabels, yFmt: v => v + "°", tipTitle });
+  } else {
+    document.getElementById("chart-forecast").innerHTML = "";
+  }
+}
+addEventListener("resize", () => { if (state.forecast) requestAnimationFrame(renderForecast); });
+
 async function boot() {
   setupThemeToggle(mountLightningMap); // byt kartstil (mörk/ljus) med temat
   mountLightningMap();
   await loadDayAndWeek();
   await loadCurrent();
   loadDennaDag();
+  loadForecast();
   setInterval(loadCurrent, 120_000);
   setInterval(loadDayAndWeek, 300_000);
+  setInterval(loadForecast, 1_800_000); // prognosen uppdateras några ggr/dygn
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") { loadCurrent(); loadDayAndWeek(); }
+    if (document.visibilityState === "visible") { loadCurrent(); loadDayAndWeek(); loadForecast(); }
   });
 }
 boot();
