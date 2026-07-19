@@ -1294,8 +1294,10 @@ function renderForecast() {
       <div class="rain">${d.precip > 0 ? "☂ " + fmt(d.precip) + " mm" : ""}</div>
     </div>`;
   }).join("");
+  // Klick byter bara markering + detaljvy — vi bygger INTE om hela dags-
+  // remsan (det förstörde den tryckta cellen och gav ingen tap-respons).
   for (const cell of document.querySelectorAll("#fc-days .fc-day.pickable")) {
-    cell.addEventListener("click", () => { state.fcSel = cell.dataset.date; renderForecast(); });
+    cell.addEventListener("click", () => selectForecastDay(cell.dataset.date));
   }
 
   const rainDays = days.filter(d => d.precip > 0.1).length;
@@ -1304,8 +1306,17 @@ function renderForecast() {
     (rainDays ? ` · nederbörd ${rainDays} ${rainDays === 1 ? "dag" : "dagar"}` : " · mestadels uppehåll") +
     ` · <span style="opacity:.7">välj dag för timprognos</span>`;
 
-  renderForecastDay(state.fcSel);
+  selectForecastDay(state.fcSel);
   document.getElementById("forecast").style.display = "";
+}
+
+/* Byt vald dag: uppdatera markeringen direkt (omedelbar respons) och rita
+   detaljvyn i nästa frame så att highlighten hinner målas först. */
+function selectForecastDay(date) {
+  state.fcSel = date;
+  for (const c of document.querySelectorAll("#fc-days .fc-day"))
+    c.classList.toggle("sel", c.dataset.date === date);
+  requestAnimationFrame(() => renderForecastDay(date));
 }
 
 /* Timprognos för vald dag: horisontell tim-strip + temperaturkurva */
