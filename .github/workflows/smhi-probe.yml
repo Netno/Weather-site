@@ -16,13 +16,16 @@ jobs:
           python3 - <<'PY'
           import json
           d = json.load(open("/tmp/body"))
-          print("approvedTime:", d.get("approvedTime"))
-          ts = d.get("timeSeries", [])
+          print("top-level keys:", list(d.keys()))
+          for k in ("approvedTime","referenceTime","approved_time","reference_time"):
+              if k in d: print(f"  {k}: {d[k]}")
+          ts = d.get("timeSeries") or d.get("timeseries") or []
           print("timeSeries len:", len(ts))
           if ts:
-              print("first validTime:", ts[0]["validTime"])
-              print("last  validTime:", ts[-1]["validTime"])
+              print("entry[0] keys:", list(ts[0].keys()))
+              print("entry[0] (utan parameters):", {k:v for k,v in ts[0].items() if k!="parameters"})
+              print("entry[-1] (utan parameters):", {k:v for k,v in ts[-1].items() if k!="parameters"})
               print("--- parametrar i första punkten ---")
-              for p in ts[0]["parameters"]:
-                  print(f'  {p["name"]:10} {p.get("unit",""):10} {p["values"][0]}')
+              for p in ts[0].get("parameters", []):
+                  print(f'  {p.get("name"):12} {str(p.get("unit","")):10} {p.get("values")}')
           PY
