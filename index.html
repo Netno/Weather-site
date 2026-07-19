@@ -167,6 +167,11 @@
   .reading .val { font-size: 21px; font-weight: 550; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
   .reading .val small { font-size: 13px; font-weight: 450; color: var(--ink-3); margin-left: 2px; }
   .reading .sub { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+  .reading.linked { cursor: pointer; border-radius: 8px; margin: -4px; padding: 4px; transition: background .12s; }
+  .reading.linked:hover { background: var(--grid); }
+  .reading.linked .label::after { content: " ↓"; opacity: .55; }
+  .card.flash { animation: cardflash 1.1s ease; }
+  @keyframes cardflash { 0%, 100% { box-shadow: none; } 15% { box-shadow: inset 0 0 0 2px var(--temp); } }
   .trend-down::after { content: "↓"; color: var(--rain); margin-left: 4px; font-size: 15px; }
   .trend-up::after { content: "↑"; color: var(--temp); margin-left: 4px; font-size: 15px; }
   .trend-flat::after { content: "→"; color: var(--ink-3); margin-left: 4px; font-size: 15px; }
@@ -480,19 +485,19 @@ function renderHero() {
           <circle cx="10" cy="10" r="8.5"></circle>
           <path d="M10 3.5 L13 13 L10 11 L7 13 Z" transform="rotate(${(obs.winddir + 180) % 360} 10 10)"></path>
         </svg>${fmt(ms(m.windSpeed))}<small>m/s</small>`,
-      sub: `${dirText(obs.winddir)} (${obs.winddir}°)` },
-    { label: "Byar", val: `${fmt(ms(m.windGust))}<small>m/s</small>`, sub: "senaste obs" },
+      sub: `${dirText(obs.winddir)} (${obs.winddir}°)`, target: "chart-wind" },
+    { label: "Byar", val: `${fmt(ms(m.windGust))}<small>m/s</small>`, sub: "senaste obs", target: "chart-wind" },
     { label: "Luftfuktighet", val: `${Math.round(obs.humidity)}<small>%</small>`, sub: "rel. fuktighet" },
-    { label: "Lufttryck", val: `${fmt(seaLevel(m.pressure, m.temp))}<small>hPa</small>`, sub: trendText, cls: trendClass },
-    { label: "Regn idag", val: `${fmt(m.precipTotal)}<small>mm</small>`, sub: `${fmt(m.precipRate)} mm/h nu` },
+    { label: "Lufttryck", val: `${fmt(seaLevel(m.pressure, m.temp))}<small>hPa</small>`, sub: trendText, cls: trendClass, target: "chart-pressure" },
+    { label: "Regn idag", val: `${fmt(m.precipTotal)}<small>mm</small>`, sub: `${fmt(m.precipRate)} mm/h nu`, target: "chart-rain" },
     { label: "Känns som", val: `${fmt(feels)}<small>°C</small>`, sub: "vind & fukt invägda" },
   ];
-  if (obs.uv != null) cards.push({ label: "UV-index", val: fmt(obs.uv), sub: uvLabel(obs.uv) });
+  if (obs.uv != null) cards.push({ label: "UV-index", val: fmt(obs.uv), sub: uvLabel(obs.uv), target: "chart-uv" });
   if (obs.solarRadiation != null) cards.push({ label: "Solinstrålning", val: `${Math.round(obs.solarRadiation)}<small>W/m²</small>`, sub: "global strålning" });
   cards.push({ label: "Daggpunkt", val: `${fmt(m.dewpt)}<small>°C</small>`, sub: dewptLabel(m.dewpt) });
   const lux = state.acurite?.lux;
   if (lux != null) {
-    cards.push({ label: "Ljusintensitet", val: `${lux.toLocaleString("sv-SE")}<small>lux</small>`, sub: "stationens sensor" });
+    cards.push({ label: "Ljusintensitet", val: `${lux.toLocaleString("sv-SE")}<small>lux</small>`, sub: "stationens sensor", target: "chart-lux" });
   }
 
   const st = sunTimes(todayIso());
@@ -510,12 +515,26 @@ function renderHero() {
     </div>
     <div class="readings">
       ${cards.map(c => `
-        <div class="reading">
+        <div class="reading${c.target ? " linked" : ""}"${c.target ? ` data-target="${c.target}"` : ""}>
           <div class="label">${c.label}</div>
           <div class="val${c.cls || ""}">${c.val}</div>
           <div class="sub">${c.sub}</div>
         </div>`).join("")}
     </div>`;
+
+  // Klick på en ruta med graf → skrolla ner till den grafen (delegat, en gång)
+  const heroEl = document.getElementById("hero");
+  if (!heroEl.dataset.wired) {
+    heroEl.addEventListener("click", (e) => {
+      const r = e.target.closest(".reading[data-target]");
+      if (!r) return;
+      const card = document.getElementById(r.dataset.target)?.closest(".card");
+      if (!card) return;
+      card.scrollIntoView({ behavior: "smooth", block: "start" });
+      card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+    });
+    heroEl.dataset.wired = "1";
+  }
 }
 
 /* ===== Idag-vyns diagram (samma utseende som tidigare) ===================== */
