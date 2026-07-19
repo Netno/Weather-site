@@ -98,6 +98,18 @@ timfilerna är några MB/år, vilket är helt ok i ett repo.
 (Settings → Secrets and variables → Actions) och trigga workflowen manuellt
 för att starta backfillen.
 
+### myAcuRite-arkivet (blixtar, lux, ljustid)
+
+Stationens blixt- och ljussensorer når aldrig WU. `scripts/fetch-acurite.mjs`
+(körs i samma nattliga workflow) arkiverar i stället myAcuRites publika
+dagsfiler med timupplösning till `data/acurite/1h/ÅÅÅÅ/ÅÅÅÅ-MM.json` —
+råa och kanalindelade som källan (1 = temp, 14 = lux, 15 = ljustid/sek,
+16/18 = blixtar, 17/21 = nedslagsavstånd). Filerna finns kvar sedan
+stationens första dag (2018-12-05), så backfillen tar hela historiken.
+Kräver repo-secret `ACURITE_DATA_URL` (enhetens data-URL — hålls hemlig
+för att inte publicera MAC-adressen). Live-värdena på sidan går via
+`api/acurite.js` med kontouppgifter som Vercel-miljövariabler.
+
 ## Historikvyer (planerade)
 
 Arkivet möjliggör vyer som WU:s eget gränssnitt saknar, utan API-kostnad:

@@ -35,6 +35,13 @@ jobs:
           CALL_BUDGET: ${{ github.event.inputs.call_budget || '1200' }}
         run: node scripts/fetch-history.mjs
 
+      - name: Hämta myAcuRite-data till arkivet
+        # Körs även om WU-steget failar; hoppar över sig själv om secret saknas
+        if: always()
+        env:
+          ACURITE_DATA_URL: ${{ secrets.ACURITE_DATA_URL }}
+        run: node scripts/fetch-acurite.mjs
+
       - name: Committa och pusha arkivet
         # Körs även om hämtsteget failade — skriptet sparar alltid sin
         # framgång till disk, och delresultat får inte gå förlorade.
