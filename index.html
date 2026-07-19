@@ -495,6 +495,9 @@ function renderHero() {
     cards.push({ label: "Ljusintensitet", val: `${lux.toLocaleString("sv-SE")}<small>lux</small>`, sub: "stationens sensor" });
   }
 
+  const st = sunTimes(todayIso());
+  const sunHero = st ? ` · <span style="white-space:nowrap">☀ ${st.rise}–${st.set}</span>` : "";
+
   document.getElementById("hero").innerHTML = `
     <div>
       <div class="hero-temp">
@@ -502,7 +505,7 @@ function renderHero() {
       </div>
       <div class="hero-sub">
         Daggpunkt ${fmt(m.dewpt)}° · idag <span class="hi">▲ ${fmt(tMax)}°</span>
-        <span class="lo">▼ ${fmt(tMin)}°</span>
+        <span class="lo">▼ ${fmt(tMin)}°</span>${sunHero}
       </div>
     </div>
     <div class="readings">
@@ -1304,10 +1307,9 @@ async function loadForecast() {
     for (const r of fc.hourly) { r._day = fcDay(r.time); r._hour = fcHour(r.time); r._night = isNightIso(r.time); }
     state.forecast = fc;
     state.fcHourDays = new Set(fc.hourly.map(r => r._day));
-    // Standardval: idag om timdata finns, annars första dygnet med timdata
-    if (!state.fcSel || !state.fcHourDays.has(state.fcSel)) {
-      state.fcSel = state.fcHourDays.has(todayIso()) ? todayIso() : [...state.fcHourDays][0];
-    }
+    // Ingen förvald dag — timprognosen är hopfälld tills man klickar.
+    // (Behåll ett ev. redan öppet val över datauppdateringar.)
+    if (state.fcSel && !state.fcHourDays.has(state.fcSel)) state.fcSel = null;
     renderForecast();
   } catch (err) { console.warn("smhi:", err); }
 }
@@ -1351,22 +1353,40 @@ function renderForecast() {
   document.getElementById("fc-sub").innerHTML =
     `Kommande ${days.length} dygn · från SMHI` +
     (rainDays ? ` · nederbörd ${rainDays} ${rainDays === 1 ? "dag" : "dagar"}` : " · mestadels uppehåll") +
-    ` · <span style="opacity:.7">välj dag för timprognos</span>`;
+    ` · <span style="opacity:.7">klicka på en dag för timprognos</span>`;
 
-  selectForecastDay(state.fcSel);
+  // Håll en ev. redan öppen dag öppen; annars är detaljvyn hopfälld
+  const detail = document.getElementById("fc-detail");
+  if (state.fcSel && days.some(d => d.date === state.fcSel)) {
+    for (const c of document.querySelectorAll("#fc-days .fc-day"))
+      c.classList.toggle("sel", c.dataset.date === state.fcSel);
+    renderForecastDay(state.fcSel);
+    detail.style.display = "";
+  } else {
+    detail.style.display = "none";
+  }
   document.getElementById("forecast").style.display = "";
 }
 
 /* Byt vald dag: uppdatera markeringen direkt (omedelbar respons) och rita
    detaljvyn i nästa frame så att highlighten hinner målas först. */
 function selectForecastDay(date) {
+  const detail = document.getElementById("fc-detail");
+  // Klick på redan öppen dag → fäll ihop
+  if (state.fcSel === date && detail.style.display !== "none") {
+    state.fcSel = null;
+    for (const c of document.querySelectorAll("#fc-days .fc-day")) c.classList.remove("sel");
+    detail.style.display = "none";
+    return;
+  }
   state.fcSel = date;
   for (const c of document.querySelectorAll("#fc-days .fc-day"))
     c.classList.toggle("sel", c.dataset.date === date);
+  detail.style.display = "";
   requestAnimationFrame(() => {
     renderForecastDay(date);
     // Se till att detaljvyn syns (den kan hamna under skärmkanten på mobil)
-    document.getElementById("fc-detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    detail.scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
 }
 
