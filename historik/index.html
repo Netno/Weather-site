@@ -85,10 +85,10 @@
   .station h1 { font-size: 21px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
   .station .meta { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
   .station .meta .id { font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 12px; }
-  .nav { display: flex; gap: 4px; }
+  .nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
   .nav a {
     color: var(--ink-2); text-decoration: none; font-size: 13.5px; font-weight: 550;
-    padding: 5px 12px; border-radius: 100px;
+    white-space: nowrap; padding: 5px 12px; border-radius: 100px;
   }
   .nav a:hover { background: var(--grid); }
   .nav a[aria-current] { background: var(--temp-soft); color: var(--temp); }

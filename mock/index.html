@@ -94,7 +94,8 @@
   .station h1 { font-size: 21px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
   .station .meta { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
   .station .meta .id { font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 12px; }
-  .status { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-2); }
+  .status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; font-size: 13px; color: var(--ink-2); }
+  .status > span { white-space: nowrap; }
   .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; vertical-align: 1px; }
   .mock-badge {
     background: var(--badge-bg); color: var(--badge-ink);
