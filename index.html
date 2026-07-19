@@ -213,17 +213,17 @@
   .day .lo { color: var(--ink-3); }
   .day .rain { font-size: 11px; color: var(--rain); margin-top: 6px; min-height: 16px; font-variant-numeric: tabular-nums; }
 
-  .fc-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 8px; margin-bottom: 4px; }
-  .fc-day { text-align: center; padding: 10px 4px 12px; border-radius: 8px; cursor: pointer; transition: background .12s; -webkit-tap-highlight-color: transparent; }
+  /* En rad, kompakt — alla dagar bredvid varandra (skrollar om de blir många) */
+  .fc-days { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(56px, 1fr); gap: 6px; margin-bottom: 4px; overflow-x: auto; scrollbar-width: thin; }
+  .fc-day { text-align: center; padding: 6px 2px 7px; border-radius: 8px; cursor: pointer; transition: background .12s; -webkit-tap-highlight-color: transparent; }
   .fc-day:active { background: var(--grid); }
   .fc-day.today { background: var(--temp-soft); }
-  .fc-day .dname { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
-  .fc-day .icon { font-size: 26px; line-height: 1.3; }
-  .fc-day .hi { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .fc-day .lo { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-  .fc-day .rain { font-size: 11px; color: var(--rain); margin-top: 4px; min-height: 15px; font-variant-numeric: tabular-nums; }
-  .fc-day.pickable { cursor: pointer; transition: background .12s; }
-  .fc-day.pickable:hover { background: var(--grid); }
+  .fc-day .dname { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+  .fc-day .icon { font-size: 21px; line-height: 1.15; }
+  .fc-day .temps { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .fc-day .temps b { font-weight: 600; }
+  .fc-day .temps .lo { color: var(--ink-3); }
+  .fc-day .rain { font-size: 10px; color: var(--rain); min-height: 12px; font-variant-numeric: tabular-nums; }
   .fc-day.sel { background: var(--temp-soft); box-shadow: inset 0 0 0 1.5px var(--temp); }
 
   .fc-detail { margin-top: 14px; border-top: 1px solid var(--grid); padding-top: 12px; }
@@ -1292,9 +1292,8 @@ function renderForecast() {
     return `<div class="${cls}" data-date="${d.date}" title="${text}">
       <div class="dname">${name}</div>
       <div class="icon">${icon}</div>
-      <div class="hi">${fmt(d.tMax, 0)}°</div>
-      <div class="lo">${fmt(d.tMin, 0)}°</div>
-      <div class="rain">${d.precip > 0 ? "☂ " + fmt(d.precip) + " mm" : ""}</div>
+      <div class="temps"><b>${fmt(d.tMax, 0)}°</b> <span class="lo">${fmt(d.tMin, 0)}°</span></div>
+      <div class="rain">${d.precip > 0 ? "☂ " + fmt(d.precip) : ""}</div>
     </div>`;
   }).join("");
   // Delegerad klickhantering (kopplas EN gång) — robust mot omrenderingar,
