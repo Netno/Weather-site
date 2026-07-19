@@ -220,6 +220,41 @@ const LUX_COLOR = "#C4A030", UV_COLOR = "#9A6BD0", BLIXT_COLOR = "#D4A017";
 const luxFmt = v => v >= 1000 ? Math.round(v / 1000) + "k" : String(Math.round(v));
 const acuriteMonth = async ym => await getArchive(`/data/acurite/1h/${ym.slice(0, 4)}/${ym}.json`) ?? {};
 const acuriteDaily = async () => await getArchive("/data/acurite/daily.json") ?? {};
+
+/* Timpunkter för flera dagar ur AcuRite-arkivet (motsvarar collectHourly för
+   WU); punkterna har temp/rain/wind/gust/pressure i samma form som WU-arkivet. */
+async function collectAcuriteHourly(dates) {
+  const months = [...new Set(dates.map(d => d.slice(0, 7)))];
+  const data = Object.fromEntries(await Promise.all(months.map(async m => [m, await acuriteMonth(m)])));
+  const pts = [];
+  dates.forEach((date, di) => {
+    const day = data[date.slice(0, 7)]?.[date];
+    if (!day) return;
+    for (const p of acuriteDayPts(day)) {
+      if (p.temp != null) pts.push({ ...p, x: di * 24 + p.h, date });
+    }
+  });
+  return pts;
+}
+
+/* Dygnsaggregat (daily.json) → WU-liknande daily-obj för periodvyerna */
+function acuriteAggToObs(a) {
+  if (!a || (a.tMax == null && a.tMin == null)) return null;
+  const p = a.pAvg != null ? toStationPressure(a.pAvg, a.tAvg) : null;
+  return {
+    humidityAvg: null,
+    metric: {
+      tempHigh: a.tMax, tempLow: a.tMin, tempAvg: a.tAvg,
+      precipTotal: a.rainDay,
+      windspeedAvg: a.windAvg, windgustHigh: a.windMax,
+      pressureMax: p, pressureMin: p,
+    },
+  };
+}
+async function collectAcuriteDaily(dates) {
+  const agg = await acuriteDaily();
+  return dates.map((date, di) => ({ x: di, date, obs: acuriteAggToObs(agg[date]) }));
+}
 const stockholmHourFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", hour12: false });
 function acuriteDayPts(day) {
   const byH = new Map();
@@ -236,6 +271,12 @@ function acuriteDayPts(day) {
   put("13", "uv", "");
   put("16", "strikes", "");
   put("15", "sec", "SEC");
+  // Väderkanaler så att live-vyns period­grafer kan byggas ur AcuRite:
+  put("1", "temp", "C");        // °C
+  put("3", "wind", "KPH");      // km/h
+  put("4", "winddir", "");      // grader
+  put("9", "pSL", "HPA");       // havsnivåtryck
+  put("11", "rainCum", "MM");   // dygnsackumulerat regn
   const pts = [...byH.values()]
     .map(p => ({
       ...p,
@@ -243,6 +284,11 @@ function acuriteDayPts(day) {
       uv: inBounds(p.uv, "uv"),
       sec: inBounds(p.sec, "sec"),
       strikes: typeof p.strikes === "number" && p.strikes >= 0 && p.strikes < 250 ? p.strikes : null,
+      temp: inBounds(p.temp, "temp"),
+      wind: inBounds(p.wind, "windKph"),
+      gust: inBounds(p.wind, "windKph"), // ingen separat by i timfilen
+      // AcuRite ger havsnivåtryck → till stationstryck så seaLevel() ger tillbaka rätt
+      pressure: p.pSL != null ? toStationPressure(inBounds(p.pSL, "pressureRaw"), p.temp) : null,
     }))
     .sort((a, b) => a.h - b.h);
   // ljustid är kumulativ under dygnet → minuter ljus per timme = differens
@@ -250,6 +296,13 @@ function acuriteDayPts(day) {
   for (const p of pts) {
     p.lightMin = p.sec != null ? Math.max(0, Math.min(60, (p.sec - prevSec) / 60)) : null;
     if (p.sec != null) prevSec = p.sec;
+  }
+  // regn (kumulativt) → mm per timme = differens
+  let prevRain = 0;
+  for (const p of pts) {
+    const cum = Math.max(prevRain, p.rainCum ?? prevRain);
+    p.rain = Math.max(0, cum - prevRain);
+    if (p.rainCum != null) prevRain = cum;
   }
   return pts;
 }

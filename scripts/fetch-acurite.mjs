@@ -105,6 +105,8 @@ function aggregateDay(day) {
   const distKm = vals("17", "KM").filter(v => v > 0);
   const temps = vals("1", "C").filter(v => v >= -40 && v <= 45);
   const rainCum = vals("11", "MM").filter(v => v >= 0 && v <= 150); // dygnsackumulerat
+  const windAll = vals("3", "KPH").filter(v => v >= 0 && v <= 180);
+  const pAll = vals("9", "HPA").filter(v => v >= 850 && v <= 1100); // havsnivå
   const speedByT = Object.fromEntries(rows("3", "KPH").map(r => [r.t, r.v]));
   const dirs = Array(16).fill(0);
   for (const r of rows("4", "")) {
@@ -122,6 +124,9 @@ function aggregateDay(day) {
     tMin: temps.length ? Math.min(...temps) : null,
     tMax: temps.length ? Math.max(...temps) : null,
     rainDay: rainCum.length ? Math.max(...rainCum) : null,
+    windMax: windAll.length ? Math.max(...windAll) : null,
+    windAvg: windAll.length ? +(windAll.reduce((a, b) => a + b, 0) / windAll.length).toFixed(1) : null,
+    pAvg: pAll.length ? +(pAll.reduce((a, b) => a + b, 0) / pAll.length).toFixed(1) : null,
     dirs: dirs.some(v => v) ? dirs : null,
   };
 }

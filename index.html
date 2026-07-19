@@ -396,7 +396,8 @@ function renderStatus() {
   if (!obs) { elS.textContent = "Ingen kontakt med stationen"; dot.classList.add("stale"); return; }
   const ageMin = Math.round((Date.now() / 1000 - obs.epoch) / 60);
   const time = obs.obsTimeLocal.slice(11, 16);
-  const via = state.currentSource === "acurite" ? ' <span style="opacity:.7">· via AcuRite</span>' : "";
+  // AcuRite är normalkällan; notera bara om vi tvingats falla tillbaka på WU
+  const via = state.currentSource === "wu" ? ' <span style="opacity:.7">· via WU</span>' : "";
   if (ageMin <= 20) {
     elS.innerHTML = `Senaste observation <b>${time}</b>${via}`;
     dot.classList.remove("stale");
@@ -710,17 +711,9 @@ async function buildRangeData() {
   const past = dates.slice(0, -1);
 
   if (hourly) {
-    let archivePts = await collectHourly(past);
-    // Bakdagar som saknas i arkivet (nattens hämtning har inte gått, eller
-    // backfillen är inte ikapp) kompletteras med timvärden direkt från API:et
-    for (const [di, date] of past.entries()) {
-      if (archivePts.some(p => p.date === date)) continue;
-      try {
-        const r = await fetchJSON(`/api/wu?e=hourly&d=${date}`);
-        archivePts = archivePts.concat(daySeries(r.observations ?? [])
-          .map(p => ({ ...p, x: di * 24 + p.h, date })));
-      } catch (err) { console.warn("hourly", date, err); }
-    }
+    // Bakdagar ur AcuRite-arkivet (dygnsvis, uppdaterat varje natt), idag
+    // ur dashboarden. AcuRite är stationens källa och kräver ingen WU-nyckel.
+    const archivePts = await collectAcuriteHourly(past);
     let pts = [...archivePts, ...todayPtsHourly(past.length, today)];
 
     // Äkta rullande fönster: exakt 48 timmar bakåt från nu (svensk tid)
@@ -744,9 +737,8 @@ async function buildRangeData() {
     return { dates, hourly, pts, covered, xMax: 48, xLabels, window: { startAbs, nowAbs } };
   }
 
-  const days = await collectDaily(past);
-  // Dygn som saknas i arkivet fylls från 7-dygnssummeringarna (samma data
-  // som remsan längst ner) — täcker senaste veckan tills arkivet är ikapp
+  const days = await collectAcuriteDaily(past);
+  // Dygn som saknas i AcuRite-arkivet fylls från veckodatan (state.week)
   const weekByDate = new Map(state.week
     .filter(s => s?.metric && s.obsTimeLocal)
     .map(s => [s.obsTimeLocal.slice(0, 10), s]));
@@ -972,18 +964,16 @@ function renderSubtitles() {
 }
 
 /* ===== Laddning & uppdatering ============================================== */
-async function loadAcurite() {
-  const a = await fetchAcurite();
-  if (!a) return; // saknas variabler / API ändrat — visa inget
-  state.acuriteRaw = a;
-  renderHero();
+/* Extra AcuRite-rendering (lux/UV-undertexter + blixtsensorrad) — datan är
+   redan hämtad av loadDayAndWeek/loadCurrent. */
+function renderAcuriteExtras() {
+  if (!state.acurite) return;
   if (state.range === "idag") {
     const luxMax = Math.max(0, ...state.acuriteToday.map(p => p.lux ?? 0));
     const uvMax = Math.max(0, ...state.acuriteToday.map(p => p.uv ?? 0));
     document.getElementById("lx-sub").innerHTML = `Idag · max <b>${luxMax.toLocaleString("sv-SE")} lux</b> · stationens sensor`;
     document.getElementById("uv-sub").innerHTML = `Idag · max <b>${fmt(uvMax, 0)}</b> · stationens sensor`;
   }
-  renderCharts();
   const bx = state.acurite.lightning;
   const elBx = document.getElementById("bx-sensor");
   if (bx && (bx.dailyStrikes != null || bx.count != null)) {
@@ -1127,18 +1117,18 @@ async function fetchAcurite() {
 
 async function loadCurrent() {
   let obs = null;
-  state.currentSource = "wu";
-  try {
-    const data = await fetchJSON("/api/wu?e=current");
-    obs = data.observations?.[0];
-    if (!obs) throw new Error("tomt svar");
-  } catch (err) { console.warn("WU current:", err); }
+  state.currentSource = "acurite";
+  // AcuRite är stationens egen källa (matar WU) och ligger på egen inloggning
+  const a = state.acuriteRaw ?? await fetchAcurite();
+  if (a) obs = acuriteToObs(a.atlas);
 
   if (!obs) {
-    // WU nere → fall tillbaka på AcuRite (stationens egen källa)
-    const a = state.acuriteRaw ?? await fetchAcurite();
-    const fromAcu = a && acuriteToObs(a.atlas);
-    if (fromAcu) { obs = fromAcu; state.currentSource = "acurite"; }
+    // AcuRite-inloggning nere → WU som reserv
+    try {
+      const data = await fetchJSON("/api/wu?e=current");
+      obs = data.observations?.[0];
+      if (obs) state.currentSource = "wu";
+    } catch (err) { console.warn("WU current (reserv):", err); }
   }
 
   if (obs) { state.current = obs; showBanner(null); }
@@ -1151,25 +1141,25 @@ async function loadCurrent() {
 
 async function loadDayAndWeek() {
   let gotToday = false, gotWeek = false;
-  try {
-    const t = await fetchJSON("/api/wu?e=today");
-    state.today = hourlySeries(t.observations ?? []);
-    gotToday = state.today.length > 0;
-  } catch (err) { console.warn("WU today:", err); }
-  try {
-    const w = await fetchJSON("/api/wu?e=week");
-    state.week = (w.summaries ?? w.observations ?? []).map(o => o?.metric ? cleanDailyObs(o) : o);
-    gotWeek = state.week.length > 0;
-  } catch (err) { console.warn("WU week:", err); }
+  // AcuRite primär: dagens serie ur dashboarden, veckan ur dygnsaggregatet
+  state.acuriteRaw = await fetchAcurite();
+  if (state.acuriteRaw) {
+    const s = acuriteTodayToSeries(state.acuriteToday);
+    if (s.length) { state.today = s; gotToday = true; }
+    const w = await acuriteWeek();
+    if (w.length) { state.week = w; gotWeek = true; }
+  }
 
-  if (!gotToday || !gotWeek) {
-    // WU nere → bygg dagens serie och veckan ur AcuRite
-    state.acuriteRaw = await fetchAcurite();
-    if (!gotToday) {
-      const s = acuriteTodayToSeries(state.acuriteToday);
-      if (s.length) state.today = s;
-    }
-    if (!gotWeek) state.week = await acuriteWeek();
+  if (!gotToday) {
+    try { const t = await fetchJSON("/api/wu?e=today"); const s = hourlySeries(t.observations ?? []); if (s.length) state.today = s; }
+    catch (err) { console.warn("WU today (reserv):", err); }
+  }
+  if (!gotWeek) {
+    try {
+      const w = await fetchJSON("/api/wu?e=week");
+      const wk = (w.summaries ?? w.observations ?? []).map(o => o?.metric ? cleanDailyObs(o) : o);
+      if (wk.length) state.week = wk;
+    } catch (err) { console.warn("WU week (reserv):", err); }
   }
 
   await buildPressureSeries();
@@ -1177,6 +1167,7 @@ async function loadDayAndWeek() {
   renderSubtitles();
   renderCharts();
   renderDays();
+  renderAcuriteExtras();
 }
 
 async function setRange(range) {
@@ -1208,11 +1199,9 @@ async function boot() {
   mountLightningMap();
   await loadDayAndWeek();
   await loadCurrent();
-  loadAcurite();
   loadDennaDag();
-  setInterval(loadCurrent, 60_000);
+  setInterval(loadCurrent, 120_000);
   setInterval(loadDayAndWeek, 300_000);
-  setInterval(loadAcurite, 300_000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") { loadCurrent(); loadDayAndWeek(); }
   });
