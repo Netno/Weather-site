@@ -45,7 +45,7 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
         var strikes: Int? = null, var feels: Double? = null, var dew: Double? = null, var press: Double? = null,
         var symb: Int? = null, var days: List<Day> = emptyList()
     )
-    private data class Day(val name: String, val icon: String, val hi: Int, val lo: Int)
+    private data class Day(val date: String, val name: String, val icon: String, val hi: Int, val lo: Int)
 
     private fun fetch(): Wx {
         val wx = Wx()
@@ -92,7 +92,7 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
                     val lo = o.dbl("tMin") ?: hi
                     val date = o.optString("date")
                     val name = if (date == today) "Idag" else weekday(date)
-                    out.add(Day(name, iconFor(o.dbl("noon")?.roundToInt(), false), hi.roundToInt(), lo.roundToInt()))
+                    out.add(Day(date, name, iconFor(o.dbl("noon")?.roundToInt(), false), hi.roundToInt(), lo.roundToInt()))
                 }
             }
             wx.days = out
@@ -102,9 +102,10 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
 
     // ---- Bygg vyer -----------------------------------------------------------
     private fun build(d: Wx): RemoteViews {
-        val v = RemoteViews(applicationContext.packageName, R.layout.widget)
+        val ctx = applicationContext
+        val v = RemoteViews(ctx.packageName, R.layout.widget)
         val night = d.lux?.let { it < 30 } ?: isNight()
-        v.setInt(R.id.root, "setBackgroundResource", bgFor(d.symb, night))
+        v.setImageViewResource(R.id.w_bg, sceneDrawable(d.symb, night))
         v.setTextViewText(R.id.w_icon, iconFor(d.symb, night))
         v.setTextViewText(R.id.w_when, whenFmt.format(Date()))
 
@@ -131,11 +132,25 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
         val fcIds = intArrayOf(R.id.w_fc0, R.id.w_fc1, R.id.w_fc2, R.id.w_fc3, R.id.w_fc4)
         for (i in fcIds.indices) {
             val day = d.days.getOrNull(i)
-            if (day != null) v.setTextViewText(fcIds[i], "${day.name}\n${day.icon}\n${day.hi}° ${day.lo}°")
-            else v.setTextViewText(fcIds[i], "")
+            if (day != null) {
+                v.setTextViewText(fcIds[i], "${day.name}\n${day.icon}\n${day.hi}° ${day.lo}°")
+                // Klick på en dag → öppna appen på just den dagens timprognos
+                v.setOnClickPendingIntent(fcIds[i], WeatherWidget.pendingUrl(ctx, 200 + i, "$BASE/#dag=${day.date}"))
+            } else {
+                v.setTextViewText(fcIds[i], "")
+            }
         }
 
-        v.setOnClickPendingIntent(R.id.root, WeatherWidget.pendingOpenApp(applicationContext))
+        // Klick på en mätcell → öppna appen och skrolla till motsvarande graf
+        v.setOnClickPendingIntent(R.id.c_temp, WeatherWidget.pendingUrl(ctx, 301, "$BASE/#graf=temp"))
+        v.setOnClickPendingIntent(R.id.c_wind, WeatherWidget.pendingUrl(ctx, 302, "$BASE/#graf=wind"))
+        v.setOnClickPendingIntent(R.id.c_rain, WeatherWidget.pendingUrl(ctx, 303, "$BASE/#graf=rain"))
+        v.setOnClickPendingIntent(R.id.c_uv, WeatherWidget.pendingUrl(ctx, 304, "$BASE/#graf=uv"))
+        v.setOnClickPendingIntent(R.id.c_lux, WeatherWidget.pendingUrl(ctx, 305, "$BASE/#graf=lux"))
+        v.setOnClickPendingIntent(R.id.c_press, WeatherWidget.pendingUrl(ctx, 306, "$BASE/#graf=pressure"))
+        v.setOnClickPendingIntent(R.id.c_wnow, WeatherWidget.pendingUrl(ctx, 307, "$BASE/#graf=wind"))
+        // Resten av widgeten öppnar startsidan
+        v.setOnClickPendingIntent(R.id.root, WeatherWidget.pendingUrl(ctx, 100, BASE))
         return v
     }
 
@@ -154,11 +169,14 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
     private fun f(v: Double?, dec: Int): String =
         if (v == null || v.isNaN()) "–" else String.format(Locale("sv", "SE"), "%.${dec}f", v)
 
-    private fun bgFor(symb: Int?, night: Boolean): Int = when (symb) {
-        7 -> R.drawable.bg_fog
-        5, 6 -> R.drawable.bg_cloudy
-        8, 9, 10, 11, 18, 19, 20, 21, 12, 13, 14, 15, 16, 17, 22, 23, 24, 25, 26, 27 -> R.drawable.bg_rain
-        else -> if (night) R.drawable.bg_night else R.drawable.bg_day
+    private fun sceneDrawable(symb: Int?, night: Boolean): Int = when (symb) {
+        7 -> R.drawable.scene_fog
+        5, 6 -> R.drawable.scene_cloudy
+        8, 9, 10, 18, 19, 20 -> R.drawable.scene_rain
+        11, 21 -> R.drawable.scene_thunder
+        12, 13, 14, 15, 16, 17, 22, 23, 24, 25, 26, 27 -> R.drawable.scene_snow
+        2, 3, 4 -> if (night) R.drawable.scene_partly_night else R.drawable.scene_partly_day
+        else -> if (night) R.drawable.scene_clear_night else R.drawable.scene_clear_day
     }
 
     private fun iconFor(symb: Int?, night: Boolean): String {

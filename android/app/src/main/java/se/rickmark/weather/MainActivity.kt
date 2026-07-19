@@ -1,6 +1,7 @@
 package se.rickmark.weather
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.view.ViewGroup
 import android.webkit.WebSettings
@@ -35,7 +36,7 @@ class MainActivity : AppCompatActivity() {
         web.webViewClient = WebViewClient()
 
         if (savedInstanceState == null) {
-            web.loadUrl(BASE_URL)
+            web.loadUrl(intent?.dataString ?: BASE_URL)
         } else {
             web.restoreState(savedInstanceState)
         }
@@ -50,6 +51,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.dataString?.let { web.loadUrl(it) } // öppna djuplänk medan appen redan är öppen
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

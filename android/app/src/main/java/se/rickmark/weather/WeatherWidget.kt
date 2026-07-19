@@ -43,11 +43,13 @@ class WeatherWidget : AppWidgetProvider() {
                 .enqueueUniqueWork("bramhult_widget_now", ExistingWorkPolicy.REPLACE, work)
         }
 
-        fun pendingOpenApp(context: Context): PendingIntent {
+        /** PendingIntent som öppnar appen på en viss URL (för djuplänkar). */
+        fun pendingUrl(context: Context, requestCode: Int, url: String): PendingIntent {
             val intent = Intent(context, MainActivity::class.java)
+                .setData(android.net.Uri.parse(url))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             return PendingIntent.getActivity(
-                context, 0, intent,
+                context, requestCode, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
