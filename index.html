@@ -1255,13 +1255,28 @@ const FMT_HOUR = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm"
 const fcDay = iso => FMT_DAY.format(new Date(iso));                  // YYYY-MM-DD (svensk tid)
 const fcHour = iso => +FMT_HOUR.format(new Date(iso)).replace(/\D/g, ""); // 0–23
 
+// SMHI:s symbol_code skiljer inte dag/natt → beräkna solhöjden för stationen
+// och byt sol mot måne nattetid. (Tidsekvationen ignoreras — ±15 min spelar
+// ingen roll för timupplösning.)
+const STATION_LON = 13.01;
+function sunAltitudeDeg(d) {
+  const rad = Math.PI / 180;
+  const n = (d - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5;          // dag på året
+  const decl = -23.44 * Math.cos((2 * Math.PI / 365) * (n + 10)) * rad; // deklination
+  const solar = d.getUTCHours() + d.getUTCMinutes() / 60 + STATION_LON / 15;
+  const H = (solar - 12) * 15 * rad;                                   // timvinkel
+  const lat = STATION_LAT * rad;
+  return Math.asin(Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(H)) / rad;
+}
+const isNightIso = iso => sunAltitudeDeg(new Date(iso)) < -0.833;      // solen under horisonten
+
 async function loadForecast() {
   try {
     const fc = await fetchJSON("/api/smhi");
     if (!fc?.daily?.length) return;
     // Tidsstämpla varje rad en gång (lokal dag/timme) så rendering blir
     // rena stränjämförelser utan Intl-anrop i klick-heta vägar.
-    for (const r of fc.hourly) { r._day = fcDay(r.time); r._hour = fcHour(r.time); }
+    for (const r of fc.hourly) { r._day = fcDay(r.time); r._hour = fcHour(r.time); r._night = isNightIso(r.time); }
     state.forecast = fc;
     state.fcHourDays = new Set(fc.hourly.map(r => r._day));
     // Standardval: idag om timdata finns, annars första dygnet med timdata
@@ -1357,7 +1372,8 @@ function renderForecastDay(date) {
     (pSum > 0.1 ? ` · nederbörd <b>${fmt(pSum)} mm</b>` : " · uppehåll");
 
   document.getElementById("fc-hours").innerHTML = rows.map(r => {
-    const [icon, text] = wsymb(r.symb);
+    let [icon, text] = wsymb(r.symb);
+    if (r._night && r.symb >= 1 && r.symb <= 4) icon = "🌙"; // sol → måne nattetid
     const gust = r.gust != null && r.gust >= (r.ws ?? 0) + 1 ? ` (${fmt(r.gust, 0)})` : "";
     const wind = r.ws != null
       ? `<span class="arr" style="transform:rotate(${(r.wd ?? 0) + 180}deg)">↑</span> ${fmt(r.ws, 0)}${gust}`
