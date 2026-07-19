@@ -1408,7 +1408,33 @@ function renderForecast() {
     detail.style.display = "none";
   }
   document.getElementById("forecast").style.display = "";
+
+  // Djuplänk: ?#dag=YYYY-MM-DD öppnar den dagens timprognos (t.ex. från widgeten)
+  if (pendingDag && state.fcHourDays?.has(pendingDag)) {
+    const d = pendingDag; pendingDag = null; state.fcSel = null; selectForecastDay(d);
+  }
 }
+
+/* Djuplänkar: #dag=<datum> öppnar timprognos, #graf=<namn> skrollar till en graf */
+let pendingDag = new URLSearchParams(location.hash.slice(1)).get("dag");
+function scrollToChart(graf) {
+  const el = document.getElementById(graf.startsWith("chart-") ? graf : "chart-" + graf);
+  const card = el?.closest(".card");
+  if (!card) return;
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+  card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+}
+function applyHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  const graf = p.get("graf");
+  if (graf) scrollToChart(graf);
+  const dag = p.get("dag");
+  if (dag) {
+    if (state.forecast && state.fcHourDays?.has(dag)) { state.fcSel = null; selectForecastDay(dag); }
+    else pendingDag = dag;
+  }
+}
+addEventListener("hashchange", applyHash);
 
 /* Byt vald dag: uppdatera markeringen direkt (omedelbar respons) och rita
    detaljvyn i nästa frame så att highlighten hinner målas först. */
@@ -1510,6 +1536,7 @@ async function boot() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") { loadCurrent(); loadDayAndWeek(); loadForecast(); }
   });
+  if (location.hash.includes("graf=")) setTimeout(applyHash, 500); // skrolla till graf vid djuplänk
 }
 boot();
 
