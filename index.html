@@ -265,6 +265,18 @@
       <div class="chart-wrap" id="chart-pressure"></div>
     </div>
 
+    <div class="card chart-card">
+      <h2>Ljusintensitet</h2>
+      <p class="subtitle" id="lx-sub">Stationens sensor</p>
+      <div class="chart-wrap" id="chart-lux"></div>
+    </div>
+
+    <div class="card chart-card">
+      <h2>UV-index</h2>
+      <p class="subtitle" id="uv-sub">Stationens sensor</p>
+      <div class="chart-wrap" id="chart-uv"></div>
+    </div>
+
     <div class="card span2 chart-card">
       <h2>Senaste sju dygnen</h2>
       <p class="subtitle">Dygnets max- och mintemperatur samt nederbörd</p>
@@ -339,7 +351,43 @@ const state = {
   pressureDays: 1,
   range: "idag",   // idag | 48h | vecka | manad
   acurite: null,   // stationens egna sensorer via /api/acurite (blixt, lux)
+  acuriteToday: [],// dagens timserie för lux/uv från samma endpoint
 };
+
+/* ===== myAcuRite-arkivet (data/acurite/, kanalindelade dagsfiler) ========== */
+const LUX_COLOR = "#C4A030", UV_COLOR = "#9A6BD0";
+const luxFmt = v => v >= 1000 ? Math.round(v / 1000) + "k" : String(Math.round(v));
+const acuriteMonth = async ym => await getArchive(`/data/acurite/1h/${ym.slice(0, 4)}/${ym}.json`) ?? {};
+const stockholmHourFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", hour12: false });
+function acuriteDayPts(day) {
+  const byH = new Map();
+  const put = (ch, key, unit) => {
+    for (const p of day?.[ch] ?? []) {
+      const v = p.raw_values?.[unit];
+      if (v == null || !p.happened_at) continue;
+      const h = parseInt(stockholmHourFmt.format(new Date(p.happened_at)), 10);
+      if (!byH.has(h)) byH.set(h, { h });
+      byH.get(h)[key] = v;
+    }
+  };
+  put("14", "lux", "LUX");
+  put("13", "uv", "");
+  return [...byH.values()].sort((a, b) => a.h - b.h);
+}
+/* Timpunkter för en periods datum: bakdagar ur arkivet, idag från API:et */
+async function acuriteRangePts(dates) {
+  const months = [...new Set(dates.slice(0, -1).map(d => d.slice(0, 7)))];
+  const monthData = {};
+  for (const m of months) monthData[m] = await acuriteMonth(m);
+  const out = [];
+  dates.forEach((date, di) => {
+    const isToday = di === dates.length - 1;
+    const pts = isToday ? (state.acuriteToday ?? [])
+      : monthData[date.slice(0, 7)]?.[date] ? acuriteDayPts(monthData[date.slice(0, 7)][date]) : [];
+    for (const p of pts) out.push({ ...p, x: di * 24 + p.h, date });
+  });
+  return out;
+}
 const RANGES = {
   "48h": { days: 3, label: "48 tim", hourly: true }, // 2 bakdagar + idag → rullande 48 h-fönster
   vecka: { days: 7, label: "veckan" },
@@ -587,6 +635,45 @@ chart("chart-pressure", (svg, tip, W) => {
   svg.addEventListener("pointerleave", () => tip.classList.remove("on"));
 });
 
+/* Ljusintensitet & UV idag — generisk timkurva för stationens sensordata */
+function drawHourSeries(svg, tip, W, pts, color, opts) {
+  if (!pts.length) return false;
+  const hi = Math.max(opts.minY ?? 1, Math.ceil(Math.max(...pts.map(p => p.v)) * 1.1));
+  const sy = yScale(0, hi);
+  const sx = h => PAD.l + h / 23 * (W - PAD.l - PAD.r);
+  const rawStep = hi / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rawStep, 0.5))));
+  const norm = rawStep / mag;
+  const step = (norm > 5 ? 10 : norm > 2 ? 5 : norm > 1 ? 2 : 1) * mag;
+  const ticks = [];
+  for (let v = 0; v <= hi; v += step) ticks.push({ v, y: sy(v) });
+  axes(svg, W, ticks, opts.yFmt, [0, 6, 12, 18].map(h => ({ label: hh(h), x: sx(h) })));
+
+  const xy = pts.map(p => [sx(p.h), sy(p.v)]);
+  const line = xy.map((p, i) => (i ? "L" : "M") + p[0] + " " + p[1]).join(" ");
+  const base = sy(0);
+  svg.append(el("path", { d: `${line} L ${xy[xy.length - 1][0]} ${base} L ${xy[0][0]} ${base} Z`, fill: color, "fill-opacity": 0.1 }));
+  svg.append(el("path", { d: line, fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round" }));
+  const last = xy[xy.length - 1];
+  svg.append(el("circle", { cx: last[0], cy: last[1], r: 4, fill: color, stroke: css("--card"), "stroke-width": 2 }));
+
+  svg.addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect();
+    const hGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * 23;
+    const p = pts.reduce((b, q) => Math.abs(q.h - hGuess) < Math.abs(b.h - hGuess) ? q : b, pts[0]);
+    showTip(tip, svg.parentElement, sx(p.h), sy(p.v), `<span class="t-time">kl ${hh(p.h)}</span><br><b>${opts.fmtVal(p.v)}</b>`);
+  });
+  svg.addEventListener("pointerleave", () => tip.classList.remove("on"));
+}
+
+chart("chart-lux", (svg, tip, W) => drawHourSeries(svg, tip, W,
+  (state.acuriteToday ?? []).filter(p => p.lux != null).map(p => ({ h: p.h, v: p.lux })),
+  LUX_COLOR, { yFmt: luxFmt, fmtVal: v => v.toLocaleString("sv-SE") + " lux" }));
+
+chart("chart-uv", (svg, tip, W) => drawHourSeries(svg, tip, W,
+  (state.acuriteToday ?? []).filter(p => p.uv != null).map(p => ({ h: p.h, v: p.uv })),
+  UV_COLOR, { minY: 3, yFmt: v => v, fmtVal: v => "UV " + fmt(v, 0) }));
+
 /* ===== Periodvyer (48 tim / vecka / månad) ================================
    Historik ur arkivet + dagens data från API:et. Saknade dygn (arkivet ej
    ikapp, station offline) lämnas som hål och fylls i av nattens hämtningar. */
@@ -650,6 +737,8 @@ async function buildRangeData() {
     pts = pts.filter(p => p.x + 1 > startAbs && p.x <= nowAbs)
       .map(p => ({ ...p, x: Math.max(0, p.x - startAbs) }));
     const xLabels = [];
+    // Startdygnet börjar mitt i — märk ändå upp fönstrets vänsterkant
+    if (startAbs > 0) xLabels.push({ label: dateLabel(dates[0]), x: 0 });
     dates.forEach((date, di) => {
       const midnight = di * 24;
       if (midnight >= startAbs && midnight <= nowAbs) {
@@ -657,7 +746,7 @@ async function buildRangeData() {
       }
     });
     const covered = new Set(pts.map(p => p.date)).size;
-    return { dates, hourly, pts, covered, xMax: 48, xLabels, windowDays: 3 };
+    return { dates, hourly, pts, covered, xMax: 48, xLabels, window: { startAbs, nowAbs } };
   }
 
   const days = await collectDaily(past);
@@ -749,6 +838,58 @@ async function renderRangeCharts() {
       { xMax, snap: 1.2, endDot: true, xLabels, tipTitle: x => press.length ? nearestP(x).t : "" });
     document.getElementById("p-sub").innerHTML = `Havsnivåtryck (dygnsmitt) senaste ${label}${gapNote}`;
   }
+
+  await renderAcuriteRange(data, label, gapNote);
+}
+
+/* Ljusintensitet & UV för periodvyerna — bakdagar ur data/acurite-arkivet,
+   idag från API:et. Saknade dygn fylls i när myAcuRite-arkivet är på plats. */
+async function renderAcuriteRange(data, label, gapNote) {
+  const { dates, hourly } = data;
+  let pts = await acuriteRangePts(dates);
+  let xMax, xLabels, tip;
+  if (hourly) {
+    const w = data.window;
+    pts = pts.filter(p => p.x + 1 > w.startAbs && p.x <= w.nowAbs)
+      .map(p => ({ ...p, x: Math.max(0, p.x - w.startAbs) }));
+    xMax = data.xMax;
+    xLabels = data.xLabels;
+    tip = x => {
+      const p = pts.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, pts[0]);
+      return p ? `${dateLabel(p.date)} kl ${hh(p.h)}` : "";
+    };
+  } else {
+    // Dygnsupplösning: dagens maxvärde
+    const byDay = new Map();
+    for (const p of pts) {
+      const di = Math.floor(p.x / 24);
+      const cur = byDay.get(di) ?? { x: di, date: p.date };
+      if (p.lux != null) cur.lux = Math.max(cur.lux ?? 0, p.lux);
+      if (p.uv != null) cur.uv = Math.max(cur.uv ?? 0, p.uv);
+      byDay.set(di, cur);
+    }
+    pts = [...byDay.values()].sort((a, b) => a.x - b.x);
+    xMax = dates.length - 1;
+    xLabels = rangeXLabels(dates, false);
+    tip = x => {
+      const d = dates[Math.round(Math.min(Math.max(x, 0), xMax))];
+      return d ? dateLabel(d) : "";
+    };
+  }
+
+  const luxPts = pts.filter(p => p.lux != null).map(p => ({ x: p.x, v: p.lux }));
+  multiLine("chart-lux", [{ label: "Lux", color: LUX_COLOR, pts: luxPts }],
+    { xMax, snap: hourly ? 2 : 1.2, yLo: 0, area: true, endDot: true, xLabels, yFmt: luxFmt, tipTitle: tip });
+  document.getElementById("lx-sub").innerHTML =
+    `Senaste ${label}${hourly ? "" : " · dygnsmax"}` +
+    (luxPts.length ? ` · max <b>${Math.max(...luxPts.map(p => p.v)).toLocaleString("sv-SE")} lux</b>` : "") + gapNote;
+
+  const uvPts = pts.filter(p => p.uv != null).map(p => ({ x: p.x, v: p.uv }));
+  multiLine("chart-uv", [{ label: "UV", color: UV_COLOR, pts: uvPts }],
+    { xMax, snap: hourly ? 2 : 1.2, yLo: 0, yHi: Math.max(3, ...uvPts.map(p => p.v)) + 1, xLabels, yFmt: v => v, tipTitle: tip });
+  document.getElementById("uv-sub").innerHTML =
+    `Senaste ${label}${hourly ? "" : " · dygnsmax"}` +
+    (uvPts.length ? ` · max <b>${fmt(Math.max(...uvPts.map(p => p.v)), 0)}</b>` : "") + gapNote;
 }
 
 /* ===== 7-dygnsremsa ======================================================== */
@@ -841,7 +982,15 @@ async function loadAcurite() {
     const data = await fetchJSON("/api/acurite");
     if (data.status !== "ok" || !data.atlas) return; // saknas variabler / API ändrat — visa inget
     state.acurite = data.atlas;
+    state.acuriteToday = data.todaySeries ?? [];
     renderHero();
+    if (state.range === "idag") {
+      const luxMax = Math.max(0, ...state.acuriteToday.map(p => p.lux ?? 0));
+      const uvMax = Math.max(0, ...state.acuriteToday.map(p => p.uv ?? 0));
+      document.getElementById("lx-sub").innerHTML = `Idag · max <b>${luxMax.toLocaleString("sv-SE")} lux</b> · stationens sensor`;
+      document.getElementById("uv-sub").innerHTML = `Idag · max <b>${fmt(uvMax, 0)}</b> · stationens sensor`;
+    }
+    renderCharts();
     const bx = state.acurite.lightning;
     const elBx = document.getElementById("bx-sensor");
     if (bx && (bx.dailyStrikes != null || bx.count != null)) {

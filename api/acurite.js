@@ -71,12 +71,32 @@ const sensorList = d => [
   unit: s.chart_unit ?? s.unit ?? null,
 }));
 
+const findAtlas = hub => (hub?.devices ?? []).find(d =>
+  (d.wired_sensors ?? []).some(s => /lightning/i.test(s.sensor_name ?? "")) ||
+  /atlas/i.test(d.name ?? ""));
+
+/* Dagens timserie för ljus/UV ur enhetens publika dagsfil — samma källa
+   som arkivet i data/acurite/. Tider konverteras UTC → svensk timme. */
+const hourFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", hour12: false });
+function parseDaySeries(day) {
+  const byH = new Map();
+  const put = (ch, key, unit) => {
+    for (const p of day?.[ch] ?? []) {
+      const v = p.raw_values?.[unit];
+      if (v == null || !p.happened_at) continue;
+      const h = parseInt(hourFmt.format(new Date(p.happened_at)), 10);
+      if (!byH.has(h)) byH.set(h, { h });
+      byH.get(h)[key] = v;
+    }
+  };
+  put("14", "lux", "LUX");
+  put("13", "uv", "");
+  put("15", "sec", "SEC");
+  return [...byH.values()].sort((a, b) => a.h - b.h);
+}
+
 function extractAtlas(hub) {
-  const devices = hub?.devices ?? [];
-  const atlas = devices.find(d =>
-    (d.wired_sensors ?? []).some(s => /lightning/i.test(s.sensor_name ?? "")) ||
-    /atlas/i.test(d.name ?? "")
-  );
+  const atlas = findAtlas(hub);
   if (!atlas) return null;
   const list = sensorList(atlas);
   const num = name => {
@@ -223,8 +243,18 @@ export default async function handler(req, res) {
       });
     }
 
+    // Dagens ljus/UV-timserie ur den publika dagsfilen (URL:en hålls serversida)
+    let todaySeries = [];
+    try {
+      const prefix = findAtlas(detail)?.meta_file?.replace(/meta\.json$/, "");
+      if (prefix) {
+        const r = await fetch(`${prefix}1h-summaries/${stockholmToday()}.json`);
+        if (r.ok) todaySeries = parseDaySeries(await r.json());
+      }
+    } catch { /* timserien är ett tillägg — resten av svaret gäller ändå */ }
+
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
-    return res.status(200).json({ status: "ok", atlas });
+    return res.status(200).json({ status: "ok", atlas, todaySeries });
   } catch (err) {
     session.token = null; // tvinga ny inloggning vid nästa försök
     return res.status(502).json({
