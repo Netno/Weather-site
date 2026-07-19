@@ -231,6 +231,9 @@
         <option value="pressure">Lufttryck</option>
         <option value="dewpt">Daggpunkt</option>
         <option value="uv">UV-index</option>
+        <option value="lux">Ljusintensitet</option>
+        <option value="ljustid">Ljustid</option>
+        <option value="blixt">Blixtar</option>
       </select>
       <span class="chips" id="utf-range">
         <button data-range="48h">48 tim</button>
@@ -363,22 +366,29 @@ const METRICS = {
   rain: { label: "Nederbörd", unit: "mm", color: () => css("--rain") },
   pressure: { label: "Lufttryck", unit: "hPa", color: () => css("--ink-2") },
   dewpt: { label: "Daggpunkt", unit: "°C", color: () => css("--wind") },
-  uv: { label: "UV-index", unit: "", color: () => "#C4A030" },
+  uv: { label: "UV-index", unit: "", color: () => UV_COLOR },
+  lux: { label: "Ljusintensitet", unit: "lux", color: () => LUX_COLOR },
+  ljustid: { label: "Ljustid", unit: "h", color: () => LUX_COLOR },
+  blixt: { label: "Blixtar", unit: "st", color: () => BLIXT_COLOR },
 };
+// Mätvärden som läses ur myAcuRite-arkivet (fulltäckande sedan 2018-12-05,
+// till skillnad från WU där UV saknas i äldre år)
+const ACU_METRICS = new Set(["uv", "lux", "ljustid", "blixt"]);
 const utfState = { range: "vecka" };
 
-function utfRange() {
-  const to = manifest.lastFetched;
+function utfRange(toOverride) {
+  const to = toOverride ?? manifest.lastFetched;
   const spans = { "48h": 1, vecka: 6, manad: 29, ar: 364 };
-  if (utfState.range === "allt") return { from: manifest.firstDate, to };
+  const first = toOverride ? "2018-12-05" : manifest.firstDate;
+  if (utfState.range === "allt") return { from: first, to };
   if (utfState.range === "eget") {
     let from = document.getElementById("utf-from").value || addDaysIso(to, -6);
     let t = document.getElementById("utf-to").value || to;
     if (from > t) [from, t] = [t, from];
-    return { from: from < manifest.firstDate ? manifest.firstDate : from, to: t > to ? to : t };
+    return { from: from < first ? first : from, to: t > to ? to : t };
   }
   const from = addDaysIso(to, -spans[utfState.range]);
-  return { from: from < manifest.firstDate ? manifest.firstDate : from, to };
+  return { from: from < first ? first : from, to };
 }
 
 async function collectHourly(dates) {
@@ -397,8 +407,90 @@ async function collectDaily(dates) {
   return dates.map((date, di) => ({ x: di, date, obs: data[date.slice(0, 4)][date] ?? null }));
 }
 
+/* Utforska för myAcuRite-mätvärdena: timupplösning ur månadsfilerna för
+   korta perioder, dygnsaggregat (daily.json) för långa. */
+async function renderUtforskaAcu(metric) {
+  const M = METRICS[metric];
+  const acuMan = await getArchive("/data/acurite/manifest.json");
+  const { from, to } = utfRange(acuMan?.lastFetched ?? manifest.lastFetched);
+  const dates = listDates(from, to);
+  const hourly = dates.length <= 14;
+  document.getElementById("utf-title").textContent = M.label;
+  document.getElementById("utf-custom").style.display = utfState.range === "eget" ? "inline" : "none";
+  const legend = document.getElementById("utf-legend");
+  legend.innerHTML = "";
+  const xLabels = rangeXLabels(dates, hourly);
+  const period = `${dateLabel(from)} – ${dateLabel(to)} ${to.slice(0, 4)}`;
+  const sub = document.getElementById("utf-sub");
+
+  if (hourly) {
+    const months = [...new Set(dates.map(d => d.slice(0, 7)))];
+    const monthData = Object.fromEntries(await Promise.all(months.map(async m => [m, await acuriteMonth(m)])));
+    const pts = [];
+    dates.forEach((date, di) => {
+      const day = monthData[date.slice(0, 7)]?.[date];
+      if (day) for (const p of acuriteDayPts(day)) pts.push({ ...p, x: di * 24 + p.h, date });
+    });
+    const xMax = dates.length * 24 - 1;
+    const tipT = x => {
+      const p = pts.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, pts[0]);
+      return p ? `${dateLabel(p.date)} kl ${hh(p.h)}` : "";
+    };
+    if (metric === "blixt") {
+      const bars = pts.filter(p => p.strikes != null)
+        .map(p => ({ x: p.x, v: p.strikes, t: `${dateLabel(p.date)} kl ${hh(p.h)}–${hh(p.h + 1)}` }));
+      barsChart("utf-chart", bars, dates.length * 24, { xLabels, color: BLIXT_COLOR, unit: "st", dec: 0, minY: 4 });
+      sub.innerHTML = `${period} · totalt <b>${bars.reduce((a, b) => a + b.v, 0)} st</b> (sensorns råräkning)`;
+    } else {
+      const key = metric === "ljustid" ? "lightMin" : metric;
+      const vals = pts.filter(p => p[key] != null).map(p => ({ x: p.x, v: p[key] }));
+      multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
+        xMax, snap: 2, gapX: 6, yLo: 0, area: true, xLabels,
+        yFmt: metric === "lux" ? luxFmt : v => v,
+        tipTitle: tipT });
+      const vs = vals.map(p => p.v);
+      sub.innerHTML = vs.length
+        ? `${period} · max <b>${fmt(Math.max(...vs), 0)}${metric === "ljustid" ? " min ljus/tim" : " " + M.unit}</b>`
+        : period;
+    }
+    return;
+  }
+
+  const agg = await acuriteDaily();
+  const days = dates.map((date, di) => ({ x: di, date, a: agg[date] ?? null }));
+  const xMax = dates.length - 1;
+  const tipD = x => {
+    const d = dates[Math.round(Math.min(Math.max(x, 0), xMax))];
+    return d ? dateLabel(d) + " " + d.slice(0, 4) : "";
+  };
+  if (metric === "blixt") {
+    const bars = days.filter(d => d.a && d.a.strikes > 0)
+      .map(d => ({ x: d.x, v: d.a.strikes,
+        t: `${dateLabel(d.date)} ${d.date.slice(0, 4)}${d.a.closestKm ? ` · närmast ${d.a.closestKm} km` : ""}` }));
+    barsChart("utf-chart", bars, dates.length, { xLabels, color: BLIXT_COLOR, unit: "st", dec: 0, minY: 4 });
+    const total = days.reduce((a, d) => a + (d.a?.strikes ?? 0), 0);
+    const stormDays = days.filter(d => d.a?.strikes > 0).length;
+    sub.innerHTML = `${period} · totalt <b>${total} st</b> på <b>${stormDays}</b> åskdagar (sensorns råräkning)`;
+  } else {
+    const getters = { lux: d => d.luxMax, ljustid: d => d.secTotal != null ? d.secTotal / 3600 : null, uv: d => d.uvMax };
+    const vals = days.map(d => ({ x: d.x, v: d.a ? getters[metric](d.a) : null })).filter(p => p.v != null);
+    multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
+      xMax, snap: 1.2, gapX: 4, yLo: 0, area: true, xLabels,
+      yFmt: metric === "lux" ? luxFmt : v => v,
+      tipTitle: tipD });
+    const vs = vals.map(p => p.v);
+    const avg = vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null;
+    sub.innerHTML = vs.length
+      ? `${period} · dygnsmax · topp <b>${fmt(Math.max(...vs), metric === "ljustid" ? 1 : 0)} ${M.unit}</b>` +
+        (metric === "ljustid" ? ` · medel <b>${fmt(avg, 1)} h/dag</b>` : "")
+      : period;
+  }
+}
+
 async function renderUtforska() {
-  const metric = document.getElementById("utf-metric").value;
+  const metricSel = document.getElementById("utf-metric").value;
+  if (ACU_METRICS.has(metricSel)) return renderUtforskaAcu(metricSel);
+  const metric = metricSel;
   const M = METRICS[metric];
   const { from, to } = utfRange();
   const dates = listDates(from, to);

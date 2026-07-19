@@ -87,6 +87,27 @@ async function saveJson(file, obj) {
 const manifestPath = path.join(DATA_DIR, "acurite", "manifest.json");
 const monthPath = (date) =>
   path.join(DATA_DIR, "acurite", "1h", date.slice(0, 4), `${date.slice(0, 7)}.json`);
+const dailyPath = path.join(DATA_DIR, "acurite", "daily.json");
+
+/* Dygnsaggregat för frontendens år/allt-vyer (en liten fil i stället för
+   alla månadsfiler). Kanal 15 (ljustid) är en kumulativ dygnsräknare → max;
+   kanal 16 (blixtar) är per timme, men exakt 256 är en räknarglitch. */
+function aggregateDay(day) {
+  if (!day) return null;
+  const vals = (ch, unit) => (day[ch] ?? []).map(p => p.raw_values?.[unit]).filter(v => typeof v === "number");
+  const strikes = vals("16", "").filter(v => v >= 0 && v < 250).reduce((a, b) => a + b, 0);
+  const luxAll = vals("14", "LUX").filter(v => v >= 0 && v <= 130000);
+  const secAll = vals("15", "SEC").filter(v => v >= 0 && v <= 87000);
+  const uvAll = vals("13", "").filter(v => v >= 0 && v <= 12);
+  const distKm = vals("17", "KM").filter(v => v > 0);
+  return {
+    strikes: Math.round(strikes),
+    luxMax: luxAll.length ? Math.max(...luxAll) : null,
+    secTotal: secAll.length ? Math.round(Math.max(...secAll)) : null,
+    uvMax: uvAll.length ? Math.max(...uvAll) : null,
+    closestKm: distKm.length ? Math.min(...distKm) : null,
+  };
+}
 
 const yesterday = addDays(todayStockholm(), -1);
 let manifest = await loadJson(manifestPath, null);
@@ -100,8 +121,10 @@ if (date > yesterday) {
 console.log(`myAcuRite: hämtar ${date} → ${yesterday} (budget ${BUDGET})`);
 
 let cache = { key: null, obj: null };
+const dailyAgg = await loadJson(dailyPath, {});
 async function flush() {
   if (cache.key) await saveJson(cache.key, cache.obj);
+  await writeFile(dailyPath, JSON.stringify(dailyAgg) + "\n");
   manifest.updatedAt = new Date().toISOString();
   await saveJson(manifestPath, manifest);
 }
@@ -117,6 +140,7 @@ try {
     }
     const day = await fetchDay(date);
     cache.obj[date] = day; // null = kontrollerad dag utan fil
+    dailyAgg[date] = aggregateDay(day);
     if (!day) gaps++;
     manifest.lastFetched = date;
     fetched++;

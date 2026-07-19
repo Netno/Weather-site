@@ -354,27 +354,6 @@ const state = {
   acuriteToday: [],// dagens timserie för lux/uv från samma endpoint
 };
 
-/* ===== myAcuRite-arkivet (data/acurite/, kanalindelade dagsfiler) ========== */
-const LUX_COLOR = "#C4A030", UV_COLOR = "#9A6BD0";
-const luxFmt = v => v >= 1000 ? Math.round(v / 1000) + "k" : String(Math.round(v));
-const acuriteMonth = async ym => await getArchive(`/data/acurite/1h/${ym.slice(0, 4)}/${ym}.json`) ?? {};
-const stockholmHourFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", hour12: false });
-function acuriteDayPts(day) {
-  const byH = new Map();
-  const put = (ch, key, unit) => {
-    for (const p of day?.[ch] ?? []) {
-      const v = p.raw_values?.[unit];
-      if (v == null || !p.happened_at) continue;
-      const h = parseInt(stockholmHourFmt.format(new Date(p.happened_at)), 10);
-      if (!byH.has(h)) byH.set(h, { h });
-      byH.get(h)[key] = v;
-    }
-  };
-  put("14", "lux", "LUX");
-  put("13", "uv", "");
-  return [...byH.values()].map(p => ({ ...p, lux: inBounds(p.lux, "lux"), uv: inBounds(p.uv, "uv") }))
-    .sort((a, b) => a.h - b.h);
-}
 /* Timpunkter för en periods datum: bakdagar ur arkivet, idag från API:et */
 async function acuriteRangePts(dates) {
   const months = [...new Set(dates.slice(0, -1).map(d => d.slice(0, 7)))];

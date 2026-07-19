@@ -165,6 +165,47 @@ function rangeXLabels(dates, hourly) {
   return out;
 }
 
+/* ===== myAcuRite-arkivet (data/acurite/) ==================================
+   Kanalindelade dagsfiler med timupplösning + dygnsaggregat i daily.json.
+   Kanal 13 = UV, 14 = lux, 15 = ljustid (kumulativ s), 16 = blixtar/timme. */
+const LUX_COLOR = "#C4A030", UV_COLOR = "#9A6BD0", BLIXT_COLOR = "#D4A017";
+const luxFmt = v => v >= 1000 ? Math.round(v / 1000) + "k" : String(Math.round(v));
+const acuriteMonth = async ym => await getArchive(`/data/acurite/1h/${ym.slice(0, 4)}/${ym}.json`) ?? {};
+const acuriteDaily = async () => await getArchive("/data/acurite/daily.json") ?? {};
+const stockholmHourFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", hour12: false });
+function acuriteDayPts(day) {
+  const byH = new Map();
+  const put = (ch, key, unit) => {
+    for (const p of day?.[ch] ?? []) {
+      const v = p.raw_values?.[unit];
+      if (v == null || !p.happened_at) continue;
+      const h = parseInt(stockholmHourFmt.format(new Date(p.happened_at)), 10);
+      if (!byH.has(h)) byH.set(h, { h });
+      byH.get(h)[key] = v;
+    }
+  };
+  put("14", "lux", "LUX");
+  put("13", "uv", "");
+  put("16", "strikes", "");
+  put("15", "sec", "SEC");
+  const pts = [...byH.values()]
+    .map(p => ({
+      ...p,
+      lux: inBounds(p.lux, "lux"),
+      uv: inBounds(p.uv, "uv"),
+      sec: inBounds(p.sec, "sec"),
+      strikes: typeof p.strikes === "number" && p.strikes >= 0 && p.strikes < 250 ? p.strikes : null,
+    }))
+    .sort((a, b) => a.h - b.h);
+  // ljustid är kumulativ under dygnet → minuter ljus per timme = differens
+  let prevSec = 0;
+  for (const p of pts) {
+    p.lightMin = p.sec != null ? Math.max(0, Math.min(60, (p.sec - prevSec) / 60)) : null;
+    if (p.sec != null) prevSec = p.sec;
+  }
+  return pts;
+}
+
 /* ===== SVG-hjälpare ======================================================== */
 const NS = "http://www.w3.org/2000/svg";
 const el = (tag, attrs) => {
@@ -307,9 +348,9 @@ function barsChart(wrapId, bars, slots, opts) {
       const y = sy(b.v), base = sy(0);
       const zero = b.v < 0.05;
       const bar = el("rect", { x, y: zero ? base - 1.5 : y, width: bw, height: zero ? 1.5 : base - y,
-        rx: Math.min(2, bw / 2), fill: zero ? css("--grid") : css("--rain") });
+        rx: Math.min(2, bw / 2), fill: zero ? css("--grid") : (opts.color ?? css("--rain")) });
       bar.addEventListener("pointerenter", () => showTip(tip, svg.parentElement, x + bw / 2, zero ? base - 1.5 : y,
-        `<span class="t-time">${b.t}</span><br><b>${fmt(b.v)} mm</b>`));
+        `<span class="t-time">${b.t}</span><br><b>${fmt(b.v, opts.dec ?? 1)} ${opts.unit ?? "mm"}</b>`));
       bar.addEventListener("pointerleave", () => tip.classList.remove("on"));
       svg.append(bar);
     }
