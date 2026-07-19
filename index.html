@@ -496,7 +496,7 @@ function renderHero() {
   }
 
   const st = sunTimes(todayIso());
-  const sunHero = st ? ` · <span style="white-space:nowrap">☀ ${st.rise}–${st.set}</span>` : "";
+  const sunHero = st ? ` · <span style="white-space:nowrap">☀️ ${st.rise} · 🌙 ${st.set}</span>` : "";
 
   document.getElementById("hero").innerHTML = `
     <div>
@@ -1295,7 +1295,7 @@ function sunTimes(dateStr) {
 }
 const sunLine = (dateStr) => {
   const s = sunTimes(dateStr);
-  return s ? ` <span style="opacity:.75; white-space:nowrap">· ☀ ${s.rise}–${s.set}</span>` : "";
+  return s ? ` <span style="opacity:.75; white-space:nowrap">· ☀️ ${s.rise} · 🌙 ${s.set}</span>` : "";
 };
 
 async function loadForecast() {
