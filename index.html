@@ -190,6 +190,9 @@
   .tooltip.on { opacity: 1; }
   .tooltip .t-time { opacity: 0.65; }
 
+  .lightning-wrap iframe { width: 100%; height: 420px; border: 0; border-radius: 8px; background: var(--grid); }
+  @media (max-width: 640px) { .lightning-wrap iframe { height: 320px; } }
+
   .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
   .day { text-align: center; padding: 10px 4px 12px; border-radius: 8px; }
   .day.today { background: var(--temp-soft); }
@@ -267,11 +270,17 @@
       <p class="subtitle">Dygnets max- och mintemperatur samt nederbörd</p>
       <div class="days" id="days"><div class="chart-empty">Hämtar …</div></div>
     </div>
+
+    <div class="card span2 chart-card">
+      <h2>Blixtar i närheten</h2>
+      <p class="subtitle">Livekarta från Blitzortung.org (community-nätverk) — nedslag ritas i realtid, stationen ligger i mitten</p>
+      <div class="lightning-wrap"><iframe id="lightning-map" loading="lazy" title="Blixtkarta över Västsverige"></iframe></div>
+    </div>
   </div>
 
   <footer>
     Data från personlig väderstation IBRMHULT2 i Brämhult via Weather Underground · uppdateras varje minut.<br>
-    Lufttryck omräknat till havsnivå · historik ur eget arkiv · <a href="/historik/">utforska historiken</a>
+    Lufttryck omräknat till havsnivå · blixtar från <a href="https://www.blitzortung.org" rel="noopener">Blitzortung.org</a> · historik ur eget arkiv · <a href="/historik/">utforska historiken</a>
   </footer>
 </div>
 
@@ -867,7 +876,18 @@ for (const btn of document.querySelectorAll("#live-range button")) {
   btn.addEventListener("click", () => setRange(btn.dataset.range));
 }
 
+function mountLightningMap() {
+  // Blitzortungs inbäddningsläge (privat/icke-kommersiellt bruk):
+  // interaktivitet, menyer, cookies och reklam avstängda; position = stationen
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  document.getElementById("lightning-map").src =
+    "https://map.blitzortung.org/index.php?interactive=0&NavigationControl=0" +
+    "&FullScreenControl=0&Cookies=0&InfoDiv=0&MenuButtonDiv=0&ScaleControl=1" +
+    `&Advertisment=0&MapStyle=${dark ? 3 : 0}#7/57.72/13.01`;
+}
+
 async function boot() {
+  mountLightningMap();
   await loadDayAndWeek();
   await loadCurrent();
   setInterval(loadCurrent, 60_000);
