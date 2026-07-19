@@ -1179,20 +1179,30 @@ function acuriteTodayToSeries(ts) {
 async function acuriteWeek() {
   const agg = await acuriteDaily();
   const today = todayIso();
-  const out = [];
-  for (let i = 6; i >= 1; i--) {
+  // De 6 senaste dygnen som FAKTISKT har data — hoppa över luckor (t.ex. igår
+  // som ännu inte hunnit arkiveras strax efter midnatt) i stället för att
+  // lämna ett hål och visa för få dygn.
+  const past = [];
+  for (let i = 1; i <= 20 && past.length < 6; i++) {
     const date = addDaysIso(today, -i);
     const a = agg[date];
     if (a && (a.tMax != null || a.tMin != null)) {
-      out.push({ obsTimeLocal: date + " 12:00:00",
+      past.push({ obsTimeLocal: date + " 12:00:00",
         metric: { tempHigh: a.tMax, tempLow: a.tMin, precipTotal: a.rainDay } });
     }
   }
+  past.reverse();
+  const out = past;
+  // Idag ur dagens serie — eller ur aktuell mätning om serien ännu är tom
   if (state.today.length) {
     const temps = state.today.map(p => p.temp);
     out.push({ obsTimeLocal: today + " 12:00:00",
       metric: { tempHigh: Math.max(...temps), tempLow: Math.min(...temps),
         precipTotal: state.current?.metric.precipTotal ?? state.today.reduce((a, p) => a + p.rain, 0) } });
+  } else if (state.current?.metric?.temp != null) {
+    const t = state.current.metric.temp;
+    out.push({ obsTimeLocal: today + " 12:00:00",
+      metric: { tempHigh: t, tempLow: t, precipTotal: state.current.metric.precipTotal ?? 0 } });
   }
   return out;
 }
