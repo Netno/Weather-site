@@ -844,8 +844,11 @@ async function loadAcurite() {
     renderHero();
     const bx = state.acurite.lightning;
     const elBx = document.getElementById("bx-sensor");
-    if (bx && bx.count != null) {
-      elBx.innerHTML = `Stationens blixtsensor: räknare <b>${bx.count}</b>` +
+    if (bx && (bx.dailyStrikes != null || bx.count != null)) {
+      const count = bx.dailyStrikes != null
+        ? `idag <b>${bx.dailyStrikes}</b> nedslag`
+        : `räknare <b>${bx.count}</b>`;
+      elBx.innerHTML = `Stationens blixtsensor: ${count}` +
         (bx.lastKm != null ? ` · senaste nedslag <b>≈ ${bx.lastKm} km</b> bort` : "") +
         (bx.closestKm != null && bx.closestKm !== bx.lastKm ? ` · närmaste <b>≈ ${bx.closestKm} km</b>` : "");
       elBx.style.display = "";

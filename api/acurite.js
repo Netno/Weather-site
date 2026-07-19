@@ -80,6 +80,7 @@ function extractAtlas(hub) {
     const v = Number(list.find(s => s.name === name)?.value);
     return Number.isFinite(v) ? v : null;
   };
+  const dailyStrikes = Number(atlas.daily_cumulative_strikes);
   return {
     battery: atlas.battery_level ?? null,
     lastCheckIn: atlas.last_check_in_at ?? null,
@@ -87,6 +88,7 @@ function extractAtlas(hub) {
     measuredLightS: num("Measured Light"),
     uv: num("UV Index"),
     lightning: {
+      dailyStrikes: Number.isFinite(dailyStrikes) ? dailyStrikes : null,
       count: num("Lightning Strike Count"),
       closestKm: num("Lightning Closest Strike Distance"),
       lastKm: num("Lightning Last Strike Distance"),
@@ -111,42 +113,44 @@ async function probe(res) {
   const lightning = sensors.find(s => /strike count/i.test(s.sensor_name ?? ""));
   const sensorId = lightning?.id ?? lightning?.sensor_id ?? null;
 
-  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
-  const from = new Date(today + "T12:00:00Z"); from.setUTCDate(from.getUTCDate() - 6);
-  const fromIso = from.toISOString().slice(0, 10);
-  const a = session.accountId;
-  const candidates = [
-    `/accounts/${a}/dashboard/hubs/${hubId}/chart?device_id=${deviceId}&sensor_id=${sensorId}&date_from=${fromIso}&date_to=${today}`,
-    `/accounts/${a}/hubs/${hubId}/chart?device_id=${deviceId}&sensor_id=${sensorId}&date_from=${fromIso}&date_to=${today}`,
-    `/accounts/${a}/devices/${deviceId}/sensors/${sensorId}/chart?date_from=${fromIso}&date_to=${today}`,
-    `/devices/${deviceId}/sensors/${sensorId}/chart?date_from=${fromIso}&date_to=${today}`,
-    `/accounts/${a}/dashboard/hubs/${hubId}/history?date_from=${fromIso}&date_to=${today}`,
-    `/accounts/${a}/exports?device_id=${deviceId}`,
-  ];
+  // Runda 2: enheterna bär meta_file/summary_files — sannolikt färdiga
+  // datafiler som appens grafer läser. Visa dem och provhämta innehållet.
+  const metaFile = atlas?.meta_file ?? null;
+  const summaryFiles = atlas?.summary_files ?? null;
+  const fileRefs = [];
+  if (metaFile) fileRefs.push({ label: "meta_file", ref: metaFile });
+  const sfList = Array.isArray(summaryFiles) ? summaryFiles
+    : summaryFiles && typeof summaryFiles === "object" ? Object.entries(summaryFiles).map(([k, v]) => ({ key: k, url: v }))
+    : summaryFiles ? [summaryFiles] : [];
+  for (const sf of sfList.slice(0, 6)) {
+    fileRefs.push({ label: "summary_file", ref: sf });
+  }
+
   const attempts = [];
-  for (const path of candidates) {
+  for (const f of fileRefs) {
+    const ref = typeof f.ref === "string" ? f.ref : f.ref?.url ?? f.ref?.file ?? f.ref?.path ?? null;
+    if (typeof ref !== "string") {
+      attempts.push({ label: f.label, ref: JSON.stringify(f.ref).slice(0, 300), status: "ingen URL-sträng" });
+      continue;
+    }
+    const url = ref.startsWith("http") ? ref : `${BASE}${ref.startsWith("/") ? "" : "/"}${ref}`;
     try {
-      const r = await fetch(`${BASE}${path}`, { headers: { "x-one-vue-token": session.token, Accept: "application/json" } });
+      const r = await fetch(url, { headers: { "x-one-vue-token": session.token, Accept: "application/json" } });
       const text = await r.text();
-      attempts.push({ path, status: r.status, sample: text.slice(0, 400) });
+      attempts.push({ label: f.label, url: url.slice(0, 200), status: r.status, sample: text.slice(0, 600) });
     } catch (err) {
-      attempts.push({ path, status: "nätverksfel", sample: String(err.message).slice(0, 200) });
+      attempts.push({ label: f.label, url: url.slice(0, 200), status: "nätverksfel", sample: String(err.message).slice(0, 200) });
     }
   }
 
   return res.status(200).json({
     status: "probe",
     hubId,
-    hubKeys: Object.keys(detail.detail ?? {}),
-    devices: devices.map(d => ({
-      name: d.name ?? null,
-      keys: Object.keys(d),
-      id: d.id ?? d.device_id ?? null,
-      sensorFieldNames: (d.sensors?.[0]) ? Object.keys(d.sensors[0]) : [],
-      sensorIds: [...(d.sensors ?? []), ...(d.wired_sensors ?? [])].map(s => ({
-        id: s.id ?? s.sensor_id ?? null, name: s.sensor_name ?? null,
-      })),
-    })),
+    deviceId,
+    lightningSensorId: sensorId,
+    dailyCumulativeStrikes: atlas?.daily_cumulative_strikes ?? null,
+    metaFile,
+    summaryFilesRaw: JSON.stringify(summaryFiles)?.slice(0, 800) ?? null,
     attempts,
   });
 }
