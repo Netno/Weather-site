@@ -148,7 +148,7 @@
   .hero-sub .hi { color: var(--temp); font-weight: 600; }
   .hero-sub .lo { color: var(--rain); font-weight: 600; }
   .readings {
-    display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 18px 28px; flex: 1; min-width: 280px;
   }
   @media (max-width: 640px) { .readings { grid-template-columns: repeat(2, 1fr); } }
@@ -272,7 +272,8 @@
     </div>
 
     <div class="card span2 chart-card">
-      <h2>Blixtar i närheten</h2>
+      <h2>Blixtar</h2>
+      <p class="subtitle" id="bx-sensor" style="display:none"></p>
       <p class="subtitle">Livekarta från Blitzortung.org (community-nätverk) — nedslag ritas i realtid, stationen ligger i mitten</p>
       <div class="lightning-wrap"><iframe id="lightning-map" loading="lazy" title="Blixtkarta över Västsverige"></iframe></div>
     </div>
@@ -337,6 +338,7 @@ const state = {
   pressureLabels: [],
   pressureDays: 1,
   range: "idag",   // idag | 48h | vecka | manad
+  acurite: null,   // stationens egna sensorer via /api/acurite (blixt, lux)
 };
 const RANGES = {
   "48h": { days: 3, label: "48 tim", hourly: true }, // 2 bakdagar + idag → rullande 48 h-fönster
@@ -404,7 +406,11 @@ function renderHero() {
   ];
   if (obs.uv != null) cards.push({ label: "UV-index", val: fmt(obs.uv), sub: uvLabel(obs.uv) });
   if (obs.solarRadiation != null) cards.push({ label: "Solinstrålning", val: `${Math.round(obs.solarRadiation)}<small>W/m²</small>`, sub: "global strålning" });
-  if (cards.length < 8) cards.push({ label: "Daggpunkt", val: `${fmt(m.dewpt)}<small>°C</small>`, sub: dewptLabel(m.dewpt) });
+  cards.push({ label: "Daggpunkt", val: `${fmt(m.dewpt)}<small>°C</small>`, sub: dewptLabel(m.dewpt) });
+  const lux = state.acurite?.lux;
+  if (lux != null) {
+    cards.push({ label: "Ljusintensitet", val: `${lux.toLocaleString("sv-SE")}<small>lux</small>`, sub: "stationens sensor" });
+  }
 
   document.getElementById("hero").innerHTML = `
     <div>
@@ -830,6 +836,23 @@ function renderSubtitles() {
 }
 
 /* ===== Laddning & uppdatering ============================================== */
+async function loadAcurite() {
+  try {
+    const data = await fetchJSON("/api/acurite");
+    if (data.status !== "ok" || !data.atlas) return; // saknas variabler / API ändrat — visa inget
+    state.acurite = data.atlas;
+    renderHero();
+    const bx = state.acurite.lightning;
+    const elBx = document.getElementById("bx-sensor");
+    if (bx && bx.count != null) {
+      elBx.innerHTML = `Stationens blixtsensor: räknare <b>${bx.count}</b>` +
+        (bx.lastKm != null ? ` · senaste nedslag <b>≈ ${bx.lastKm} km</b> bort` : "") +
+        (bx.closestKm != null && bx.closestKm !== bx.lastKm ? ` · närmaste <b>≈ ${bx.closestKm} km</b>` : "");
+      elBx.style.display = "";
+    }
+  } catch (err) { console.warn("acurite:", err); }
+}
+
 async function loadCurrent() {
   try {
     const data = await fetchJSON("/api/wu?e=current");
@@ -890,8 +913,10 @@ async function boot() {
   mountLightningMap();
   await loadDayAndWeek();
   await loadCurrent();
+  loadAcurite();
   setInterval(loadCurrent, 60_000);
   setInterval(loadDayAndWeek, 300_000);
+  setInterval(loadAcurite, 300_000);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") { loadCurrent(); loadDayAndWeek(); }
   });

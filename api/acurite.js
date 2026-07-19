@@ -57,25 +57,41 @@ async function apiGet(path) {
   return body;
 }
 
-/* Plocka ut det vi bryr oss om ur hubbsvaret; okända strukturer lämnas
-   orörda i `raw` så att parsern kan förbättras mot verkligt svar. */
-function summarizeHub(hub) {
-  const devices = (hub?.devices ?? []).map(d => ({
-    name: d.name ?? d.device_name ?? null,
-    battery: d.battery_level ?? null,
-    lastCheckIn: d.last_check_in_at ?? null,
-    sensors: (d.sensors ?? []).map(s => ({
-      name: s.sensor_name ?? s.chart_title ?? null,
-      value: s.last_reading_value ?? null,
-      unit: s.chart_unit ?? s.unit ?? null,
-    })),
-    wired: (d.wired_sensors ?? []).map(s => ({
-      name: s.sensor_name ?? s.chart_title ?? null,
-      value: s.last_reading_value ?? null,
-      unit: s.chart_unit ?? s.unit ?? null,
-    })),
-  }));
-  return { id: hub?.id ?? null, name: hub?.name ?? null, devices };
+/* Plocka ut utomhusstationens (Atlas) värden. Endpointen är publik, så
+   inomhussensorer serveras aldrig härifrån — bara utomhusdata. */
+const sensorList = d => [
+  ...(d.sensors ?? []),
+  ...(d.wired_sensors ?? []),
+].map(s => ({
+  name: s.sensor_name ?? s.chart_title ?? null,
+  value: s.last_reading_value ?? null,
+  unit: s.chart_unit ?? s.unit ?? null,
+}));
+
+function extractAtlas(hub) {
+  const devices = hub?.devices ?? [];
+  const atlas = devices.find(d =>
+    (d.wired_sensors ?? []).some(s => /lightning/i.test(s.sensor_name ?? "")) ||
+    /atlas/i.test(d.name ?? "")
+  );
+  if (!atlas) return null;
+  const list = sensorList(atlas);
+  const num = name => {
+    const v = Number(list.find(s => s.name === name)?.value);
+    return Number.isFinite(v) ? v : null;
+  };
+  return {
+    battery: atlas.battery_level ?? null,
+    lastCheckIn: atlas.last_check_in_at ?? null,
+    lux: num("Light Intensity"),
+    measuredLightS: num("Measured Light"),
+    uv: num("UV Index"),
+    lightning: {
+      count: num("Lightning Strike Count"),
+      closestKm: num("Lightning Closest Strike Distance"),
+      lastKm: num("Lightning Last Strike Distance"),
+    },
+  };
 }
 
 export default async function handler(req, res) {
@@ -110,19 +126,19 @@ export default async function handler(req, res) {
       });
     }
 
-    // Hämta första hubbens fulla sensordata
-    const detail = await apiGet(`/accounts/${session.accountId}/dashboard/hubs/${hubs[0].id}`);
-    const summary = summarizeHub(detail);
-    const hasSensors = summary.devices.some(d => d.sensors.length || d.wired.length);
+    // Hämta första hubbens sensordata och filtrera till utomhusstationen
+    const detail = await apiGet(`/accounts/${session.accountId}/dashboard/hubs/${hubs[0].id ?? ""}`);
+    const atlas = extractAtlas(detail);
+    if (!atlas) {
+      // Strukturen känns inte igen — visa enhetsnamn (aldrig värden) för felsökning
+      return res.status(200).json({
+        status: "ingen utomhusstation hittades i svaret",
+        deviceNames: (detail?.devices ?? []).map(d => d.name ?? "?"),
+      });
+    }
 
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
-    return res.status(200).json({
-      status: "ok",
-      accountId: session.accountId,
-      hubCount: hubs.length,
-      hub: summary,
-      ...(hasSensors ? {} : { raw: trim(detail) }),
-    });
+    return res.status(200).json({ status: "ok", atlas });
   } catch (err) {
     session.token = null; // tvinga ny inloggning vid nästa försök
     return res.status(502).json({
