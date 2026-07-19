@@ -1247,19 +1247,25 @@ const WSYMB = {
   25: ["🌨️", "Lätt snöfall"], 26: ["❄️", "Snöfall"], 27: ["❄️", "Kraftigt snöfall"],
 };
 const wsymb = code => WSYMB[code] ?? ["", ""];
-const fcFmt = opts => iso => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", ...opts }).format(new Date(iso));
-const fcDay = fcFmt({});                              // YYYY-MM-DD (svensk tid)
-const fcHour = iso => +fcFmt({ hour: "2-digit", hour12: false })(iso).replace(/\D/g, ""); // 0–23
+// Formaterarna skapas EN gång — Intl.DateTimeFormat är dyrt att konstruera,
+// och varje rad tidsstämplas bara en gång vid inläsning (r._day/_hour).
+const FMT_DAY = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" });
+const FMT_HOUR = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", hour12: false });
+const fcDay = iso => FMT_DAY.format(new Date(iso));                  // YYYY-MM-DD (svensk tid)
+const fcHour = iso => +FMT_HOUR.format(new Date(iso)).replace(/\D/g, ""); // 0–23
 
 async function loadForecast() {
   try {
     const fc = await fetchJSON("/api/smhi");
     if (!fc?.daily?.length) return;
+    // Tidsstämpla varje rad en gång (lokal dag/timme) så rendering blir
+    // rena stränjämförelser utan Intl-anrop i klick-heta vägar.
+    for (const r of fc.hourly) { r._day = fcDay(r.time); r._hour = fcHour(r.time); }
     state.forecast = fc;
+    state.fcHourDays = new Set(fc.hourly.map(r => r._day));
     // Standardval: idag om timdata finns, annars första dygnet med timdata
-    const hourDays = new Set(fc.hourly.map(r => fcDay(r.time)));
-    if (!state.fcSel || !hourDays.has(state.fcSel)) {
-      state.fcSel = hourDays.has(todayIso()) ? todayIso() : [...hourDays][0];
+    if (!state.fcSel || !state.fcHourDays.has(state.fcSel)) {
+      state.fcSel = state.fcHourDays.has(todayIso()) ? todayIso() : [...state.fcHourDays][0];
     }
     renderForecast();
   } catch (err) { console.warn("smhi:", err); }
@@ -1269,7 +1275,7 @@ function renderForecast() {
   const fc = state.forecast;
   if (!fc?.daily?.length) return;
   const today = todayIso();
-  const hourDays = new Set(fc.hourly.map(r => fcDay(r.time)));
+  const hourDays = state.fcHourDays ?? new Set();
   const days = fc.daily.filter(d => d.tMax != null).slice(0, 10);
   if (!days.length) return;
 
@@ -1305,7 +1311,7 @@ function renderForecast() {
 /* Timprognos för vald dag: horisontell tim-strip + temperaturkurva */
 function renderForecastDay(date) {
   const detail = document.getElementById("fc-detail");
-  const rows = (state.forecast?.hourly ?? []).filter(r => fcDay(r.time) === date && typeof r.t === "number");
+  const rows = (state.forecast?.hourly ?? []).filter(r => r._day === date && typeof r.t === "number");
   if (!rows.length) { detail.style.display = "none"; return; }
   detail.style.display = "";
 
@@ -1327,7 +1333,7 @@ function renderForecastDay(date) {
       ? `<span class="mm">${fmt(r.precip)}</span>`
       : (r.pprob >= 20 ? `<span class="pp">${fmt(r.pprob, 0)}%</span>` : "");
     return `<div class="fc-hour" title="${text}">
-      <div class="hh">${String(fcHour(r.time)).padStart(2, "0")}</div>
+      <div class="hh">${String(r._hour).padStart(2, "0")}</div>
       <div class="ic">${icon}</div>
       <div class="tp">${fmt(r.t, 0)}°</div>
       <div class="wnd">${wind}</div>
@@ -1338,12 +1344,12 @@ function renderForecastDay(date) {
   const pts = rows.map((r, i) => ({ x: i, v: r.t }));
   if (pts.length > 1) {
     const xLabels = rows
-      .map((r, i) => ({ i, h: fcHour(r.time) }))
+      .map((r, i) => ({ i, h: r._hour }))
       .filter(o => o.h % 6 === 0)
       .map(o => ({ label: String(o.h).padStart(2, "0"), x: o.i }));
     const tipTitle = xGuess => {
       const r = rows[Math.max(0, Math.min(rows.length - 1, Math.round(xGuess)))];
-      return r ? `kl ${String(fcHour(r.time)).padStart(2, "0")}:00` : "";
+      return r ? `kl ${String(r._hour).padStart(2, "0")}:00` : "";
     };
     multiLine("chart-forecast", [{ label: "Temp", color: css("--temp"), pts }],
       { xMax: pts.length - 1, snap: 1.5, area: true, xLabels, yFmt: v => v + "°", tipTitle });
