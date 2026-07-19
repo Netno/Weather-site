@@ -214,7 +214,8 @@
   .day .rain { font-size: 11px; color: var(--rain); margin-top: 6px; min-height: 16px; font-variant-numeric: tabular-nums; }
 
   .fc-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 8px; margin-bottom: 4px; }
-  .fc-day { text-align: center; padding: 10px 4px 12px; border-radius: 8px; }
+  .fc-day { text-align: center; padding: 10px 4px 12px; border-radius: 8px; cursor: pointer; transition: background .12s; -webkit-tap-highlight-color: transparent; }
+  .fc-day:active { background: var(--grid); }
   .fc-day.today { background: var(--temp-soft); }
   .fc-day .dname { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
   .fc-day .icon { font-size: 26px; line-height: 1.3; }
@@ -1294,10 +1295,15 @@ function renderForecast() {
       <div class="rain">${d.precip > 0 ? "☂ " + fmt(d.precip) + " mm" : ""}</div>
     </div>`;
   }).join("");
-  // Klick byter bara markering + detaljvy — vi bygger INTE om hela dags-
-  // remsan (det förstörde den tryckta cellen och gav ingen tap-respons).
-  for (const cell of document.querySelectorAll("#fc-days .fc-day.pickable")) {
-    cell.addEventListener("click", () => selectForecastDay(cell.dataset.date));
+  // Delegerad klickhantering (kopplas EN gång) — robust mot omrenderingar,
+  // och ALLA dagar svarar (dagar utan timdata visar dygnsöversikt).
+  const daysEl = document.getElementById("fc-days");
+  if (!daysEl.dataset.wired) {
+    daysEl.addEventListener("click", (e) => {
+      const cell = e.target.closest(".fc-day");
+      if (cell?.dataset.date) selectForecastDay(cell.dataset.date);
+    });
+    daysEl.dataset.wired = "1";
   }
 
   const rainDays = days.filter(d => d.precip > 0.1).length;
@@ -1316,18 +1322,33 @@ function selectForecastDay(date) {
   state.fcSel = date;
   for (const c of document.querySelectorAll("#fc-days .fc-day"))
     c.classList.toggle("sel", c.dataset.date === date);
-  requestAnimationFrame(() => renderForecastDay(date));
+  requestAnimationFrame(() => {
+    renderForecastDay(date);
+    // Se till att detaljvyn syns (den kan hamna under skärmkanten på mobil)
+    document.getElementById("fc-detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
 }
 
 /* Timprognos för vald dag: horisontell tim-strip + temperaturkurva */
 function renderForecastDay(date) {
   const detail = document.getElementById("fc-detail");
-  const rows = (state.forecast?.hourly ?? []).filter(r => r._day === date && typeof r.t === "number");
-  if (!rows.length) { detail.style.display = "none"; return; }
   detail.style.display = "";
-
   const dObj = new Date(date + "T12:00:00");
   const dayName = date === todayIso() ? "idag" : `${DAY_NAMES[dObj.getDay()].toLowerCase()} ${dObj.getDate()} ${MONTHS[dObj.getMonth()]}`;
+  const rows = (state.forecast?.hourly ?? []).filter(r => r._day === date && typeof r.t === "number");
+
+  // Dagar bortom timprognosens räckvidd (~4 dygn) visar dygnsöversikt
+  if (!rows.length) {
+    const d = (state.forecast?.daily ?? []).find(x => x.date === date);
+    document.getElementById("fc-hours").innerHTML = "";
+    document.getElementById("chart-forecast").innerHTML = "";
+    document.getElementById("fc-detail-head").innerHTML = d
+      ? `Prognos ${dayName} · <b>${fmt(d.tMax, 0)}°</b> / <b>${fmt(d.tMin, 0)}°</b>` +
+        (d.precip > 0.1 ? ` · nederbörd <b>${fmt(d.precip)} mm</b>` : " · uppehåll") +
+        ` <span style="opacity:.6">· timprognos finns för de närmaste ~4 dygnen</span>`
+      : `Ingen prognos för ${dayName}`;
+    return;
+  }
   const tHi = Math.max(...rows.map(r => r.t)), tLo = Math.min(...rows.map(r => r.t));
   const pSum = rows.reduce((a, r) => a + (r.precip || 0), 0);
   document.getElementById("fc-detail-head").innerHTML =
