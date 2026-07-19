@@ -16,6 +16,9 @@ const BASE = process.env.MYACURITE_BASE || "https://marapi.myacurite.com";
 const session = { token: null, accountId: null, at: 0 };
 const TOKEN_TTL = 6 * 3600e3;
 
+const stockholmToday = () =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
+
 const trim = (obj, max = 6000) => {
   const s = JSON.stringify(obj);
   return s.length > max ? s.slice(0, max) + " …[avkortat]" : s;
@@ -113,45 +116,63 @@ async function probe(res) {
   const lightning = sensors.find(s => /strike count/i.test(s.sensor_name ?? ""));
   const sensorId = lightning?.id ?? lightning?.sensor_id ?? null;
 
-  // Runda 2: enheterna bär meta_file/summary_files — sannolikt färdiga
-  // datafiler som appens grafer läser. Visa dem och provhämta innehållet.
-  const metaFile = atlas?.meta_file ?? null;
-  const summaryFiles = atlas?.summary_files ?? null;
-  const fileRefs = [];
-  if (metaFile) fileRefs.push({ label: "meta_file", ref: metaFile });
-  const sfList = Array.isArray(summaryFiles) ? summaryFiles
-    : summaryFiles && typeof summaryFiles === "object" ? Object.entries(summaryFiles).map(([k, v]) => ({ key: k, url: v }))
-    : summaryFiles ? [summaryFiles] : [];
-  for (const sf of sfList.slice(0, 6)) {
-    fileRefs.push({ label: "summary_file", ref: sf });
+  // Runda 3: datan ligger som dagsfiler på dataapi.myacurite.com
+  // (…/1h-summaries/ÅÅÅÅ-MM-DD.json). Kartlägg: kanalkatalog, hur långt
+  // bak filerna finns kvar, om token krävs, och om fler upplösningar finns.
+  const metaUrl = atlas?.meta_file;
+  if (!metaUrl) {
+    return res.status(200).json({ status: "probe", error: "ingen meta_file på Atlas-enheten" });
   }
-
-  const attempts = [];
-  for (const f of fileRefs) {
-    const ref = typeof f.ref === "string" ? f.ref : f.ref?.url ?? f.ref?.file ?? f.ref?.path ?? null;
-    if (typeof ref !== "string") {
-      attempts.push({ label: f.label, ref: JSON.stringify(f.ref).slice(0, 300), status: "ingen URL-sträng" });
-      continue;
-    }
-    const url = ref.startsWith("http") ? ref : `${BASE}${ref.startsWith("/") ? "" : "/"}${ref}`;
+  const prefix = metaUrl.replace(/meta\.json$/, "");
+  const get = async (url, withToken = true) => {
     try {
-      const r = await fetch(url, { headers: { "x-one-vue-token": session.token, Accept: "application/json" } });
-      const text = await r.text();
-      attempts.push({ label: f.label, url: url.slice(0, 200), status: r.status, sample: text.slice(0, 600) });
+      const r = await fetch(url, withToken ? { headers: { "x-one-vue-token": session.token } } : {});
+      return { status: r.status, text: await r.text() };
     } catch (err) {
-      attempts.push({ label: f.label, url: url.slice(0, 200), status: "nätverksfel", sample: String(err.message).slice(0, 200) });
+      return { status: "nätverksfel", text: String(err.message).slice(0, 200) };
     }
-  }
+  };
+
+  const today = stockholmToday();
+  const todayFile = await get(`${prefix}1h-summaries/${today}.json`);
+  let todayChannels = null;
+  try {
+    const j = JSON.parse(todayFile.text);
+    todayChannels = Object.fromEntries(Object.entries(j).map(([ch, arr]) => [ch, {
+      punkter: Array.isArray(arr) ? arr.length : "?",
+      enheter: Object.keys(arr?.[0]?.raw_values ?? {}),
+      exempel: arr?.[arr.length - 1]?.raw_values ?? null,
+    }]));
+  } catch { todayChannels = { parsefel: todayFile.text.slice(0, 200) }; }
+
+  const noToken = await get(`${prefix}1h-summaries/${today}.json`, false);
+
+  const oldDates = ["2026-06-15", "2026-01-15", "2025-07-15", "2023-07-15", "2021-07-15", "2019-07-15", "2018-12-10"];
+  const history = [];
+  for (const d of oldDates) history.push({ date: d, status: (await get(`${prefix}1h-summaries/${d}.json`)).status });
+
+  const variants = ["1d-summaries", "5m-summaries", "summaries", "readings", "5min-readings", "1m-summaries"];
+  const resolutions = [];
+  for (const v of variants) resolutions.push({ variant: v, status: (await get(`${prefix}${v}/${today}.json`)).status });
+
+  const meta = await get(metaUrl);
+  let metaChannels = null;
+  try {
+    const mj = JSON.parse(meta.text);
+    metaChannels = Object.fromEntries(Object.entries(mj.channel_data ?? {}).map(([ch, v]) => [ch, {
+      max: v.all_time_high?.raw_values ?? null, maxNär: v.all_time_high?.happened_at ?? null,
+      min: v.all_time_low?.raw_values ?? null, minNär: v.all_time_low?.happened_at ?? null,
+    }]));
+  } catch {}
 
   return res.status(200).json({
-    status: "probe",
-    hubId,
-    deviceId,
-    lightningSensorId: sensorId,
-    dailyCumulativeStrikes: atlas?.daily_cumulative_strikes ?? null,
-    metaFile,
-    summaryFilesRaw: JSON.stringify(summaryFiles)?.slice(0, 800) ?? null,
-    attempts,
+    status: "probe3",
+    prefix,
+    publiktUtanToken: noToken.status,
+    todayChannels,
+    history,
+    resolutions,
+    metaChannels,
   });
 }
 
