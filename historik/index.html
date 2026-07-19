@@ -230,6 +230,7 @@
         <option value="rain">Nederbörd</option>
         <option value="pressure">Lufttryck</option>
         <option value="dewpt">Daggpunkt</option>
+        <option value="uv">UV-index</option>
       </select>
       <span class="chips" id="utf-range">
         <button data-range="48h">48 tim</button>
@@ -362,6 +363,7 @@ const METRICS = {
   rain: { label: "Nederbörd", unit: "mm", color: () => css("--rain") },
   pressure: { label: "Lufttryck", unit: "hPa", color: () => css("--ink-2") },
   dewpt: { label: "Daggpunkt", unit: "°C", color: () => css("--wind") },
+  uv: { label: "UV-index", unit: "", color: () => "#C4A030" },
 };
 const utfState = { range: "vecka" };
 
@@ -439,7 +441,7 @@ async function renderUtforska() {
     } else {
       const vals = pts.filter(p => p[metric] != null).map(p => ({ x: p.x, v: p[metric], t: tipT(p) }));
       multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
-        xMax, snap: 2, xLabels, yLo: metric === "hum" ? 0 : undefined,
+        xMax, snap: 2, xLabels, yLo: metric === "hum" || metric === "uv" ? 0 : undefined,
         yFmt: v => v, tipTitle: x => {
           const p = vals.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, vals[0]);
           return p ? p.t : "";
@@ -472,11 +474,12 @@ async function renderUtforska() {
         wind: d => ms(d.metric.windspeedAvg),
         dewpt: d => d.metric.dewptAvg,
         pressure: d => seaLevel((d.metric.pressureMax + d.metric.pressureMin) / 2, d.metric.tempAvg),
+        uv: d => d.uvHigh,
       };
       const vals = days.map(d => ({ x: d.x, v: getters[metric](d.obs), t: dateLabel(d.date) + " " + d.date.slice(0, 4) }))
         .filter(p => p.v != null);
       multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
-        xMax, snap: 1.2, xLabels, yLo: metric === "hum" || metric === "wind" ? 0 : undefined,
+        xMax, snap: 1.2, xLabels, yLo: metric === "hum" || metric === "wind" || metric === "uv" ? 0 : undefined,
         yFmt: v => v, tipTitle: x => {
           const p = vals.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, vals[0]);
           return p ? p.t : "";

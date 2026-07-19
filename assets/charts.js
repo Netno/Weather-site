@@ -72,6 +72,7 @@ function daySeries(buckets) {
       wind: o.metric.windspeedAvg,
       gust: o.metric.windgustHigh,
       hum: o.humidityAvg,
+      uv: o.uvHigh,
       dewpt: o.metric.dewptAvg,
       pressure: o.metric.pressureMax != null && o.metric.pressureMin != null
         ? seaLevel((o.metric.pressureMax + o.metric.pressureMin) / 2, o.metric.tempAvg)
