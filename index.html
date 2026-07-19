@@ -254,7 +254,16 @@
   .fc-hour .pr .mm { color: var(--rain); }
   .fc-hour .pr .pp { color: var(--ink-3); }
 
-  footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
+  .app-cta { display: flex; gap: 10px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
+  .app-cta button, .app-cta .app-link {
+    font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    color: var(--ink); background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 10px; padding: 9px 16px; text-decoration: none; transition: background .12s, border-color .12s;
+  }
+  .app-cta button:hover, .app-cta .app-link:hover { background: var(--grid); border-color: var(--axis); }
+  .app-cta button { border-color: var(--temp); color: var(--temp); }
+
+  footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 18px; line-height: 1.7; }
   footer a { color: var(--ink-2); }
 </style>
 </head>
@@ -355,6 +364,11 @@
       <p class="subtitle">Livekarta från Blitzortung.org (community-nätverk) — nedslag ritas i realtid, stationen ligger i mitten</p>
       <div class="lightning-wrap"><iframe id="lightning-map" loading="lazy" title="Blixtkarta över Västsverige"></iframe></div>
     </div>
+  </div>
+
+  <div class="app-cta">
+    <button id="install-btn" type="button" hidden>⬇ Installera som app</button>
+    <a class="app-link" href="/widget/">◱ Widget</a>
   </div>
 
   <footer>
@@ -1498,6 +1512,19 @@ async function boot() {
   });
 }
 boot();
+
+/* PWA-installation: visa knappen när webbläsaren erbjuder att installera appen */
+let deferredInstall = null;
+const installBtn = document.getElementById("install-btn");
+addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; if (installBtn) installBtn.hidden = false; });
+installBtn?.addEventListener("click", async () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  await deferredInstall.userChoice;
+  deferredInstall = null;
+  installBtn.hidden = true;
+});
+addEventListener("appinstalled", () => { if (installBtn) installBtn.hidden = true; });
 </script>
 
 </body>
