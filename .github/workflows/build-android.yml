@@ -1,0 +1,58 @@
+name: Bygg Android-APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/build-android.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Sätt upp Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Installera SDK-paket
+        run: sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Installera Gradle 8.7
+        run: |
+          curl -sSL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d "$HOME/gradle"
+          echo "$HOME/gradle/gradle-8.7/bin" >> "$GITHUB_PATH"
+
+      - name: Bygg debug-APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Döp om APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk bramhult-vader.apk
+
+      - name: Ladda upp som artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: bramhult-vader-apk
+          path: bramhult-vader.apk
+
+      - name: Publicera release med APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android
+          name: "Brämhult väder – Android"
+          body: |
+            Ladda ner **bramhult-vader.apk** till mobilen och öppna den.
+            Tillåt "installera okända appar" om Android frågar.
+            Lägg sedan till widgeten: håll på hemskärmen → Widgetar → Brämhult väder.
+          files: bramhult-vader.apk

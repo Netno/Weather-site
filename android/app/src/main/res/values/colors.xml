@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="icon_bg">#10161D</color>
+    <color name="ink">#F2F6FB</color>
+    <color name="ink2">#C2CDDA</color>
+    <color name="ink3">#93A1B2</color>
+    <color name="temp">#FFB15A</color>
+    <color name="rain">#7FC0F2</color>
+</resources>

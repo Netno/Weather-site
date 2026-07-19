@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Brämhult väder</string>
+    <string name="widget_label">Brämhult väder</string>
+    <string name="widget_desc">Live väder från väderstationen IBRMHULT2 i Brämhult</string>
+</resources>
