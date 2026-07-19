@@ -79,7 +79,12 @@ function cleanDailyObs(obs) {
       tempAvg: inBounds(m.tempAvg, "temp"),
       dewptAvg: inBounds(m.dewptAvg, "dewpt"),
       windspeedAvg: inBounds(m.windspeedAvg, "windKph"),
-      windgustHigh: inBounds(m.windgustHigh, "windKph"),
+      // Ensamma orkanspikar med stiltje-medelvind är anemometerglitchar
+      windgustHigh: (() => {
+        const g = inBounds(m.windgustHigh, "windKph");
+        const avg = inBounds(m.windspeedAvg, "windKph");
+        return g != null && g > 100 && (avg ?? 0) < 15 ? null : g;
+      })(),
       precipTotal: inBounds(m.precipTotal, "rainDay"),
       pressureMax: inBounds(m.pressureMax, "pressureRaw"),
       pressureMin: inBounds(m.pressureMin, "pressureRaw"),
@@ -127,7 +132,11 @@ function daySeries(buckets) {
       temp,
       rain: inBounds(Math.max(0, cum - prevCum), "rainHour") ?? 0,
       wind: inBounds(o.metric.windspeedAvg, "windKph"),
-      gust: inBounds(o.metric.windgustHigh, "windKph"),
+      gust: (() => {
+        const g = inBounds(o.metric.windgustHigh, "windKph");
+        const avg = inBounds(o.metric.windspeedAvg, "windKph");
+        return g != null && g > 100 && (avg ?? 0) < 15 ? null : g;
+      })(),
       hum: inBounds(o.humidityAvg, "hum"),
       uv: inBounds(o.uvHigh, "uv"),
       dewpt: inBounds(o.metric.dewptAvg, "dewpt"),
@@ -204,6 +213,28 @@ function acuriteDayPts(day) {
     if (p.sec != null) prevSec = p.sec;
   }
   return pts;
+}
+
+/* ===== Sol & geometri ====================================================== */
+const STATION_LAT = 57.7216;
+const DIRS16 = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"];
+
+/* Astronomisk dagslängd (timmar) för stationens latitud — solnedgångsekvationen */
+function daylightHours(iso) {
+  const latR = STATION_LAT * Math.PI / 180;
+  const d = new Date(iso + "T12:00:00Z");
+  const n = Math.round((d.getTime() - Date.UTC(d.getUTCFullYear(), 0, 0)) / 86400e3);
+  const decl = 23.44 * Math.PI / 180 * Math.sin(2 * Math.PI * (284 + n) / 365);
+  const cosH = -Math.tan(latR) * Math.tan(decl);
+  const H = Math.acos(Math.min(1, Math.max(-1, cosH)));
+  return 24 * H / Math.PI;
+}
+
+/* Hexfärgsinterpolation för värmekartans skalor */
+function lerpColor(a, b, t) {
+  const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16));
+  return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, "0")).join("");
 }
 
 /* ===== SVG-hjälpare ======================================================== */

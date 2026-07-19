@@ -110,7 +110,25 @@ Kräver repo-secret `ACURITE_DATA_URL` (enhetens data-URL — hålls hemlig
 för att inte publicera MAC-adressen). Live-värdena på sidan går via
 `api/acurite.js` med kontouppgifter som Vercel-miljövariabler.
 
-## Historikvyer (planerade)
+## Vyer
+
+**Live** (`/`): hero med nuläge (WU + myAcuRite: lux, blixtsensor),
+periodväxlare Idag/48 tim/Vecka/Månad för alla grafer, "Denna dag genom
+åren", 7-dygnsremsa, Blitzortung-blixtkarta.
+
+**Historik** (`/historik/`): Utforska (10 mätvärden × valfri period, inkl.
+blixtar/lux/ljustid/solighet ur myAcuRite-arkivet), Dag, Samma dag genom
+åren, Månadsjämförelse, Året (värmekarta per dag), Vindros (16 sektorer,
+blåsiga timmar), Rekord (temperatur/nederbörd/vind ur WU + ljus/blixtar ur
+sensorerna + frost- och växtsäsongstabell).
+
+**Datatvätt:** all inläsning saneras mot fysiska rimlighetsgränser
+(assets/charts.js BOUNDS) — kända glitchtyper: lösa kabelvärden (−117 °C),
+räknarartefakter (exakt 256 blixtar), anemometerspikar (orkanby vid
+stiltje-medelvind), kumulativa räknare felsummerade. Solighet = uppmätt
+ljustid / astronomisk dagslängd för stationens position.
+
+## Historikvyer (ursprunglig plan)
 
 Arkivet möjliggör vyer som WU:s eget gränssnitt saknar, utan API-kostnad:
 

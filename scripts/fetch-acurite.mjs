@@ -93,19 +93,34 @@ const dailyPath = path.join(DATA_DIR, "acurite", "daily.json");
    alla månadsfiler). Kanal 15 (ljustid) är en kumulativ dygnsräknare → max;
    kanal 16 (blixtar) är per timme, men exakt 256 är en räknarglitch. */
 function aggregateDay(day) {
-  if (!day) return null;
-  const vals = (ch, unit) => (day[ch] ?? []).map(p => p.raw_values?.[unit]).filter(v => typeof v === "number");
+  // Tomma dagsfiler (myAcuRite rensar innehåll äldre än ~16 månader) = lucka
+  if (!day || !Object.keys(day).length) return null;
+  const rows = (ch, unit) => (day[ch] ?? []).map(p => ({ t: p.happened_at, v: p.raw_values?.[unit] }))
+    .filter(r => typeof r.v === "number");
+  const vals = (ch, unit) => rows(ch, unit).map(r => r.v);
   const strikes = vals("16", "").filter(v => v >= 0 && v < 250).reduce((a, b) => a + b, 0);
   const luxAll = vals("14", "LUX").filter(v => v >= 0 && v <= 130000);
   const secAll = vals("15", "SEC").filter(v => v >= 0 && v <= 87000);
   const uvAll = vals("13", "").filter(v => v >= 0 && v <= 12);
   const distKm = vals("17", "KM").filter(v => v > 0);
+  const temps = vals("1", "C").filter(v => v >= -40 && v <= 45);
+  const speedByT = Object.fromEntries(rows("3", "KPH").map(r => [r.t, r.v]));
+  const dirs = Array(16).fill(0);
+  for (const r of rows("4", "")) {
+    if (r.v < 0 || r.v > 360) continue;
+    if ((speedByT[r.t] ?? 0) < 5) continue; // riktning meningslös i stiltje
+    dirs[Math.round(r.v / 22.5) % 16]++;
+  }
   return {
     strikes: Math.round(strikes),
     luxMax: luxAll.length ? Math.max(...luxAll) : null,
     secTotal: secAll.length ? Math.round(Math.max(...secAll)) : null,
     uvMax: uvAll.length ? Math.max(...uvAll) : null,
     closestKm: distKm.length ? Math.min(...distKm) : null,
+    tAvg: temps.length ? +(temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : null,
+    tMin: temps.length ? Math.min(...temps) : null,
+    tMax: temps.length ? Math.max(...temps) : null,
+    dirs: dirs.some(v => v) ? dirs : null,
   };
 }
 

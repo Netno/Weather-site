@@ -229,6 +229,11 @@
   <div class="grid">
     <div class="card span2 hero" id="hero"><div class="chart-empty">Hämtar senaste observationen …</div></div>
 
+    <div class="card span2 chart-card" id="denna-dag" style="display:none">
+      <h2>Denna dag genom åren</h2>
+      <p class="subtitle" id="dd-content" style="margin:0"></p>
+    </div>
+
     <div class="span2 chips" id="live-range">
       <span class="chips-label">Grafer:</span>
       <button data-range="idag" class="on">Idag</button>
@@ -990,6 +995,43 @@ async function loadAcurite() {
   } catch (err) { console.warn("acurite:", err); }
 }
 
+/* Historisk jämförelse för dagens datum — WU-arkivet + stationens sensorer */
+async function loadDennaDag() {
+  try {
+    const today = todayIso();
+    const mmdd = today.slice(5);
+    const curYear = parseInt(today.slice(0, 4), 10);
+    const acu = await acuriteDaily();
+    const items = [];
+    for (let y = 2018; y < curYear; y++) {
+      const date = `${y}-${mmdd}`;
+      const w = (await dailyYear(String(y)))[date]?.metric ?? null;
+      const a = acu[date] ?? null;
+      if (!w && !a) continue;
+      items.push({ y,
+        hi: w?.tempHigh ?? a?.tMax ?? null,
+        lo: w?.tempLow ?? a?.tMin ?? null,
+        rain: w?.precipTotal ?? null,
+        strikes: a?.strikes ?? null });
+    }
+    if (!items.length) return;
+    const hot = items.filter(i => i.hi != null).sort((a, b) => b.hi - a.hi)[0];
+    const cold = items.filter(i => i.lo != null).sort((a, b) => a.lo - b.lo)[0];
+    const wet = items.filter(i => i.rain > 0).sort((a, b) => b.rain - a.rain)[0];
+    const storm = items.filter(i => i.strikes > 0).sort((a, b) => b.strikes - a.strikes)[0];
+    const parts = [];
+    if (hot) parts.push(`varmast <b>${fmt(hot.hi)}°</b> (${hot.y})`);
+    if (cold) parts.push(`kallaste natt <b>${fmt(cold.lo)}°</b> (${cold.y})`);
+    if (wet) parts.push(`mest regn <b>${fmt(wet.rain)} mm</b> (${wet.y})`);
+    if (storm) parts.push(`åska: <b>${storm.strikes} nedslag</b> (${storm.y})`);
+    if (!parts.length) return;
+    document.getElementById("dd-content").innerHTML =
+      `${parseInt(today.slice(8), 10)} ${MONTHS[parseInt(today.slice(5, 7), 10) - 1]} under ${items.length} tidigare år: ` +
+      parts.join(" · ");
+    document.getElementById("denna-dag").style.display = "";
+  } catch (err) { console.warn("denna dag:", err); }
+}
+
 async function loadCurrent() {
   try {
     const data = await fetchJSON("/api/wu?e=current");
@@ -1051,6 +1093,7 @@ async function boot() {
   await loadDayAndWeek();
   await loadCurrent();
   loadAcurite();
+  loadDennaDag();
   setInterval(loadCurrent, 60_000);
   setInterval(loadDayAndWeek, 300_000);
   setInterval(loadAcurite, 300_000);

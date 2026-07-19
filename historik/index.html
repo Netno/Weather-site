@@ -218,6 +218,9 @@
     <button data-view="dag">Dag</button>
     <button data-view="arsdag">Samma dag genom åren</button>
     <button data-view="manad">Månadsjämförelse</button>
+    <button data-view="aret">Året</button>
+    <button data-view="vindros">Vindros</button>
+    <button data-view="rekord">Rekord</button>
   </div>
 
   <!-- ===== Vy: Utforska =================================================== -->
@@ -234,6 +237,7 @@
         <option value="lux">Ljusintensitet</option>
         <option value="ljustid">Ljustid</option>
         <option value="blixt">Blixtar</option>
+        <option value="solighet">Solighet</option>
       </select>
       <span class="chips" id="utf-range">
         <button data-range="48h">48 tim</button>
@@ -339,6 +343,68 @@
     </div>
   </section>
 
+  <!-- ===== Vy: Året (värmekarta) ========================================= -->
+  <section class="view" id="view-aret">
+    <div class="controls">
+      <label for="aret-ar">År</label>
+      <select id="aret-ar"></select>
+      <select id="aret-matvarde">
+        <option value="temp">Dygnsmedeltemp</option>
+        <option value="regn">Nederbörd</option>
+        <option value="blixt">Blixtar</option>
+        <option value="lux">Ljusintensitet</option>
+        <option value="solighet">Solighet</option>
+      </select>
+    </div>
+    <div class="grid">
+      <div class="card span2 chart-card">
+        <h2 id="aret-title">Året</h2>
+        <p class="subtitle" id="aret-sub"></p>
+        <div style="overflow-x:auto" id="aret-heatmap"></div>
+        <div class="legend" id="aret-legend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Vy: Vindros =================================================== -->
+  <section class="view" id="view-vindros">
+    <div class="controls">
+      <label for="vr-ar">Period</label>
+      <select id="vr-ar"></select>
+      <select id="vr-manad">
+        <option value="">Hela året</option>
+      </select>
+    </div>
+    <div class="grid">
+      <div class="card span2 chart-card">
+        <h2>Vindros</h2>
+        <p class="subtitle" id="vr-sub">Andel blåsiga timmar (≥ 5 km/h) per riktning · stationens sensor sedan mars 2025</p>
+        <div id="vr-rose" style="display:flex;justify-content:center"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Vy: Rekord ==================================================== -->
+  <section class="view" id="view-rekord">
+    <div class="grid">
+      <div class="card span2 chart-card">
+        <h2>Temperatur, nederbörd & vind</h2>
+        <p class="subtitle" id="rk-wu-note"></p>
+        <div class="readings" id="rk-wu"></div>
+      </div>
+      <div class="card span2 chart-card">
+        <h2>Ljus & blixtar</h2>
+        <p class="subtitle" id="rk-acu-note"></p>
+        <div class="readings" id="rk-acu"></div>
+      </div>
+      <div class="card span2 chart-card">
+        <h2>Frost & växtsäsong</h2>
+        <p class="subtitle">Sista vårfrost, första höstfrost och frostfria dagar däremellan</p>
+        <div style="overflow-x:auto"><table class="stats" id="rk-frost"></table></div>
+      </div>
+    </div>
+  </section>
+
   <footer>
     Historiken läses ur stationens eget arkiv (<span id="arkiv-span">hämtar …</span>).<br>
     Arkivet fylls på varje natt · <a href="/">till live-vyn</a>
@@ -370,10 +436,11 @@ const METRICS = {
   lux: { label: "Ljusintensitet", unit: "lux", color: () => LUX_COLOR },
   ljustid: { label: "Ljustid", unit: "h", color: () => LUX_COLOR },
   blixt: { label: "Blixtar", unit: "st", color: () => BLIXT_COLOR },
+  solighet: { label: "Solighet", unit: "%", color: () => LUX_COLOR },
 };
 // Mätvärden som läses ur myAcuRite-arkivet (fulltäckande sedan 2018-12-05,
 // till skillnad från WU där UV saknas i äldre år)
-const ACU_METRICS = new Set(["uv", "lux", "ljustid", "blixt"]);
+const ACU_METRICS = new Set(["uv", "lux", "ljustid", "blixt", "solighet"]);
 const utfState = { range: "vecka" };
 
 function utfRange(toOverride) {
@@ -414,7 +481,7 @@ async function renderUtforskaAcu(metric) {
   const acuMan = await getArchive("/data/acurite/manifest.json");
   const { from, to } = utfRange(acuMan?.lastFetched ?? manifest.lastFetched);
   const dates = listDates(from, to);
-  const hourly = dates.length <= 14;
+  const hourly = metric !== "solighet" && dates.length <= 14;
   document.getElementById("utf-title").textContent = M.label;
   document.getElementById("utf-custom").style.display = utfState.range === "eget" ? "inline" : "none";
   const legend = document.getElementById("utf-legend");
@@ -472,8 +539,21 @@ async function renderUtforskaAcu(metric) {
     const stormDays = days.filter(d => d.a?.strikes > 0).length;
     sub.innerHTML = `${period} · totalt <b>${total} st</b> på <b>${stormDays}</b> åskdagar (sensorns råräkning)`;
   } else {
-    const getters = { lux: d => d.luxMax, ljustid: d => d.secTotal != null ? d.secTotal / 3600 : null, uv: d => d.uvMax };
-    const vals = days.map(d => ({ x: d.x, v: d.a ? getters[metric](d.a) : null })).filter(p => p.v != null);
+    const getters = {
+      lux: d => d.luxMax,
+      ljustid: d => d.secTotal != null ? d.secTotal / 3600 : null,
+      uv: d => d.uvMax,
+      solighet: null, // sätts per datum nedan
+    };
+    const vals = days.map(d => {
+      let v = null;
+      if (d.a) {
+        v = metric === "solighet"
+          ? (d.a.secTotal != null ? Math.min(100, d.a.secTotal / 3600 / daylightHours(d.date) * 100) : null)
+          : getters[metric](d.a);
+      }
+      return { x: d.x, v };
+    }).filter(p => p.v != null);
     multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
       xMax, snap: 1.2, gapX: 4, yLo: 0, area: true, xLabels,
       yFmt: metric === "lux" ? luxFmt : v => v,
@@ -873,8 +953,251 @@ async function renderManad() {
       </tr>`).join("")}</tbody>`;
 }
 
+/* ===== Vy: Året (värmekarta) ===============================================
+   GitHub-stil: en ruta per dag, veckokolumner. Temperatur ur WU-arkivet
+   (kompletteras av backfillen) med acurite som utfyllnad; ljus/blixtar ur
+   myAcuRite-aggregatet. */
+const HM_METRICS = {
+  temp: { label: "Dygnsmedeltemperatur", unit: "°C", fmt: v => fmt(v, 1) + "°" },
+  regn: { label: "Nederbörd", unit: "mm", fmt: v => fmt(v, 1) + " mm" },
+  blixt: { label: "Blixtar", unit: "st", fmt: v => Math.round(v) + " st" },
+  lux: { label: "Ljusintensitet (dygnsmax)", unit: "lux", fmt: v => Math.round(v).toLocaleString("sv-SE") + " lux" },
+  solighet: { label: "Solighet", unit: "%", fmt: v => fmt(v, 0) + " %" },
+};
+
+async function renderAret() {
+  const year = document.getElementById("aret-ar").value;
+  const metric = document.getElementById("aret-matvarde").value;
+  const M = HM_METRICS[metric];
+  document.getElementById("aret-title").textContent = `${M.label} · ${year}`;
+
+  const [wu, acu] = await Promise.all([dailyYear(year), acuriteDaily()]);
+  const valueFor = date => {
+    const w = wu[date]?.metric;
+    const a = acu[date];
+    switch (metric) {
+      case "temp": return w?.tempAvg ?? a?.tAvg ?? null;
+      case "regn": return w?.precipTotal ?? null;
+      case "blixt": return a ? a.strikes : null;
+      case "lux": return a?.luxMax ?? null;
+      case "solighet": return a?.secTotal != null ? Math.min(100, a.secTotal / 3600 / daylightHours(date) * 100) : null;
+    }
+  };
+
+  const dates = listDates(`${year}-01-01`, `${year}-12-31`);
+  const cells = dates.map(date => ({ date, v: valueFor(date) }));
+  const vals = cells.map(c => c.v).filter(v => v != null);
+  const box = document.getElementById("aret-heatmap");
+  if (!vals.length) {
+    box.innerHTML = '<div class="chart-empty">Ingen data för det här året ännu — arkivet fylls på varje natt.</div>';
+    document.getElementById("aret-sub").textContent = "";
+    document.getElementById("aret-legend").innerHTML = "";
+    return;
+  }
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const light = css("--grid").startsWith("#") ? css("--grid") : "#EAEEF2";
+  const colorFor = v => {
+    if (metric === "temp") {
+      // divergerande kring 0°: blå för minus, orange för plus
+      if (v <= 0) return lerpColor(light, "#2E7CC4", lo < 0 ? Math.min(1, v / lo) : 0);
+      return lerpColor(light, "#CE711A", hi > 0 ? Math.min(1, v / hi) : 0);
+    }
+    if (metric === "blixt" && v === 0) return null; // rita som tom
+    const t = hi > lo ? (v - lo) / (hi - lo) : 1;
+    const base = metric === "regn" ? "#2E7CC4" : "#C4A030";
+    return lerpColor(light, base, 0.15 + 0.85 * t);
+  };
+
+  const CELL = 13, GAP = 3, TOP = 18, LEFT = 8;
+  const jan1 = new Date(`${year}-01-01T12:00:00Z`);
+  const startCol = (jan1.getUTCDay() + 6) % 7; // måndagsstart
+  const weeks = Math.ceil((dates.length + startCol) / 7);
+  const W = LEFT + weeks * (CELL + GAP), Hh = TOP + 7 * (CELL + GAP);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${Hh}`, width: W, height: Hh, role: "img" });
+  let seenMonth = "";
+  cells.forEach((c, i) => {
+    const pos = i + startCol;
+    const col = Math.floor(pos / 7), row = pos % 7;
+    const x = LEFT + col * (CELL + GAP), y = TOP + row * (CELL + GAP);
+    const fill = c.v == null ? "none" : colorFor(c.v);
+    const rect = el("rect", { x, y, width: CELL, height: CELL, rx: 3,
+      fill: fill ?? "none", stroke: css("--grid"), "stroke-width": 1 });
+    const t = el("title", {});
+    t.textContent = c.v == null ? `${dateLabel(c.date)}: ingen data` : `${dateLabel(c.date)}: ${M.fmt(c.v)}`;
+    rect.append(t);
+    svg.append(rect);
+    const mon = c.date.slice(5, 7);
+    if (mon !== seenMonth && row === 0) {
+      seenMonth = mon;
+      const lbl = el("text", { x, y: TOP - 6, "font-size": 10, fill: css("--ink-3") });
+      lbl.textContent = MONTHS[parseInt(mon, 10) - 1].slice(0, 3);
+      svg.append(lbl);
+    }
+  });
+  box.innerHTML = "";
+  box.append(svg);
+  document.getElementById("aret-sub").innerHTML =
+    `<b>${vals.length}</b> dagar med data · min <b>${M.fmt(lo)}</b> · max <b>${M.fmt(hi)}</b>`;
+  document.getElementById("aret-legend").innerHTML =
+    `<span>${M.fmt(lo)}</span><span style="flex:1;max-width:120px;height:10px;border-radius:5px;background:linear-gradient(to right,${metric === "temp" ? "#2E7CC4," + light + ",#CE711A" : light + "," + (metric === "regn" ? "#2E7CC4" : "#C4A030")})"></span><span>${M.fmt(hi)}</span>`;
+}
+
+/* ===== Vy: Vindros ========================================================= */
+async function renderVindros() {
+  const yearSel = document.getElementById("vr-ar").value;
+  const monSel = document.getElementById("vr-manad").value;
+  const agg = await acuriteDaily();
+  const sums = Array(16).fill(0);
+  let daysN = 0;
+  for (const [date, a] of Object.entries(agg)) {
+    if (!a?.dirs) continue;
+    if (yearSel && date.slice(0, 4) !== yearSel) continue;
+    if (monSel && date.slice(5, 7) !== monSel) continue;
+    daysN++;
+    a.dirs.forEach((v, i) => sums[i] += v);
+  }
+  const box = document.getElementById("vr-rose");
+  const total = sums.reduce((a, b) => a + b, 0);
+  if (!total) {
+    box.innerHTML = '<div class="chart-empty">Ingen vinddata för det här urvalet</div>';
+    return;
+  }
+  const max = Math.max(...sums);
+  const size = Math.min(380, Math.max(280, box.clientWidth || 320));
+  const c = size / 2, R = c - 34;
+  const svg = el("svg", { viewBox: `0 0 ${size} ${size}`, width: size, height: size, role: "img" });
+  for (const frac of [0.25, 0.5, 0.75, 1]) {
+    svg.append(el("circle", { cx: c, cy: c, r: R * frac, fill: "none", stroke: css("--grid"), "stroke-width": 1 }));
+  }
+  sums.forEach((v, i) => {
+    if (!v) return;
+    const r = R * v / max;
+    const a0 = ((i * 22.5 - 11.25) - 90) * Math.PI / 180;
+    const a1 = ((i * 22.5 + 11.25) - 90) * Math.PI / 180;
+    const p = el("path", {
+      d: `M ${c} ${c} L ${c + r * Math.cos(a0)} ${c + r * Math.sin(a0)} A ${r} ${r} 0 0 1 ${c + r * Math.cos(a1)} ${c + r * Math.sin(a1)} Z`,
+      fill: css("--wind"), "fill-opacity": 0.55, stroke: css("--wind"), "stroke-width": 1,
+    });
+    const t = el("title", {});
+    t.textContent = `${DIRS16[i]}: ${v} timmar (${fmt(v / total * 100, 0)} %)`;
+    p.append(t);
+    svg.append(p);
+  });
+  ["N", "O", "S", "V"].forEach((lbl, i) => {
+    const ang = (i * 90 - 90) * Math.PI / 180;
+    const t = el("text", { x: c + (R + 16) * Math.cos(ang), y: c + (R + 16) * Math.sin(ang) + 4,
+      "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: css("--ink-3") });
+    t.textContent = lbl;
+    svg.append(t);
+  });
+  box.innerHTML = "";
+  box.append(svg);
+  const top = sums.indexOf(max);
+  document.getElementById("vr-sub").innerHTML =
+    `Andel blåsiga timmar (≥ 5 km/h) per riktning · <b>${daysN}</b> dagar · vanligast <b>${DIRS16[top]}</b> (${fmt(max / total * 100, 0)} %)`;
+}
+
+/* ===== Vy: Rekord ========================================================== */
+const maxBy = (arr, f) => arr.reduce((b, x) => (f(x) != null && (b == null || f(x) > f(b))) ? x : b, null);
+const minBy = (arr, f) => arr.reduce((b, x) => (f(x) != null && (b == null || f(x) < f(b))) ? x : b, null);
+const rkCard = (label, val, sub) => `
+  <div class="reading"><div class="label">${label}</div><div class="val">${val}</div><div class="sub">${sub ?? ""}</div></div>`;
+const rkDate = d => `${dateLabel(d)} ${d.slice(0, 4)}`;
+
+async function renderRekord() {
+  // WU-delen: alla arkiverade år
+  const entries = [];
+  for (let y = parseInt(manifest.firstDate.slice(0, 4), 10); y <= parseInt(manifest.lastFetched.slice(0, 4), 10); y++) {
+    const d = await dailyYear(String(y));
+    for (const [date, obs] of Object.entries(d)) if (obs?.metric) entries.push({ date, m: obs.metric });
+  }
+  entries.sort((a, b) => a.date < b.date ? -1 : 1);
+
+  const hot = maxBy(entries, e => e.m.tempHigh);
+  const cold = minBy(entries, e => e.m.tempLow);
+  const wet = maxBy(entries, e => e.m.precipTotal);
+  const gust = maxBy(entries, e => e.m.windgustHigh);
+  const byMonth = new Map();
+  for (const e of entries) {
+    if (e.m.precipTotal == null) continue;
+    const k = e.date.slice(0, 7);
+    byMonth.set(k, (byMonth.get(k) ?? 0) + e.m.precipTotal);
+  }
+  const wetMonth = maxBy([...byMonth.entries()].map(([k, v]) => ({ k, v })), x => x.v);
+  let bestDry = null, run = null;
+  for (const e of entries) {
+    if (e.m.precipTotal == null) { run = null; continue; } // lucka bryter sviten ärligt
+    if (e.m.precipTotal < 0.1) {
+      run = run ? { ...run, to: e.date, n: run.n + 1 } : { from: e.date, to: e.date, n: 1 };
+      if (!bestDry || run.n > bestDry.n) bestDry = run;
+    } else run = null;
+  }
+  document.getElementById("rk-wu").innerHTML = [
+    hot && rkCard("Varmaste dygn", `${fmt(hot.m.tempHigh)}<small>°C</small>`, rkDate(hot.date)),
+    cold && rkCard("Kallaste natt", `${fmt(cold.m.tempLow)}<small>°C</small>`, rkDate(cold.date)),
+    wet && rkCard("Blötaste dygn", `${fmt(wet.m.precipTotal)}<small>mm</small>`, rkDate(wet.date)),
+    wetMonth && rkCard("Blötaste månad", `${fmt(wetMonth.v, 0)}<small>mm</small>`,
+      `${MONTHS[parseInt(wetMonth.k.slice(5), 10) - 1]} ${wetMonth.k.slice(0, 4)}`),
+    gust && rkCard("Kraftigaste by", `${fmt(ms(gust.m.windgustHigh))}<small>m/s</small>`, rkDate(gust.date)),
+    bestDry && rkCard("Längsta torrperiod", `${bestDry.n}<small>dygn</small>`,
+      `${dateLabel(bestDry.from)} – ${rkDate(bestDry.to)}`),
+  ].filter(Boolean).join("");
+  document.getElementById("rk-wu-note").textContent =
+    `Ur WU-arkivet ${manifest.firstDate} – ${manifest.lastFetched}` +
+    (manifest.lastFetched < addDaysIso(todayIso(), -1) ? " — backfillen pågår, rekorden uppdateras i takt med att arkivet växer." : ".");
+
+  // Sensor-delen: myAcuRite-aggregatet
+  const agg = await acuriteDaily();
+  const acu = Object.entries(agg).filter(([, a]) => a).map(([date, a]) => ({ date, ...a }));
+  const acuFirst = acu.length ? acu.map(a => a.date).sort()[0] : null;
+  const mostStrikes = maxBy(acu, a => a.strikes > 0 ? a.strikes : null);
+  const closest = minBy(acu.filter(a => a.closestKm != null), a => a.closestKm);
+  const brightest = maxBy(acu, a => a.luxMax);
+  const longestLight = maxBy(acu, a => a.secTotal);
+  const sunniest = maxBy(acu.filter(a => a.secTotal != null),
+    a => Math.min(100, a.secTotal / 3600 / daylightHours(a.date) * 100));
+  const stormDays = acu.filter(a => a.strikes > 0).length;
+  document.getElementById("rk-acu").innerHTML = [
+    mostStrikes && rkCard("Mest blixtar en dag", `${mostStrikes.strikes}<small>st</small>`,
+      `${rkDate(mostStrikes.date)}${mostStrikes.closestKm ? ` · närmast ${mostStrikes.closestKm} km` : ""}`),
+    closest && rkCard("Närmaste nedslag", `${closest.closestKm}<small>km</small>`, rkDate(closest.date)),
+    rkCard("Åskdagar totalt", `${stormDays}<small>st</small>`, `sedan ${acuFirst ? rkDate(acuFirst) : "–"}`),
+    brightest && rkCard("Högsta ljusintensitet", `${Math.round(brightest.luxMax / 1000)}<small>k lux</small>`, rkDate(brightest.date)),
+    longestLight && rkCard("Längsta ljusdag", `${fmt(longestLight.secTotal / 3600)}<small>h</small>`, rkDate(longestLight.date)),
+    sunniest && rkCard("Soligaste dagen", `${fmt(Math.min(100, sunniest.secTotal / 3600 / daylightHours(sunniest.date) * 100), 0)}<small>%</small>`, rkDate(sunniest.date)),
+  ].filter(Boolean).join("");
+  document.getElementById("rk-acu-note").textContent = acuFirst
+    ? `Stationens egna sensorer via myAcuRite — historik sedan ${rkDate(acuFirst)} (äldre rensas av AcuRite; vårt arkiv bevarar allt framåt).`
+    : "";
+
+  // Frost & växtsäsong: minsta dygnstemp ur båda källorna
+  const minByDate = new Map();
+  for (const e of entries) if (e.m.tempLow != null) minByDate.set(e.date, e.m.tempLow);
+  for (const a of acu) if (a.tMin != null) {
+    minByDate.set(a.date, Math.min(minByDate.get(a.date) ?? Infinity, a.tMin));
+  }
+  const years = [...new Set([...minByDate.keys()].map(d => d.slice(0, 4)))].sort();
+  const rows = [];
+  for (const y of years) {
+    const spring = [...minByDate.entries()].filter(([d, v]) => d.slice(0, 4) === y && d.slice(5, 7) <= "06" && v < 0)
+      .map(([d]) => d).sort().at(-1) ?? null;
+    const autumn = [...minByDate.entries()].filter(([d, v]) => d.slice(0, 4) === y && d.slice(5, 7) >= "07" && v < 0)
+      .map(([d]) => d).sort()[0] ?? null;
+    const free = spring && autumn
+      ? Math.round((new Date(autumn) - new Date(spring)) / 86400e3) - 1
+      : null;
+    if (spring || autumn) rows.push({ y, spring, autumn, free });
+  }
+  document.getElementById("rk-frost").innerHTML = `
+    <thead><tr><th>År</th><th>Sista vårfrost</th><th>Första höstfrost</th><th>Frostfria dagar</th></tr></thead>
+    <tbody>${rows.map(r => `
+      <tr><td>${r.y}</td><td>${r.spring ? dateLabel(r.spring) : "–"}</td>
+      <td>${r.autumn ? dateLabel(r.autumn) : "–"}</td><td>${r.free ?? "–"}</td></tr>`).join("")}</tbody>`;
+}
+
 /* ===== Flikar & uppstart =================================================== */
-const RENDERERS = { utforska: renderUtforska, dag: renderDag, arsdag: renderArsdag, manad: renderManad };
+const RENDERERS = { utforska: renderUtforska, dag: renderDag, arsdag: renderArsdag, manad: renderManad,
+  aret: renderAret, vindros: renderVindros, rekord: renderRekord };
 let activeView = "utforska";
 
 for (const btn of document.querySelectorAll(".tabs button")) {
@@ -957,6 +1280,25 @@ async function boot() {
   MONTHS.forEach((m, i) => mmSel.append(new Option(m, hh(i + 1))));
   mmSel.value = manifest.lastFetched.slice(5, 7);
   mmSel.addEventListener("change", () => { renderManadChips().then(renderManad); });
+
+  // Året: årsväljare (acurite når till igår; WU växer med backfillen)
+  const aretSel = document.getElementById("aret-ar");
+  const acuMan = await getArchive("/data/acurite/manifest.json");
+  const acuLastYear = parseInt((acuMan?.lastFetched ?? manifest.lastFetched).slice(0, 4), 10);
+  for (let y = acuLastYear; y >= parseInt(manifest.firstDate.slice(0, 4), 10); y--) {
+    aretSel.append(new Option(String(y), String(y)));
+  }
+  aretSel.addEventListener("change", renderAret);
+  document.getElementById("aret-matvarde").addEventListener("change", renderAret);
+
+  // Vindros: perioder
+  const vrAr = document.getElementById("vr-ar");
+  vrAr.append(new Option("Alla år", ""));
+  for (let y = acuLastYear; y >= 2025; y--) vrAr.append(new Option(String(y), String(y)));
+  const vrMan = document.getElementById("vr-manad");
+  MONTHS.forEach((m, i) => vrMan.append(new Option(m, hh(i + 1))));
+  vrAr.addEventListener("change", renderVindros);
+  vrMan.addEventListener("change", renderVindros);
 
   // Rendera bara den synliga fliken — övriga renderas vid flikbyte
   await renderManadChips();
