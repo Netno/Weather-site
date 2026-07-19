@@ -39,6 +39,54 @@ const dateLabel = iso => `${parseInt(iso.slice(8, 10), 10)} ${MONTHS[parseInt(is
 // Stationens dygn, inte besökarens — allt datumräknande sker i svensk tid
 const todayIso = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
 
+/* ===== Datatvätt ===========================================================
+   Sensorglitchar (lösa kablar, döende batterier) ger fysiskt omöjliga
+   värden — rådatan innehåller t.ex. −117 °C, 378 km/h och 1 874 hPa.
+   Gränserna ligger utanför allt rimligt för Västsverige; värden utanför
+   blir null och behandlas som luckor, precis som saknad data. */
+const BOUNDS = {
+  temp: [-40, 45],        // °C
+  dewpt: [-40, 35],
+  hum: [1, 100],          // %
+  windKph: [0, 180],      // km/h (50 m/s)
+  pressureRaw: [850, 1100], // stationstryck hPa
+  rainDay: [0, 150],      // mm/dygn
+  rainHour: [0, 60],      // mm/tim
+  lux: [0, 130000],
+  uv: [0, 12],
+  sec: [0, 87000],
+};
+const inBounds = (v, key) => {
+  const b = BOUNDS[key];
+  return typeof v === "number" && Number.isFinite(v) && v >= b[0] && v <= b[1] ? v : null;
+};
+
+/* Sanera en dygnspost (history/daily eller dailysummary-format) */
+function cleanDailyObs(obs) {
+  if (!obs?.metric) return obs;
+  const m = obs.metric;
+  let hi = inBounds(m.tempHigh, "temp");
+  let lo = inBounds(m.tempLow, "temp");
+  if (hi != null && lo != null && hi < lo) { hi = null; lo = null; } // korrupt par
+  return {
+    ...obs,
+    humidityAvg: inBounds(obs.humidityAvg, "hum"),
+    uvHigh: inBounds(obs.uvHigh, "uv"),
+    metric: {
+      ...m,
+      tempHigh: hi,
+      tempLow: lo,
+      tempAvg: inBounds(m.tempAvg, "temp"),
+      dewptAvg: inBounds(m.dewptAvg, "dewpt"),
+      windspeedAvg: inBounds(m.windspeedAvg, "windKph"),
+      windgustHigh: inBounds(m.windgustHigh, "windKph"),
+      precipTotal: inBounds(m.precipTotal, "rainDay"),
+      pressureMax: inBounds(m.pressureMax, "pressureRaw"),
+      pressureMin: inBounds(m.pressureMin, "pressureRaw"),
+    },
+  };
+}
+
 /* ===== Hämtning ============================================================ */
 // API-anrop: kasta vid fel (anroparen hanterar), ingen klientcache
 async function fetchJSON(url) {
@@ -54,7 +102,13 @@ function getArchive(url) {
   }
   return archiveCache.get(url);
 }
-const dailyYear = async y => await getArchive(`/data/daily/${y}.json`) ?? {};
+// Dygnsposter saneras vid inläsning så att alla vyer får tvättad data
+const dailyYear = async y => {
+  const raw = await getArchive(`/data/daily/${y}.json`) ?? {};
+  const out = {};
+  for (const [date, obs] of Object.entries(raw)) out[date] = obs ? cleanDailyObs(obs) : null;
+  return out;
+};
 const hourlyMonth = async ym => await getArchive(`/data/hourly/${ym.slice(0, 4)}/${ym}.json`) ?? {};
 
 /* Timserie för en arkivdag (history/hourly-buckets med High/Low/Avg-fält).
@@ -64,19 +118,20 @@ function daySeries(buckets) {
   let prevCum = 0;
   return buckets.map(o => {
     const h = parseInt(o.obsTimeLocal.slice(11, 13), 10);
-    const cum = Math.max(prevCum, o.metric.precipTotal ?? 0);
+    const cum = Math.max(prevCum, inBounds(o.metric.precipTotal, "rainDay") ?? prevCum);
+    const temp = inBounds(o.metric.tempAvg ?? o.metric.temp, "temp");
+    const pMax = inBounds(o.metric.pressureMax, "pressureRaw");
+    const pMin = inBounds(o.metric.pressureMin, "pressureRaw");
     const p = {
       h,
-      temp: o.metric.tempAvg ?? o.metric.temp,
-      rain: Math.max(0, cum - prevCum),
-      wind: o.metric.windspeedAvg,
-      gust: o.metric.windgustHigh,
-      hum: o.humidityAvg,
-      uv: o.uvHigh,
-      dewpt: o.metric.dewptAvg,
-      pressure: o.metric.pressureMax != null && o.metric.pressureMin != null
-        ? seaLevel((o.metric.pressureMax + o.metric.pressureMin) / 2, o.metric.tempAvg)
-        : null,
+      temp,
+      rain: inBounds(Math.max(0, cum - prevCum), "rainHour") ?? 0,
+      wind: inBounds(o.metric.windspeedAvg, "windKph"),
+      gust: inBounds(o.metric.windgustHigh, "windKph"),
+      hum: inBounds(o.humidityAvg, "hum"),
+      uv: inBounds(o.uvHigh, "uv"),
+      dewpt: inBounds(o.metric.dewptAvg, "dewpt"),
+      pressure: pMax != null && pMin != null ? seaLevel((pMax + pMin) / 2, temp) : null,
     };
     prevCum = cum;
     return p;
@@ -175,18 +230,34 @@ function multiLine(wrapId, series, opts) {
     for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) ticks.push({ v, y: sy(v) });
     axes(svg, W, ticks, opts.yFmt ?? (v => v), opts.xLabels.map(l => ({ label: l.label, x: sx(l.x) })));
 
+    // Bryt linjen vid stora hål (glitchar/döda batterier) i stället för
+    // att rita en falsk rät linje över luckan
+    const gapX = opts.gapX ?? Infinity;
+    const segments = pts => {
+      const segs = [];
+      let cur = [];
+      for (const p of pts) {
+        if (cur.length && p.x - cur[cur.length - 1].x > gapX) { segs.push(cur); cur = []; }
+        cur.push(p);
+      }
+      if (cur.length) segs.push(cur);
+      return segs;
+    };
+    const pathOf = pts => pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.v)).join(" ");
+
     if (opts.area && series.length === 1 && series[0].pts.length > 1) {
-      const p0 = series[0].pts;
-      const line = p0.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.v)).join(" ");
       const base = sy(lo);
-      svg.append(el("path", {
-        d: `${line} L ${sx(p0[p0.length - 1].x)} ${base} L ${sx(p0[0].x)} ${base} Z`,
-        fill: series[0].color, "fill-opacity": 0.1,
-      }));
+      for (const seg of segments(series[0].pts)) {
+        if (seg.length < 2) continue;
+        svg.append(el("path", {
+          d: `${pathOf(seg)} L ${sx(seg[seg.length - 1].x)} ${base} L ${sx(seg[0].x)} ${base} Z`,
+          fill: series[0].color, "fill-opacity": 0.1,
+        }));
+      }
     }
     for (const s of series) {
       if (!s.pts.length) continue;
-      const d = s.pts.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.v)).join(" ");
+      const d = segments(s.pts).map(pathOf).join(" ");
       const attrs = { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", opacity: 0.9 };
       if (s.dash) { attrs["stroke-dasharray"] = "5 4"; attrs["stroke-width"] = 1.5; attrs.opacity = 0.7; }
       svg.append(el("path", attrs));

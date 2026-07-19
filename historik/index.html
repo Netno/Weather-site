@@ -441,7 +441,7 @@ async function renderUtforska() {
     } else {
       const vals = pts.filter(p => p[metric] != null).map(p => ({ x: p.x, v: p[metric], t: tipT(p) }));
       multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
-        xMax, snap: 2, xLabels, yLo: metric === "hum" || metric === "uv" ? 0 : undefined,
+        xMax, snap: 2, gapX: 6, xLabels, yLo: metric === "hum" || metric === "uv" ? 0 : undefined,
         yFmt: v => v, tipTitle: x => {
           const p = vals.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, vals[0]);
           return p ? p.t : "";
@@ -479,7 +479,7 @@ async function renderUtforska() {
       const vals = days.map(d => ({ x: d.x, v: getters[metric](d.obs), t: dateLabel(d.date) + " " + d.date.slice(0, 4) }))
         .filter(p => p.v != null);
       multiLine("utf-chart", [{ label: M.label, color: M.color(), pts: vals }], {
-        xMax, snap: 1.2, xLabels, yLo: metric === "hum" || metric === "wind" || metric === "uv" ? 0 : undefined,
+        xMax, snap: 1.2, gapX: 4, xLabels, yLo: metric === "hum" || metric === "wind" || metric === "uv" ? 0 : undefined,
         yFmt: v => v, tipTitle: x => {
           const p = vals.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, vals[0]);
           return p ? p.t : "";
@@ -667,7 +667,7 @@ async function renderArsdag() {
     `<span><span class="key" style="border-color:${s.color}"></span>${s.label}</span>`).join("");
 
   multiLine("arsdag-chart", series, {
-    xMax: 23, snap: 1.5,
+    xMax: 23, snap: 1.5, gapX: 5,
     yFmt: v => v + "°",
     xLabels: [0, 6, 12, 18].map(h => ({ label: hh(h), x: h })),
     tipTitle: x => `kl ${hh(Math.round(Math.min(Math.max(x, 0), 23)))}`,
@@ -740,7 +740,7 @@ async function renderManad() {
     label: p.year, color: p.color,
     pts: p.days.filter(d => d.obs).map(d => ({ x: d.day, v: d.obs.metric.tempHigh })),
   })), {
-    xMax: daysInMonth, snap: 0.6,
+    xMax: daysInMonth, snap: 0.6, gapX: 4,
     yFmt: v => v + "°",
     xLabels: [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
     tipTitle: x => `${Math.round(Math.min(Math.max(x, 1), 31))} ${monthName}`,
@@ -751,7 +751,7 @@ async function renderManad() {
     return { label: p.year, color: p.color,
       pts: p.days.filter(d => d.obs).map(d => { cum += d.obs.metric.precipTotal ?? 0; return { x: d.day, v: cum }; }) };
   }), {
-    xMax: daysInMonth, snap: 0.6, yLo: 0,
+    xMax: daysInMonth, snap: 0.6, gapX: 4, yLo: 0,
     yFmt: v => v,
     xLabels: [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
     tipTitle: x => `t.o.m. ${Math.round(Math.min(Math.max(x, 1), 31))} ${monthName}`,

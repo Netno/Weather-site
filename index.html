@@ -328,13 +328,13 @@ function hourlySeries(buckets) {
     const cum = Math.max(prevCum, ...nums(o => o.metric.precipTotal));
     out.push({
       h,
-      temp: avg(nums(o => o.metric.tempAvg ?? o.metric.temp)),
-      rain: Math.max(0, cum - prevCum),
-      wind: avg(nums(o => o.metric.windspeedAvg ?? o.metric.windSpeed)),
-      gust: Math.max(0, ...nums(o => o.metric.windgustHigh ?? o.metric.windGust)),
-      pressure: avg(nums(o => o.metric.pressureMax != null && o.metric.pressureMin != null
+      temp: inBounds(avg(nums(o => o.metric.tempAvg ?? o.metric.temp)), "temp"),
+      rain: inBounds(Math.max(0, cum - prevCum), "rainHour") ?? 0,
+      wind: inBounds(avg(nums(o => o.metric.windspeedAvg ?? o.metric.windSpeed)), "windKph"),
+      gust: inBounds(Math.max(0, ...nums(o => o.metric.windgustHigh ?? o.metric.windGust)), "windKph"),
+      pressure: inBounds(avg(nums(o => o.metric.pressureMax != null && o.metric.pressureMin != null
         ? (o.metric.pressureMax + o.metric.pressureMin) / 2
-        : o.metric.pressure)),
+        : o.metric.pressure)), "pressureRaw"),
     });
     prevCum = cum;
   }
@@ -372,7 +372,8 @@ function acuriteDayPts(day) {
   };
   put("14", "lux", "LUX");
   put("13", "uv", "");
-  return [...byH.values()].sort((a, b) => a.h - b.h);
+  return [...byH.values()].map(p => ({ ...p, lux: inBounds(p.lux, "lux"), uv: inBounds(p.uv, "uv") }))
+    .sort((a, b) => a.h - b.h);
 }
 /* Timpunkter för en periods datum: bakdagar ur arkivet, idag från API:et */
 async function acuriteRangePts(dates) {
@@ -779,7 +780,7 @@ async function renderRangeCharts() {
 
     const temps = pts.filter(p => p.temp != null);
     multiLine("chart-temp", [{ label: "Temperatur", color: tempColor, pts: temps.map(p => ({ x: p.x, v: p.temp })) }],
-      { xMax, snap: 2, area: true, endDot: true, xLabels, yFmt: v => v + "°",
+      { xMax, snap: 2, gapX: 6, area: true, endDot: true, xLabels, yFmt: v => v + "°",
         tipTitle: x => pts.length ? tipT(nearest(x)) : "" });
     if (temps.length) {
       const vs = temps.map(p => p.temp);
@@ -796,12 +797,12 @@ async function renderRangeCharts() {
     multiLine("chart-wind", [
       { label: "Medelvind", color: windColor, pts: winds.map(p => ({ x: p.x, v: ms(p.wind) })) },
       { label: "Byar", color: windColor, dash: true, pts: winds.map(p => ({ x: p.x, v: ms(p.gust) })) },
-    ], { xMax, snap: 2, yLo: 0, xLabels, tipTitle: x => winds.length ? tipT(nearest(x)) : "" });
+    ], { xMax, snap: 2, gapX: 6, yLo: 0, xLabels, tipTitle: x => winds.length ? tipT(nearest(x)) : "" });
     document.getElementById("w-sub").textContent = `Medelvind och byar senaste ${label} (m/s)`;
 
     const press = pts.filter(p => p.pressure != null);
     multiLine("chart-pressure", [{ label: "Lufttryck", color: css("--ink-2"), pts: press.map(p => ({ x: p.x, v: p.pressure })) }],
-      { xMax, snap: 2, endDot: true, xLabels, tipTitle: x => press.length ? tipT(nearest(x)) : "" });
+      { xMax, snap: 2, gapX: 6, endDot: true, xLabels, tipTitle: x => press.length ? tipT(nearest(x)) : "" });
     document.getElementById("p-sub").innerHTML = `Havsnivåtryck senaste ${label}${gapNote}`;
   } else {
     const days = data.days.filter(d => d.obs);
@@ -828,14 +829,14 @@ async function renderRangeCharts() {
     multiLine("chart-wind", [
       { label: "Dygnsmedel", color: windColor, pts: winds.map(d => ({ x: d.x, v: ms(d.obs.metric.windspeedAvg) })) },
       { label: "Kraftigaste by", color: windColor, dash: true, pts: winds.filter(d => d.obs.metric.windgustHigh != null).map(d => ({ x: d.x, v: ms(d.obs.metric.windgustHigh) })) },
-    ], { xMax, snap: 1.2, yLo: 0, xLabels, tipTitle: x => winds.length ? dayT(nearestW(x)) : "" });
+    ], { xMax, snap: 1.2, gapX: 4, yLo: 0, xLabels, tipTitle: x => winds.length ? dayT(nearestW(x)) : "" });
     document.getElementById("w-sub").textContent = `Dygnsmedel och kraftigaste by senaste ${label} (m/s)`;
 
     const press = days.filter(d => d.obs.metric.pressureMax != null)
       .map(d => ({ x: d.x, v: seaLevel((d.obs.metric.pressureMax + d.obs.metric.pressureMin) / 2, d.obs.metric.tempAvg), t: dayT(d) }));
     const nearestP = x => press.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, press[0]);
     multiLine("chart-pressure", [{ label: "Lufttryck", color: css("--ink-2"), pts: press }],
-      { xMax, snap: 1.2, endDot: true, xLabels, tipTitle: x => press.length ? nearestP(x).t : "" });
+      { xMax, snap: 1.2, gapX: 4, endDot: true, xLabels, tipTitle: x => press.length ? nearestP(x).t : "" });
     document.getElementById("p-sub").innerHTML = `Havsnivåtryck (dygnsmitt) senaste ${label}${gapNote}`;
   }
 
@@ -879,14 +880,14 @@ async function renderAcuriteRange(data, label, gapNote) {
 
   const luxPts = pts.filter(p => p.lux != null).map(p => ({ x: p.x, v: p.lux }));
   multiLine("chart-lux", [{ label: "Lux", color: LUX_COLOR, pts: luxPts }],
-    { xMax, snap: hourly ? 2 : 1.2, yLo: 0, area: true, endDot: true, xLabels, yFmt: luxFmt, tipTitle: tip });
+    { xMax, snap: hourly ? 2 : 1.2, gapX: hourly ? 6 : 4, yLo: 0, area: true, endDot: true, xLabels, yFmt: luxFmt, tipTitle: tip });
   document.getElementById("lx-sub").innerHTML =
     `Senaste ${label}${hourly ? "" : " · dygnsmax"}` +
     (luxPts.length ? ` · max <b>${Math.max(...luxPts.map(p => p.v)).toLocaleString("sv-SE")} lux</b>` : "") + gapNote;
 
   const uvPts = pts.filter(p => p.uv != null).map(p => ({ x: p.x, v: p.uv }));
   multiLine("chart-uv", [{ label: "UV", color: UV_COLOR, pts: uvPts }],
-    { xMax, snap: hourly ? 2 : 1.2, yLo: 0, yHi: Math.max(3, ...uvPts.map(p => p.v)) + 1, xLabels, yFmt: v => v, tipTitle: tip });
+    { xMax, snap: hourly ? 2 : 1.2, gapX: hourly ? 6 : 4, yLo: 0, yHi: Math.max(3, ...uvPts.map(p => p.v)) + 1, xLabels, yFmt: v => v, tipTitle: tip });
   document.getElementById("uv-sub").innerHTML =
     `Senaste ${label}${hourly ? "" : " · dygnsmax"}` +
     (uvPts.length ? ` · max <b>${fmt(Math.max(...uvPts.map(p => p.v)), 0)}</b>` : "") + gapNote;
@@ -901,7 +902,7 @@ function renderDays() {
       const date = new Date(s.obsTimeLocal.slice(0, 10) + "T12:00:00");
       const isToday = s.obsTimeLocal.slice(0, 10) === todayIso();
       return {
-        d: isToday ? "Idag" : `${DAY_NAMES[date.getDay()]} ${date.getDate()}`,
+        d: isToday ? `Idag ${date.getDate()}` : `${DAY_NAMES[date.getDay()]} ${date.getDate()}`,
         lo: s.metric.tempLow, hi: s.metric.tempHigh,
         rain: s.metric.precipTotal ?? 0, today: isToday,
       };
@@ -936,8 +937,8 @@ async function buildPressureSeries() {
   for (const d of archived) {
     for (const o of monthData[d.month][d.iso]) {
       const hFrac = parseInt(o.obsTimeLocal.slice(11, 13), 10) + parseInt(o.obsTimeLocal.slice(14, 16), 10) / 60;
-      const p = o.metric.pressureMax != null ? (o.metric.pressureMax + o.metric.pressureMin) / 2 : o.metric.pressure;
-      const v = seaLevel(p, o.metric.tempAvg ?? o.metric.temp);
+      const p = inBounds(o.metric.pressureMax != null ? (o.metric.pressureMax + o.metric.pressureMin) / 2 : o.metric.pressure, "pressureRaw");
+      const v = p != null ? seaLevel(p, inBounds(o.metric.tempAvg ?? o.metric.temp, "temp")) : null;
       if (v != null) pts.push({ x: dayOffset * 24 + hFrac, v, t: `${d.name} ${o.obsTimeLocal.slice(11, 16)}` });
     }
     labels.push({ label: d.name, x: dayOffset * 24 + 12 });
@@ -982,7 +983,12 @@ async function loadAcurite() {
     const data = await fetchJSON("/api/acurite");
     if (data.status !== "ok" || !data.atlas) return; // saknas variabler / API ändrat — visa inget
     state.acurite = data.atlas;
-    state.acuriteToday = data.todaySeries ?? [];
+    state.acuriteToday = (data.todaySeries ?? []).map(p => ({
+      h: p.h,
+      lux: inBounds(p.lux, "lux"),
+      uv: inBounds(p.uv, "uv"),
+      sec: inBounds(p.sec, "sec"),
+    }));
     renderHero();
     if (state.range === "idag") {
       const luxMax = Math.max(0, ...state.acuriteToday.map(p => p.lux ?? 0));
@@ -1028,7 +1034,7 @@ async function loadDayAndWeek() {
   } catch (err) { console.warn("today:", err); }
   try {
     const w = await fetchJSON("/api/wu?e=week");
-    state.week = w.summaries ?? w.observations ?? [];
+    state.week = (w.summaries ?? w.observations ?? []).map(o => o?.metric ? cleanDailyObs(o) : o);
   } catch (err) { console.warn("week:", err); }
   await buildPressureSeries();
   renderHero();
