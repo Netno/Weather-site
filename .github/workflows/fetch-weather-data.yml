@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
     inputs:
       call_budget:
-        description: "Max antal API-anrop (WU:s gräns är 1500/dygn totalt)"
-        default: "1200"
+        description: "Max antal API-anrop (lågt = snällt mot WU:s gratisnivå)"
+        default: "300"
 
 permissions:
   contents: write
@@ -32,7 +32,11 @@ jobs:
       - name: Hämta ny data till arkivet
         env:
           WU_API_KEY: ${{ secrets.WU_API_KEY }}
-          CALL_BUDGET: ${{ github.event.inputs.call_budget || '1200' }}
+          # Lågt tak + långsam takt: WU:s gratisnivå tål inte massladdning av
+          # historik (för aggressiv backfill fick nyckeln avstängd med HTTP 401).
+          # Historiken 2022→nu fylls därför på långsamt, live prioriteras.
+          CALL_BUDGET: ${{ github.event.inputs.call_budget || '300' }}
+          PACE_MS: "4000"
         run: node scripts/fetch-history.mjs
 
       - name: Hämta myAcuRite-data till arkivet
