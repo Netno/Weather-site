@@ -1,0 +1,23 @@
+name: SMHI-probe (tillfällig)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prova olika SMHI-URL:er
+        run: |
+          probe() {
+            echo "=== $1"
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -A "bramhult-vader/1.0" "$1")
+            echo "HTTP $code"
+            head -c 220 /tmp/body; echo; echo
+          }
+          B=https://opendata-download-metfcst.smhi.se/api/category
+          probe "$B/pmp3g/version/2/geotype/point/lon/13.01/lat/57.7216/data.json"
+          probe "$B/pmp3g/version/2/geotype/point/lon/13.010000/lat/57.721600/data.json"
+          probe "$B/pmp3g/version/2/geotype/point/lon/16.158/lat/58.5812/data.json"
+          probe "$B/pmp3g/version/2.json"
+          probe "$B.json"
