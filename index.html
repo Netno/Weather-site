@@ -234,6 +234,14 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   :root[data-theme="dark"] .hero.has-scene .reading .val { color: #f2f6fb; text-shadow: 0 1px 5px rgba(0,0,0,.5); }
   :root[data-theme="dark"] .hero.has-scene .reading .val small,
   :root[data-theme="dark"] .hero.has-scene .reading .sub { color: #c2cdda; }
+  /* Tunn svart kontur bakom (paint-order) den ljusa texten → bättre läsbarhet mot scenen */
+  :root[data-theme="dark"] .hero.has-scene .hero-temp .value { -webkit-text-stroke: 1px rgba(0,0,0,.55); paint-order: stroke fill; }
+  :root[data-theme="dark"] .hero.has-scene .hero-temp .unit,
+  :root[data-theme="dark"] .hero.has-scene .hero-sub,
+  :root[data-theme="dark"] .hero.has-scene .reading .label,
+  :root[data-theme="dark"] .hero.has-scene .reading .val,
+  :root[data-theme="dark"] .hero.has-scene .reading .val small,
+  :root[data-theme="dark"] .hero.has-scene .reading .sub { -webkit-text-stroke: 0.6px rgba(0,0,0,.5); paint-order: stroke fill; }
   .hero.has-scene .reading.linked:hover { background: rgba(255,255,255,.10); }
 
   /* LJUST tema: ljusare himmel + starkare tint så mörk text håller kontrast */

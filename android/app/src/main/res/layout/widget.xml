@@ -26,7 +26,7 @@
             <TextView
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                 android:text="Brämhult" android:textColor="@color/ink" android:textStyle="bold"
-                android:textSize="14sp" android:shadowColor="#99000000" android:shadowRadius="3" android:shadowDy="1"/>
+                android:textSize="14sp" android:shadowColor="#cc000000" android:shadowRadius="2.5" android:shadowDx="0" android:shadowDy="0"/>
             <TextView android:id="@+id/w_when"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="—" android:textColor="@color/ink2" android:textSize="11sp"
@@ -48,7 +48,7 @@
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="–" android:textColor="@color/ink" android:textStyle="bold"
                         android:textSize="44sp" android:includeFontPadding="false"
-                        android:shadowColor="#aa000000" android:shadowRadius="5" android:shadowDy="1"/>
+                        android:shadowColor="#e6000000" android:shadowRadius="3.5" android:shadowDx="0" android:shadowDy="0"/>
                     <TextView
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="°C" android:textColor="@color/ink2" android:textSize="16sp"

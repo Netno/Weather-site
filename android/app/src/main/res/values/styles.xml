@@ -13,9 +13,11 @@
         <item name="android:textColor">@color/ink</item>
         <item name="android:textStyle">bold</item>
         <item name="android:textSize">18sp</item>
-        <item name="android:shadowColor">#66000000</item>
-        <item name="android:shadowRadius">3</item>
-        <item name="android:shadowDy">1</item>
+        <!-- Tät mörk halo (centrerad) ~ tunn kontur för läsbarhet mot scenen -->
+        <item name="android:shadowColor">#cc000000</item>
+        <item name="android:shadowRadius">2.5</item>
+        <item name="android:shadowDx">0</item>
+        <item name="android:shadowDy">0</item>
     </style>
     <style name="WLab">
         <item name="android:layout_width">wrap_content</item>
@@ -23,6 +25,10 @@
         <item name="android:textColor">@color/ink3</item>
         <item name="android:textSize">9sp</item>
         <item name="android:paddingTop">1dp</item>
+        <item name="android:shadowColor">#99000000</item>
+        <item name="android:shadowRadius">2</item>
+        <item name="android:shadowDx">0</item>
+        <item name="android:shadowDy">0</item>
     </style>
     <style name="WFc">
         <item name="android:layout_width">0dp</item>
@@ -32,5 +38,9 @@
         <item name="android:textColor">@color/ink</item>
         <item name="android:textSize">11sp</item>
         <item name="android:lineSpacingExtra">1dp</item>
+        <item name="android:shadowColor">#b3000000</item>
+        <item name="android:shadowRadius">2</item>
+        <item name="android:shadowDx">0</item>
+        <item name="android:shadowDy">0</item>
     </style>
 </resources>
