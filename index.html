@@ -498,7 +498,7 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   </footer>
 </div>
 
-<script src="/assets/charts.js"></script>
+<script src="/assets/charts.js?v=2"></script>
 <script>
 "use strict";
 /* =============================================================================
@@ -712,8 +712,12 @@ function renderHero() {
 const charts = [];
 function chart(wrapId, draw) { charts.push({ wrapId, draw }); }
 
+// Skyddad mot äldre cachad charts.js (annars kan ett saknat funktionsnamn
+// stoppa hela skriptet innan datan hunnit laddas)
+const zoomButtons = () => { try { if (typeof refreshZoomButtons === "function") refreshZoomButtons(); } catch (e) {} };
+
 function renderCharts() {
-  if (state.range !== "idag") { renderRangeCharts(); refreshZoomButtons(); return; }
+  if (state.range !== "idag") { renderRangeCharts(); zoomButtons(); return; }
   for (const c of charts) {
     const wrap = document.getElementById(c.wrapId);
     wrap.innerHTML = "";
@@ -727,11 +731,11 @@ function renderCharts() {
       wrap.innerHTML = '<div class="chart-empty">Ingen data ännu i dag</div>';
     }
   }
-  refreshZoomButtons();
+  zoomButtons();
 }
 let resizeRaf;
 addEventListener("resize", () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(renderCharts); });
-setupChartZoom();  // nyp-zoom-vy för diagrammen (delad kod i charts.js)
+try { if (typeof setupChartZoom === "function") setupChartZoom(); } catch (e) {}
 
 /* Temperatur idag */
 chart("chart-temp", (svg, tip, W) => {

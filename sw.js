@@ -7,11 +7,11 @@
  *  - Övrigt statiskt (js/ikoner/manifest): stale-while-revalidate.
  *  - Externa värdar (Blitzortung, SMHI via proxy sker på origin) rörs inte.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = "shell-" + VERSION;
 const DATA = "data-" + VERSION;
 const SHELL_ASSETS = [
-  "/", "/index.html", "/assets/charts.js", "/historik/", "/historik/index.html",
+  "/", "/index.html", "/assets/charts.js?v=2", "/historik/", "/historik/index.html",
   "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png",
 ];
 
@@ -57,6 +57,15 @@ self.addEventListener("fetch", (e) => {
       fetch(req)
         .then((res) => { caches.open(SHELL).then((c) => c.put(req, res.clone())); return res; })
         .catch(() => caches.match(req).then((m) => m || caches.match("/index.html")))
+    );
+    return;
+  }
+  // Skript: nätverk först så de aldrig hamnar ur synk med den (nätverk-först) HTML:en
+  if (url.pathname.endsWith(".js")) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => { if (res && res.ok) caches.open(SHELL).then((c) => c.put(req, res.clone())); return res; })
+        .catch(() => caches.match(req))
     );
     return;
   }
