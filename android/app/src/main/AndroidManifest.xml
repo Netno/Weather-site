@@ -34,5 +34,31 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/weather_widget_info" />
         </receiver>
+
+        <!-- Live-bakgrund: Själarnas träd -->
+        <service
+            android:name=".SoulTreeWallpaperService"
+            android:label="@string/soul_tree_label"
+            android:exported="true"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/soul_tree_wallpaper" />
+        </service>
+
+        <!-- Genväg för att sätta live-bakgrunden med ett tryck -->
+        <activity
+            android:name=".SetSoulTreeWallpaperActivity"
+            android:label="@string/set_soul_tree_label"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
