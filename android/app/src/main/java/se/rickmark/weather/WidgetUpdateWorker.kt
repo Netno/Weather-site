@@ -107,7 +107,7 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
         val night = d.lux?.let { it < 30 } ?: isNight()
         v.setImageViewResource(R.id.w_bg, sceneDrawable(d.symb, night))
         v.setTextViewText(R.id.w_icon, iconFor(d.symb, night))
-        v.setTextViewText(R.id.w_when, whenFmt.format(Date()))
+        v.setTextViewText(R.id.w_when, "Uppd. " + whenFmt.format(Date()))
 
         val st = sunTimes(dayFmt.format(Date()))
         v.setTextViewText(R.id.w_sun, if (st != null) "☀️ ${st.first}  ·  🌙 ${st.second}" else "")
@@ -250,7 +250,7 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
         private val DAY_NAMES = arrayOf("Sön","Mån","Tis","Ons","Tor","Fre","Lör")
         private val STHLM: TimeZone = TimeZone.getTimeZone("Europe/Stockholm")
         private val dayFmt = SimpleDateFormat("yyyy-MM-dd", Locale("sv", "SE")).apply { timeZone = STHLM }
-        private val whenFmt = SimpleDateFormat("d MMM HH:mm", Locale("sv", "SE")).apply { timeZone = STHLM }
+        private val whenFmt = SimpleDateFormat("d/M HH:mm", Locale("sv", "SE")).apply { timeZone = STHLM }
         private val clockFmt = SimpleDateFormat("HH:mm", Locale("sv", "SE")).apply { timeZone = STHLM }
     }
 }
