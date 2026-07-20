@@ -203,11 +203,14 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
       linear-gradient(180deg, rgba(56,190,220,.10), transparent 40%);
   }
   .pool-card > * { position: relative; z-index: 1; }
-  .pool-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .pool-head { display: flex; align-items: flex-start; gap: 9px; flex-wrap: wrap; }
   .pool-head h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -0.01em; }
   .pool-icon { font-size: 19px; line-height: 1; }
   .pool-name { font-weight: 400; color: var(--ink-3); font-size: 14px; }
-  .pool-status { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  .pool-head-right { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .pool-head-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+  .pool-head-chips .pool-pill { font-size: 11.5px; padding: 3px 10px 3px 8px; }
+  .pool-status { display: inline-flex; align-items: center; gap: 6px;
     font-size: 12px; font-weight: 650; padding: 4px 11px 4px 9px; border-radius: 100px; white-space: nowrap; }
   .pool-status.ok { color: var(--badge-ink); background: var(--badge-bg); }
   .pool-status.warn { color: var(--warn-ink); background: var(--warn-bg); }
@@ -235,6 +238,7 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   .g.out .g-dot { background: var(--warn-ink); }
 
   .pool-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+  .pool-pills[hidden] { display: none; }
   .pool-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
     color: var(--ink-2); background: var(--grid); border-radius: 100px; padding: 5px 12px 5px 10px; }
   .pool-pill .ico { font-size: 13px; line-height: 1; }
@@ -559,7 +563,10 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
       <div class="pool-head">
         <span class="pool-icon">🏊</span>
         <h2>Pool</h2><span class="pool-name" id="pool-name"></span>
-        <span class="pool-status ok" id="pool-status"><span class="dot"></span><span id="pool-status-txt">Allt bra</span></span>
+        <div class="pool-head-right">
+          <span class="pool-status ok" id="pool-status"><span class="dot"></span><span id="pool-status-txt">Allt bra</span></span>
+          <div class="pool-head-chips" id="pool-head-chips"></div>
+        </div>
       </div>
       <div class="pool-main">
         <div class="pool-temp">
@@ -2028,20 +2035,22 @@ async function loadPool() {
     gauge("Fritt klor", p.clFree, "mg/l", 2, 0, 2, 0.3, 1.5, p.clTarget),
   ].join("");
 
-  // Statuspiller för flöde/filtrering + ev. extra värden
-  const pills = [];
+  // Flöde uppe till höger, under statuspillret
+  const headChips = [];
   if (p.flow != null) {
     const on = truthy(p.flow);
-    pills.push(`<span class="pool-pill${on ? "" : " warn"}"><span class="ico">${on ? "🌊" : "⚠"}</span>Flöde ${on ? "På" : "Av"}</span>`);
+    headChips.push(`<span class="pool-pill${on ? "" : " warn"}"><span class="ico">${on ? "🌊" : "⚠"}</span>Flöde ${on ? "På" : "Av"}</span>`);
   }
-  if (p.filtration != null) {
-    const on = truthy(p.filtration);
-    pills.push(`<span class="pool-pill${on ? "" : " off"}"><span class="ico">${on ? "💧" : "⏸"}</span>Filtrering ${on ? "På" : "Av"}</span>`);
-  }
+  document.getElementById("pool-head-chips").innerHTML = headChips.join("");
+
+  // Nedre raden: bara ev. extra numeriska värden (döljs om inga finns)
+  const pills = [];
   if (p.redox != null) pills.push(`<span class="pool-pill"><span class="ico">⚡</span>Redox ${Math.round(p.redox)} mV</span>`);
   if (p.salinity != null) pills.push(`<span class="pool-pill"><span class="ico">🧂</span>Salt ${fmt(p.salinity, 1)} g/l</span>`);
   if (p.airTemp != null) pills.push(`<span class="pool-pill"><span class="ico">🌡️</span>Luft ${fmt(p.airTemp)}°</span>`);
-  document.getElementById("pool-pills").innerHTML = pills.join("");
+  const pillsEl = document.getElementById("pool-pills");
+  pillsEl.innerHTML = pills.join("");
+  pillsEl.hidden = pills.length === 0;
 
   document.getElementById("pool").style.display = "";
   loadPoolHistory();
