@@ -84,8 +84,12 @@ function setupThemeToggle(onChange) {
    Gränserna ligger utanför allt rimligt för Västsverige; värden utanför
    blir null och behandlas som luckor, precis som saknad data. */
 const BOUNDS = {
-  temp: [-40, 45],        // °C
-  dewpt: [-40, 35],
+  // Givaren glappar till sitt felvärde −40 °C och spikar ibland till ~42 °C.
+  // Brämhult har aldrig varit i närheten; håll gränserna innanför det fysiskt
+  // rimliga så glitcharna rensas (svenskt köldrekord ~−53, värmerekord 38 °C —
+  // men lokalt här ryms allt verkligt inom −35…40).
+  temp: [-35, 40],        // °C
+  dewpt: [-35, 32],
   hum: [1, 100],          // %
   windKph: [0, 180],      // km/h (50 m/s)
   pressureRaw: [850, 1100], // stationstryck hPa
@@ -100,12 +104,29 @@ const inBounds = (v, key) => {
   return typeof v === "number" && Number.isFinite(v) && v >= b[0] && v <= b[1] ? v : null;
 };
 
-/* Sanera en dygnspost (history/daily eller dailysummary-format) */
-function cleanDailyObs(obs) {
+/* Säsongsvisa temperaturgränser [min,max] °C per månad för Brämhult. Givaren
+   glappar till −40 och spikar ibland högt (t.ex. 42 °C, eller 35 °C mitt i
+   januari) — sådant är fysiskt omöjligt för säsongen och rensas här. Marginal
+   på några grader över kända lokalrekord så äkta extremvärden får vara kvar. */
+const TEMP_MONTH = [
+  [-30, 13], [-30, 14], [-25, 20], [-15, 26], [-8, 30], [-2, 34],
+  [0, 36], [0, 35], [-5, 31], [-12, 25], [-20, 17], [-28, 14],
+];
+function tempOk(v, month) {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  if (!month || month < 1 || month > 12) return inBounds(v, "temp");
+  const [lo, hi] = TEMP_MONTH[month - 1];
+  return v >= lo && v <= hi ? v : null;
+}
+
+/* Sanera en dygnspost (history/daily eller dailysummary-format).
+   date (ÅÅÅÅ-MM-DD) ger säsongsvis temperaturrensning när den finns. */
+function cleanDailyObs(obs, date) {
   if (!obs?.metric) return obs;
   const m = obs.metric;
-  let hi = inBounds(m.tempHigh, "temp");
-  let lo = inBounds(m.tempLow, "temp");
+  const month = date && /^\d{4}-\d{2}/.test(date) ? parseInt(date.slice(5, 7), 10) : null;
+  let hi = tempOk(m.tempHigh, month);
+  let lo = tempOk(m.tempLow, month);
   if (hi != null && lo != null && hi < lo) { hi = null; lo = null; } // korrupt par
   return {
     ...obs,
@@ -115,7 +136,7 @@ function cleanDailyObs(obs) {
       ...m,
       tempHigh: hi,
       tempLow: lo,
-      tempAvg: inBounds(m.tempAvg, "temp"),
+      tempAvg: tempOk(m.tempAvg, month),
       dewptAvg: inBounds(m.dewptAvg, "dewpt"),
       windspeedAvg: inBounds(m.windspeedAvg, "windKph"),
       // Ensamma orkanspikar med stiltje-medelvind är anemometerglitchar
@@ -150,7 +171,7 @@ function getArchive(url) {
 const dailyYear = async y => {
   const raw = await getArchive(`/data/daily/${y}.json`) ?? {};
   const out = {};
-  for (const [date, obs] of Object.entries(raw)) out[date] = obs ? cleanDailyObs(obs) : null;
+  for (const [date, obs] of Object.entries(raw)) out[date] = obs ? cleanDailyObs(obs, date) : null;
   return out;
 };
 const hourlyMonth = async ym => await getArchive(`/data/hourly/${ym.slice(0, 4)}/${ym}.json`) ?? {};
@@ -244,9 +265,9 @@ function acuriteAggToObs(a) {
   return {
     humidityAvg: null,
     metric: {
-      tempHigh: a.tMax, tempLow: a.tMin, tempAvg: a.tAvg,
-      precipTotal: a.rainDay,
-      windspeedAvg: a.windAvg, windgustHigh: a.windMax,
+      tempHigh: inBounds(a.tMax, "temp"), tempLow: inBounds(a.tMin, "temp"), tempAvg: inBounds(a.tAvg, "temp"),
+      precipTotal: inBounds(a.rainDay, "rainDay"),
+      windspeedAvg: inBounds(a.windAvg, "windKph"), windgustHigh: inBounds(a.windMax, "windKph"),
       pressureMax: p, pressureMin: p,
     },
   };
