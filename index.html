@@ -1910,12 +1910,14 @@ async function loadPool() {
   document.getElementById("pool-temp").textContent = p.waterTemp != null ? fmt(p.waterTemp) : "–";
   document.getElementById("pool-warn").hidden = !p.warning;
   document.getElementById("pool-vals").innerHTML = [
-    item("pH", p.ph != null ? fmt(p.ph, 1) : null, "", out(p.ph, 7.0, 7.4)),
+    // Appens fyra huvudvärden först (vattentemp är stora siffran)
+    item("pH", p.ph != null ? fmt(p.ph, 2) : null, "", out(p.ph, 7.0, 7.4)),
+    item("Fritt klor", p.clFree != null ? fmt(p.clFree, 2) : null, "mg/l", out(p.clFree, 0.3, 1.5)),
+    item("Flöde", flowTxt, "", flowTxt === "Av"),
+    // Extra värden om anläggningen rapporterar dem
     item("Redox", p.redox != null ? Math.round(p.redox) : null, "mV", out(p.redox, 600, 800)),
-    item("Fritt klor", p.clFree != null ? fmt(p.clFree, 1) : null, "mg/l", out(p.clFree, 0.3, 1.5)),
     item("Salt", p.salinity != null ? fmt(p.salinity, 1) : null, "kg/m³", false),
     item("Lufttemp", p.airTemp != null ? fmt(p.airTemp) : null, "°C", false),
-    item("Flöde", flowTxt, "", flowTxt === "Av"),
   ].join("");
   document.getElementById("pool").style.display = "";
 }
