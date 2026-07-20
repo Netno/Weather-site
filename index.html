@@ -258,7 +258,14 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   .dd-go { color: var(--temp); font-weight: 600; white-space: nowrap; margin-left: 2px; }
   .reading.linked { cursor: pointer; border-radius: 8px; margin: -4px; padding: 4px; transition: background .12s; }
   .reading.linked:hover { background: var(--grid); }
-  .reading.linked .label::after { content: " ↓"; opacity: .55; }
+  .reading.linked:active { background: var(--grid); }
+  .hero.has-scene .reading.linked:active { background: rgba(255,255,255,.14); }
+  .reading.linked .label::after { content: " ↓"; opacity: .55; font-weight: 700; }
+  /* Pekskärm (ingen hover): tydligare men subtil "tryck → graf"-signal */
+  @media (hover: none) {
+    .reading.linked .label { text-decoration: underline dotted; text-decoration-color: var(--ink-3); text-underline-offset: 3px; }
+    .reading.linked .label::after { opacity: .95; color: var(--temp); }
+  }
   .card.flash { animation: cardflash 1.1s ease; }
   @keyframes cardflash { 0%, 100% { box-shadow: none; } 15% { box-shadow: inset 0 0 0 2px var(--temp); } }
   .trend-down::after { content: "↓"; color: var(--rain); margin-left: 4px; font-size: 15px; }
