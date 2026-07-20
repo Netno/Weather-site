@@ -351,6 +351,9 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   }
   .app-cta button:hover, .app-cta .app-link:hover { background: var(--grid); border-color: var(--axis); }
   .app-cta button { border-color: var(--temp); color: var(--temp); }
+  .app-cta .app-link.apk { border-color: var(--temp); color: var(--temp); }
+  .app-note { text-align: center; font-size: 12px; color: var(--ink-3); margin: 8px 0 0; }
+  :root.in-app .app-note { display: none; }
 
   footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 18px; line-height: 1.7; }
   footer a { color: var(--ink-2); }
@@ -536,9 +539,11 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   </div>
 
   <div class="app-cta">
-    <button id="install-btn" type="button" hidden>⬇ Installera som app</button>
-    <a class="app-link" href="/widget/">◱ Widget</a>
+    <a class="app-link apk" href="https://github.com/Netno/Weather-site/releases/download/android/bramhult-vader.apk">📲 Android-app (APK) – med hemskärmswidget</a>
+    <button id="install-btn" type="button" hidden>⬇ Installera som webbapp</button>
+    <a class="app-link" href="/widget/">◱ Inbäddningsbar widget</a>
   </div>
+  <p class="app-note">Hemskärmswidgeten finns bara i Android-appen (APK) – inte i webbappen. Avinstallera ev. äldre version innan du installerar om.</p>
 
   <footer>
     Data från personlig väderstation IBRMHULT2 i Brämhult via Weather Underground · uppdateras varje minut.<br>
