@@ -3,6 +3,7 @@ package se.rickmark.weather
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.view.View
 import android.widget.RemoteViews
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -43,7 +44,8 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
         var temp: Double? = null, var wind: Double? = null, var wnow: Double? = null, var windDir: Int? = null,
         var rain: Double? = null, var hum: Double? = null, var uv: Double? = null, var lux: Double? = null,
         var strikes: Int? = null, var feels: Double? = null, var dew: Double? = null, var press: Double? = null,
-        var symb: Int? = null, var days: List<Day> = emptyList()
+        var symb: Int? = null, var days: List<Day> = emptyList(),
+        var poolTemp: Double? = null, var poolPh: Double? = null, var poolCl: Double? = null, var poolFlow: Boolean? = null
     )
     private data class Day(val date: String, val name: String, val icon: String, val hi: Int, val lo: Int)
 
@@ -97,6 +99,18 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
             }
             wx.days = out
         } catch (_: Exception) { }
+        // Pool (Aseko) – valfritt, döljs i vyn om det saknas
+        try {
+            val pr = JSONObject(httpGet("$BASE/api/aseko"))
+            if (pr.optString("status") == "ok") {
+                val p = pr.getJSONObject("pool")
+                wx.poolTemp = p.dbl("waterTemp"); wx.poolPh = p.dbl("ph"); wx.poolCl = p.dbl("clFree")
+                wx.poolFlow = if (p.isNull("flow")) null else when (val fv = p.get("flow")) {
+                    is Boolean -> fv
+                    else -> fv.toString().lowercase(Locale.ROOT) in listOf("true", "on", "1", "yes", "ja", "flow", "running")
+                }
+            }
+        } catch (_: Exception) { }
         return wx
     }
 
@@ -132,6 +146,19 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
             else -> f(d.lux, 0)
         })
         v.setTextViewText(R.id.w_wdir, d.windDir?.let { DIRS[((it / 22.5).roundToInt()) % 16] } ?: "–")
+
+        // Pool: visa raden bara om anläggningen rapporterar värden
+        val hasPool = d.poolTemp != null || d.poolPh != null || d.poolCl != null
+        if (hasPool) {
+            v.setViewVisibility(R.id.c_pool, View.VISIBLE)
+            v.setTextViewText(R.id.w_pool_temp, f(d.poolTemp, 1))
+            v.setTextViewText(R.id.w_pool_ph, f(d.poolPh, 1))
+            v.setTextViewText(R.id.w_pool_cl, f(d.poolCl, 2))
+            v.setTextViewText(R.id.w_pool_flow, when (d.poolFlow) { true -> "På"; false -> "Av"; null -> "–" })
+            v.setOnClickPendingIntent(R.id.c_pool, WeatherWidget.pendingUrl(ctx, 308, "$BASE/#pool"))
+        } else {
+            v.setViewVisibility(R.id.c_pool, View.GONE)
+        }
 
         val fcIds = intArrayOf(R.id.w_fc0, R.id.w_fc1, R.id.w_fc2, R.id.w_fc3, R.id.w_fc4)
         for (i in fcIds.indices) {

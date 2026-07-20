@@ -1876,10 +1876,17 @@ function scrollToChart(graf) {
   card.scrollIntoView({ behavior: "smooth", block: "start" });
   card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
 }
+function scrollToPool() {
+  const el = document.getElementById("pool");
+  if (!el || el.style.display === "none") return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+}
 function applyHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   const graf = p.get("graf");
   if (graf) scrollToChart(graf);
+  if (location.hash === "#pool") scrollToPool();
   const dag = p.get("dag");
   if (dag) {
     if (state.forecast && state.fcHourDays?.has(dag)) { state.fcSel = null; selectForecastDay(dag); }
@@ -2031,6 +2038,7 @@ async function loadPool() {
 
   document.getElementById("pool").style.display = "";
   loadPoolHistory();
+  if (location.hash === "#pool") requestAnimationFrame(scrollToPool); // djuplänk från widgeten
 }
 
 // Dygnets klor- & pH-kurva (samplas var 30:e min av pool-log-workflowen).

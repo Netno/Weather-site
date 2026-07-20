@@ -93,6 +93,17 @@
             <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_wdir" style="@style/WVal"/><TextView style="@style/WLab" android:text="Riktn."/></LinearLayout>
         </LinearLayout>
 
+        <!-- Pool (döljs om anläggningen inte rapporterar data) -->
+        <LinearLayout android:id="@+id/c_pool"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:weightSum="4" android:paddingTop="8dp"
+            android:visibility="gone">
+            <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_pool_temp" style="@style/WVal"/><TextView style="@style/WLab" android:text="Pool °C"/></LinearLayout>
+            <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_pool_ph" style="@style/WVal"/><TextView style="@style/WLab" android:text="pH"/></LinearLayout>
+            <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_pool_cl" style="@style/WVal"/><TextView style="@style/WLab" android:text="Klor mg/l"/></LinearLayout>
+            <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_pool_flow" style="@style/WVal"/><TextView style="@style/WLab" android:text="Flöde"/></LinearLayout>
+        </LinearLayout>
+
         <!-- Prognos (klickbara dagar) -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:weightSum="5" android:paddingTop="10dp">
