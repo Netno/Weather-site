@@ -83,11 +83,15 @@ function mapUnit(u) {
     waterTemp: num(sv.waterTemperature),
     airTemp: num(sv.airTemperature),
     ph: num(sv.ph),
+    phTarget: num(sv.phRequired),                // börvärde pH
     redox: num(sv.redox),
+    redoxTarget: num(sv.redoxRequired),
     clFree: num(sv.clFree),
+    clTarget: num(sv.clFreeRequired),            // börvärde fritt klor
     salinity: num(sv.salinity),
     electrolyzer: num(sv.electrolyzer),
-    flow: sv.waterFlowToProbes ?? null,          // "YES"/"NO" → tolkas i frontend
+    flow: sv.waterFlowToProbes ?? sv.poolFlow ?? null, // "YES"/"NO" → tolkas i frontend
+    filtration: sv.filtrationRunning ?? null,
     heating: sv.heatingRunning ?? null,
     messages: msgs.map((m) => m?.type).filter(Boolean),
     // Diagnostik: vilka status-nycklar just din anläggning skickar (inga hemligheter)

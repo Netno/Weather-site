@@ -190,16 +190,56 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   .reading .sub { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
 
   /* Pool (Aseko) */
-  .pool-card .pool-name { font-weight: 400; color: var(--ink-3); font-size: 14px; }
-  .pool-card .pool-warn { margin-left: 10px; font-size: 12px; font-weight: 600; color: var(--warn-ink); vertical-align: 2px; }
-  .pool-main { display: flex; align-items: center; gap: 30px; flex-wrap: wrap; margin-top: 10px; }
-  .pool-temp { display: flex; align-items: flex-start; gap: 3px; }
-  .pool-temp .value { font-size: 48px; font-weight: 250; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .pool-temp .unit { font-size: 18px; font-weight: 300; color: var(--ink-3); margin-top: 8px; }
-  .pool-vals { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 14px 24px; flex: 1; min-width: 240px; }
-  .pv .l { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 2px; }
-  .pv .v { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .pv .v small { font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 2px; }
+  .pool-card { position: relative; overflow: hidden; }
+  .pool-card::before {
+    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(130% 90% at 88% -25%, rgba(45,170,200,.16), transparent 58%),
+      linear-gradient(180deg, rgba(45,170,200,.07), transparent 40%);
+  }
+  :root[data-theme="dark"] .pool-card::before {
+    background:
+      radial-gradient(130% 90% at 88% -25%, rgba(56,190,220,.22), transparent 58%),
+      linear-gradient(180deg, rgba(56,190,220,.10), transparent 40%);
+  }
+  .pool-card > * { position: relative; z-index: 1; }
+  .pool-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .pool-head h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -0.01em; }
+  .pool-icon { font-size: 19px; line-height: 1; }
+  .pool-name { font-weight: 400; color: var(--ink-3); font-size: 14px; }
+  .pool-status { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 650; padding: 4px 11px 4px 9px; border-radius: 100px; white-space: nowrap; }
+  .pool-status.ok { color: var(--badge-ink); background: var(--badge-bg); }
+  .pool-status.warn { color: var(--warn-ink); background: var(--warn-bg); }
+  .pool-status .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  .pool-main { display: flex; align-items: center; gap: 34px; flex-wrap: wrap; margin-top: 16px; }
+  .pool-temp { display: flex; flex-direction: column; }
+  .pool-temp .row { display: flex; align-items: flex-start; gap: 3px; }
+  .pool-temp .value { font-size: 58px; font-weight: 220; line-height: .92; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .pool-temp .unit { font-size: 20px; font-weight: 300; color: var(--ink-3); margin-top: 8px; }
+  .pool-temp .cap { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+
+  .pool-gauges { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 15px; }
+  .g-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px; }
+  .g-lab { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .g-val { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .g-val small { font-size: 11px; font-weight: 400; color: var(--ink-3); margin-left: 2px; }
+  .g.out .g-val { color: var(--warn-ink); }
+  .g-track { position: relative; height: 6px; border-radius: 100px; background: var(--grid); }
+  .g-band { position: absolute; top: 0; bottom: 0; border-radius: 100px; background: rgba(46,125,79,.28); }
+  .g.out .g-band { background: rgba(154,86,15,.24); }
+  .g-target { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 2px; background: var(--ink-3); opacity: .55; }
+  .g-dot { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%,-50%);
+    background: var(--ok); box-shadow: 0 0 0 3px var(--card), 0 1px 3px rgba(0,0,0,.28); }
+  .g.out .g-dot { background: var(--warn-ink); }
+
+  .pool-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+  .pool-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
+    color: var(--ink-2); background: var(--grid); border-radius: 100px; padding: 5px 12px 5px 10px; }
+  .pool-pill .ico { font-size: 13px; line-height: 1; }
+  .pool-pill.off { color: var(--ink-3); }
+  .pool-pill.warn { color: var(--warn-ink); background: var(--warn-bg); }
   .pv.out .v { color: var(--warn-ink); }
 
   /* ===== Väderscen i toppöversikten ====================================== */
@@ -493,11 +533,19 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
     </div>
 
     <div class="card span2 pool-card" id="pool" style="display:none">
-      <h2>Pool <span class="pool-name" id="pool-name"></span><span class="pool-warn" id="pool-warn" hidden>⚠ Larm</span></h2>
-      <div class="pool-main">
-        <div class="pool-temp"><span class="value" id="pool-temp">–</span><span class="unit">°C</span></div>
-        <div class="pool-vals" id="pool-vals"></div>
+      <div class="pool-head">
+        <span class="pool-icon">🏊</span>
+        <h2>Pool</h2><span class="pool-name" id="pool-name"></span>
+        <span class="pool-status ok" id="pool-status"><span class="dot"></span><span id="pool-status-txt">Allt bra</span></span>
       </div>
+      <div class="pool-main">
+        <div class="pool-temp">
+          <div class="row"><span class="value" id="pool-temp">–</span><span class="unit">°C</span></div>
+          <span class="cap">Vattentemp</span>
+        </div>
+        <div class="pool-gauges" id="pool-gauges"></div>
+      </div>
+      <div class="pool-pills" id="pool-pills"></div>
     </div>
 
     <div class="card span2 chart-card" id="forecast" style="display:none">
@@ -1899,26 +1947,53 @@ async function loadPool() {
   if (!d || d.status !== "ok" || !d.pool) return;
   const p = d.pool;
   if (p.waterTemp == null && p.ph == null && p.redox == null) return; // inget kärnvärde → dölj
-  const out = (v, lo, hi) => v != null && (v < lo || v > hi);
-  const item = (label, val, unit, bad) => val == null || val === "" ? "" :
-    `<div class="pv${bad ? " out" : ""}"><div class="l">${label}</div><div class="v">${val}${unit ? `<small>${unit}</small>` : ""}</div></div>`;
-  const flowTxt = p.flow == null ? null
-    : /^(true|on|1|yes|ja|flow)$/i.test(String(p.flow)) ? "På"
-    : /^(false|off|0|no|nej|noflow)$/i.test(String(p.flow)) ? "Av" : String(p.flow);
+  const truthy = v => /^(true|on|1|yes|ja|flow|running)$/i.test(String(v));
+
+  // Mätare: spår med ideal-band, börvärdes-markör och nålsläge för aktuellt värde
+  const gauge = (label, val, unit, dec, min, max, lo, hi, target) => {
+    if (val == null) return "";
+    const pct = v => Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
+    const bad = val < lo || val > hi;
+    const tgt = target != null ? `<span class="g-target" style="left:${pct(target)}%"></span>` : "";
+    return `<div class="g${bad ? " out" : ""}">
+      <div class="g-top"><span class="g-lab">${label}</span>
+        <span class="g-val">${fmt(val, dec)}${unit ? `<small>${unit}</small>` : ""}</span></div>
+      <div class="g-track">
+        <span class="g-band" style="left:${pct(lo)}%;right:${100 - pct(hi)}%"></span>
+        ${tgt}<span class="g-dot" style="left:${pct(val)}%"></span>
+      </div></div>`;
+  };
 
   document.getElementById("pool-name").textContent = p.name ? "· " + p.name : "";
   document.getElementById("pool-temp").textContent = p.waterTemp != null ? fmt(p.waterTemp) : "–";
-  document.getElementById("pool-warn").hidden = !p.warning;
-  document.getElementById("pool-vals").innerHTML = [
-    // Appens fyra huvudvärden först (vattentemp är stora siffran)
-    item("pH", p.ph != null ? fmt(p.ph, 2) : null, "", out(p.ph, 7.0, 7.4)),
-    item("Fritt klor", p.clFree != null ? fmt(p.clFree, 2) : null, "mg/l", out(p.clFree, 0.3, 1.5)),
-    item("Flöde", flowTxt, "", flowTxt === "Av"),
-    // Extra värden om anläggningen rapporterar dem
-    item("Redox", p.redox != null ? Math.round(p.redox) : null, "mV", out(p.redox, 600, 800)),
-    item("Salt", p.salinity != null ? fmt(p.salinity, 1) : null, "kg/m³", false),
-    item("Lufttemp", p.airTemp != null ? fmt(p.airTemp) : null, "°C", false),
+
+  // Statuspill
+  const st = document.getElementById("pool-status");
+  const stTxt = document.getElementById("pool-status-txt");
+  if (p.warning) { st.className = "pool-status warn"; stTxt.textContent = "Larm"; }
+  else if (p.online === false) { st.className = "pool-status warn"; stTxt.textContent = "Offline"; }
+  else { st.className = "pool-status ok"; stTxt.textContent = "Allt bra"; }
+
+  document.getElementById("pool-gauges").innerHTML = [
+    gauge("pH", p.ph, "", 2, 6.8, 7.8, 7.0, 7.4, p.phTarget),
+    gauge("Fritt klor", p.clFree, "mg/l", 2, 0, 2, 0.3, 1.5, p.clTarget),
   ].join("");
+
+  // Statuspiller för flöde/filtrering + ev. extra värden
+  const pills = [];
+  if (p.flow != null) {
+    const on = truthy(p.flow);
+    pills.push(`<span class="pool-pill${on ? "" : " warn"}"><span class="ico">${on ? "🌊" : "⚠"}</span>Flöde ${on ? "På" : "Av"}</span>`);
+  }
+  if (p.filtration != null) {
+    const on = truthy(p.filtration);
+    pills.push(`<span class="pool-pill${on ? "" : " off"}"><span class="ico">${on ? "💧" : "⏸"}</span>Filtrering ${on ? "På" : "Av"}</span>`);
+  }
+  if (p.redox != null) pills.push(`<span class="pool-pill"><span class="ico">⚡</span>Redox ${Math.round(p.redox)} mV</span>`);
+  if (p.salinity != null) pills.push(`<span class="pool-pill"><span class="ico">🧂</span>Salt ${fmt(p.salinity, 1)} g/l</span>`);
+  if (p.airTemp != null) pills.push(`<span class="pool-pill"><span class="ico">🌡️</span>Luft ${fmt(p.airTemp)}°</span>`);
+  document.getElementById("pool-pills").innerHTML = pills.join("");
+
   document.getElementById("pool").style.display = "";
 }
 
