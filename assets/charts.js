@@ -453,6 +453,10 @@ function setupChartZoom() {
     .zoom-close { width: 34px; height: 34px; padding: 0; font-size: 17px; line-height: 1; cursor: pointer;
       color: var(--ink-2); background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; }
     .zoom-close:hover { background: var(--grid); color: var(--ink); }
+    .zoom-ctrl { min-width: 38px; height: 34px; padding: 0 10px; font-size: 18px; font-weight: 600; line-height: 1; cursor: pointer;
+      color: var(--ink); background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; }
+    .zoom-ctrl.reset { font-size: 13px; font-weight: 600; }
+    .zoom-ctrl:active { background: var(--grid); }
     .zoom-stage { flex: 1; overflow: hidden; position: relative; touch-action: none; }
     .zoom-pan { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
     .zoom-pan svg { position: absolute; top: 50%; left: 0; transform: translateY(-50%); width: 100%; height: auto; display: block; }
@@ -463,12 +467,19 @@ function setupChartZoom() {
   overlay.id = "zoom-overlay"; overlay.className = "zoom-overlay"; overlay.hidden = true;
   overlay.innerHTML = `
     <div class="zoom-bar"><span class="zoom-title" id="zoom-title"></span>
+      <button type="button" class="zoom-ctrl reset" id="zoom-reset" aria-label="Återställ">100%</button>
+      <button type="button" class="zoom-ctrl" id="zoom-out" aria-label="Zooma ut">−</button>
+      <button type="button" class="zoom-ctrl" id="zoom-in" aria-label="Zooma in">+</button>
       <button type="button" class="zoom-close" id="zoom-close" aria-label="Stäng">✕</button></div>
     <div class="zoom-stage" id="zoom-stage"><div class="zoom-pan" id="zoom-pan"></div></div>
-    <div class="zoom-hint">Nyp för att zooma · dra för att panorera · dubbeltryck återställer</div>`;
+    <div class="zoom-hint">Zooma med + / − eller nyp · dra för att panorera · dubbeltryck återställer</div>`;
   document.body.append(overlay);
 
   const st = zStage();
+  const zoomBy = f => { const r = st.getBoundingClientRect(); zoomAround(r.width / 2, r.height / 2, zoomState.k * f); };
+  document.getElementById("zoom-in").addEventListener("click", () => zoomBy(1.5));
+  document.getElementById("zoom-out").addEventListener("click", () => zoomBy(1 / 1.5));
+  document.getElementById("zoom-reset").addEventListener("click", () => { zoomState.k = 1; clampZoom(); applyZoom(); });
   document.getElementById("zoom-close").addEventListener("click", closeZoom);
   addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeZoom(); });
   st.addEventListener("pointerdown", e => {
