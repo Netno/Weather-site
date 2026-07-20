@@ -240,6 +240,12 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   .pool-pill .ico { font-size: 13px; line-height: 1; }
   .pool-pill.off { color: var(--ink-3); }
   .pool-pill.warn { color: var(--warn-ink); background: var(--warn-bg); }
+
+  .pool-history { margin-top: 20px; border-top: 1px solid var(--card-border); padding-top: 16px; display: grid; gap: 12px 24px; }
+  .pool-history[hidden] { display: none; }
+  @media (min-width: 620px) { .pool-history { grid-template-columns: 1fr 1fr; } }
+  .ph-cap { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+  .ph-cap small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--ink-3); }
   .pv.out .v { color: var(--warn-ink); }
 
   /* ===== Väderscen i toppöversikten ====================================== */
@@ -546,6 +552,16 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
         <div class="pool-gauges" id="pool-gauges"></div>
       </div>
       <div class="pool-pills" id="pool-pills"></div>
+      <div class="pool-history" id="pool-history" hidden>
+        <div class="ph-block">
+          <div class="ph-cap">Fritt klor idag <small>mg/l</small></div>
+          <div class="chart-wrap" id="chart-pool-cl"></div>
+        </div>
+        <div class="ph-block">
+          <div class="ph-cap">pH idag</div>
+          <div class="chart-wrap" id="chart-pool-ph"></div>
+        </div>
+      </div>
     </div>
 
     <div class="card span2 chart-card" id="forecast" style="display:none">
@@ -1995,7 +2011,46 @@ async function loadPool() {
   document.getElementById("pool-pills").innerHTML = pills.join("");
 
   document.getElementById("pool").style.display = "";
+  loadPoolHistory();
 }
+
+// Dygnets klor- & pH-kurva (samplas var 30:e min av pool-log-workflowen).
+// Man ser kloret sjunka när pooltaket tas av och solen bryter ned det.
+async function loadPoolHistory() {
+  const box = document.getElementById("pool-history");
+  if (!box) return;
+  let doc;
+  try { doc = await fetchJSON(`/api/pool-history?date=${todayIso()}`); } catch { box.hidden = true; return; }
+  const s = Array.isArray(doc?.samples) ? doc.samples : [];
+  const xOf = t => { const [h, m] = String(t).split(":").map(Number); return h + (m || 0) / 60; };
+  const clPts = s.filter(o => o.cl != null).map(o => ({ x: xOf(o.t), v: o.cl, t: o.t }));
+  const phPts = s.filter(o => o.ph != null).map(o => ({ x: xOf(o.t), v: o.ph, t: o.t }));
+  if (clPts.length < 2 && phPts.length < 2) { box.hidden = true; return; }
+  box.hidden = false;
+
+  const xLabels = [0, 6, 12, 18, 24].map(h => ({ label: String(h).padStart(2, "0"), x: h }));
+  const tipTitle = xg => {
+    let h = Math.floor(xg), m = Math.round((xg - h) * 60);
+    if (m === 60) { h += 1; m = 0; }
+    return `kl ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+  const opts = extra => ({ xMax: 24, snap: 1.2, endDot: true, gapX: 2, xLabels, yFmt: v => fmt(v, extra.dec), tipTitle, ...extra });
+
+  const clEl = document.getElementById("chart-pool-cl");
+  if (clPts.length >= 2) {
+    const clHi = Math.max(1.6, Math.ceil((Math.max(...clPts.map(p => p.v)) + 0.2) * 5) / 5);
+    multiLine("chart-pool-cl", [{ label: "Fritt klor", color: css("--wind"), pts: clPts }], opts({ dec: 2, area: true, yLo: 0, yHi: clHi }));
+  } else clEl.innerHTML = '<div class="chart-empty">Samlar data…</div>';
+
+  const phEl = document.getElementById("chart-pool-ph");
+  if (phPts.length >= 2) {
+    const pv = phPts.map(p => p.v);
+    const phLo = Math.min(6.8, Math.floor(Math.min(...pv) * 10) / 10 - 0.1);
+    const phHi = Math.max(7.8, Math.ceil(Math.max(...pv) * 10) / 10 + 0.1);
+    multiLine("chart-pool-ph", [{ label: "pH", color: css("--temp"), pts: phPts }], opts({ dec: 2, yLo: phLo, yHi: phHi }));
+  } else phEl.innerHTML = '<div class="chart-empty">Samlar data…</div>';
+}
+addEventListener("resize", () => { if (!document.getElementById("pool-history")?.hidden) loadPoolHistory(); });
 
 async function boot() {
   setupThemeToggle(mountLightningMap); // byt kartstil (mörk/ljus) med temat

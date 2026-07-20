@@ -1,0 +1,61 @@
+name: Pool-logg (klor & pH)
+
+# Samplar /api/aseko var 30:e minut och loggar värdena till pool-data-grenen,
+# så att sajten kan rita dygnets klor- och pH-kurva. Sparas på en egen gren för
+# att inte trigga en Vercel-deploy vid varje sampel (se vercel.json).
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pool-log
+  cancel-in-progress: false
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4        # main → ger oss scripts/pool-log.mjs
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Sampla och logga till pool-data
+        env:
+          SITE: "https://weather.rickmark.se"
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          DATA="$(curl -fsS --max-time 20 "$SITE/api/aseko" || echo '{}')"
+          export DATA
+
+          AUTH="https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+
+          # Klona pool-data-grenen om den finns, annars skapa den som föräldralös
+          if git clone --depth 1 --branch pool-data "$AUTH" pd 2>/dev/null; then
+            echo "Klonade befintlig pool-data-gren."
+          else
+            echo "pool-data saknas – skapar den."
+            git clone --depth 1 "$AUTH" pd
+            ( cd pd && git checkout --orphan pool-data && git rm -rf . >/dev/null 2>&1 || true )
+          fi
+
+          node scripts/pool-log.mjs pd
+
+          cd pd
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Inget nytt att logga."
+          else
+            git commit -m "pool: sampel $(date -u +%FT%TZ)"
+            git push "$AUTH" HEAD:pool-data
+          fi
