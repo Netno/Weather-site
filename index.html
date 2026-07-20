@@ -113,6 +113,8 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   .status > span { white-space: nowrap; }
   .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; vertical-align: 1px; }
   .status .dot.stale { background: var(--warn-ink); }
+  .batt { white-space: nowrap; }
+  .batt.batt-low { color: var(--warn-ink); font-weight: 600; }
   .live-badge {
     background: var(--badge-bg); color: var(--badge-ink);
     font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase;
@@ -638,6 +640,21 @@ const RANGES = {
 };
 
 /* ===== Status & banner ===================================================== */
+// Batteristatus från AcuRite (battery_level = t.ex. "normal"/"low" eller %)
+function battChip() {
+  const b = state.acurite?.battery;
+  if (b == null || b === "") return "";
+  const n = Number(b);
+  let txt, low;
+  if (Number.isFinite(n)) { txt = Math.round(n) + " %"; low = n <= 20; }
+  else {
+    const s = String(b).toLowerCase();
+    low = /(low|lågt|weak|critical|dead)/.test(s);
+    txt = low ? "lågt" : /(normal|good|full|ok|high|hög)/.test(s) ? "OK" : String(b);
+  }
+  return ` · <span class="batt${low ? " batt-low" : ""}" title="Väderstationens batteri">${low ? "🪫" : "🔋"} ${txt}</span>`;
+}
+
 function renderStatus() {
   const elS = document.getElementById("obs-status");
   const dot = document.getElementById("dot");
@@ -648,10 +665,10 @@ function renderStatus() {
   // AcuRite är normalkällan; notera bara om vi tvingats falla tillbaka på WU
   const via = state.currentSource === "wu" ? ' <span style="opacity:.7">· via WU</span>' : "";
   if (ageMin <= 20) {
-    elS.innerHTML = `Senaste observation <b>${time}</b>${via}`;
+    elS.innerHTML = `Senaste observation <b>${time}</b>${via}${battChip()}`;
     dot.classList.remove("stale");
   } else {
-    elS.innerHTML = `Senast <b>${time}</b> (${ageMin} min sedan)${via}`;
+    elS.innerHTML = `Senast <b>${time}</b> (${ageMin} min sedan)${via}${battChip()}`;
     dot.classList.add("stale");
   }
 }
