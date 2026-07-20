@@ -27,26 +27,59 @@
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                 android:text="Brämhult" android:textColor="@color/ink" android:textStyle="bold"
                 android:textSize="14sp" android:shadowColor="#99000000" android:shadowRadius="3" android:shadowDy="1"/>
-            <TextView android:id="@+id/w_icon"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="☀️" android:textSize="16sp" android:paddingEnd="6dp"/>
             <TextView android:id="@+id/w_when"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="—" android:textColor="@color/ink2" android:textSize="11sp"
                 android:shadowColor="#99000000" android:shadowRadius="3"/>
         </LinearLayout>
 
-        <TextView android:id="@+id/w_sun"
+        <!-- Hero: stor temperatur (över scenen) + sol -->
+        <LinearLayout
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="" android:textColor="@color/ink2" android:textSize="11sp"
-            android:gravity="end" android:paddingBottom="6dp"
-            android:shadowColor="#99000000" android:shadowRadius="3"/>
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:paddingTop="2dp" android:paddingBottom="2dp">
+
+            <LinearLayout android:id="@+id/c_temp"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:orientation="vertical">
+                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:baselineAligned="true">
+                    <TextView android:id="@+id/w_temp"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="–" android:textColor="@color/ink" android:textStyle="bold"
+                        android:textSize="44sp" android:includeFontPadding="false"
+                        android:shadowColor="#aa000000" android:shadowRadius="5" android:shadowDy="1"/>
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="°C" android:textColor="@color/ink2" android:textSize="16sp"
+                        android:paddingStart="3dp"
+                        android:shadowColor="#99000000" android:shadowRadius="3"/>
+                </LinearLayout>
+                <TextView android:id="@+id/w_sub"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="" android:textColor="@color/ink2" android:textSize="11sp"
+                    android:shadowColor="#99000000" android:shadowRadius="3"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="vertical" android:gravity="end">
+                <TextView android:id="@+id/w_icon"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="☀️" android:textSize="26sp" android:gravity="end"/>
+                <TextView android:id="@+id/w_sun"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="" android:textColor="@color/ink2" android:textSize="11sp"
+                    android:gravity="end" android:paddingTop="2dp"
+                    android:shadowColor="#99000000" android:shadowRadius="3"/>
+            </LinearLayout>
+        </LinearLayout>
 
         <!-- Rad 1 -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:weightSum="4">
-            <LinearLayout android:id="@+id/c_temp" style="@style/WCell"><TextView android:id="@+id/w_temp" style="@style/WVal" android:textColor="@color/temp"/><TextView style="@style/WLab" android:text="Temp"/></LinearLayout>
+            android:orientation="horizontal" android:weightSum="4" android:paddingTop="8dp">
             <LinearLayout android:id="@+id/c_wind" style="@style/WCell"><TextView android:id="@+id/w_wind" style="@style/WVal"/><TextView style="@style/WLab" android:text="Vind m/s"/></LinearLayout>
+            <LinearLayout android:id="@+id/c_wnow" style="@style/WCell"><TextView android:id="@+id/w_wnow" style="@style/WVal"/><TextView style="@style/WLab" android:text="Vind nu"/></LinearLayout>
             <LinearLayout android:id="@+id/c_rain" style="@style/WCell"><TextView android:id="@+id/w_rain" style="@style/WVal"/><TextView style="@style/WLab" android:text="Regn mm"/></LinearLayout>
             <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_hum" style="@style/WVal"/><TextView style="@style/WLab" android:text="Fukt %"/></LinearLayout>
         </LinearLayout>
@@ -54,18 +87,9 @@
         <!-- Rad 2 -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:weightSum="4" android:paddingTop="8dp">
+            <LinearLayout android:id="@+id/c_press" style="@style/WCell"><TextView android:id="@+id/w_press" style="@style/WVal"/><TextView style="@style/WLab" android:text="Tryck hPa"/></LinearLayout>
             <LinearLayout android:id="@+id/c_uv" style="@style/WCell"><TextView android:id="@+id/w_uv" style="@style/WVal"/><TextView style="@style/WLab" android:text="UV"/></LinearLayout>
             <LinearLayout android:id="@+id/c_lux" style="@style/WCell"><TextView android:id="@+id/w_lux" style="@style/WVal"/><TextView style="@style/WLab" android:text="Ljus"/></LinearLayout>
-            <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_strk" style="@style/WVal"/><TextView style="@style/WLab" android:text="Blixtar"/></LinearLayout>
-            <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_feels" style="@style/WVal"/><TextView style="@style/WLab" android:text="Känns"/></LinearLayout>
-        </LinearLayout>
-
-        <!-- Rad 3 -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:weightSum="4" android:paddingTop="8dp">
-            <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_dew" style="@style/WVal"/><TextView style="@style/WLab" android:text="Daggp."/></LinearLayout>
-            <LinearLayout android:id="@+id/c_press" style="@style/WCell"><TextView android:id="@+id/w_press" style="@style/WVal"/><TextView style="@style/WLab" android:text="Tryck hPa"/></LinearLayout>
-            <LinearLayout android:id="@+id/c_wnow" style="@style/WCell"><TextView android:id="@+id/w_wnow" style="@style/WVal"/><TextView style="@style/WLab" android:text="Vind nu"/></LinearLayout>
             <LinearLayout style="@style/WCell"><TextView android:id="@+id/w_wdir" style="@style/WVal"/><TextView style="@style/WLab" android:text="Riktn."/></LinearLayout>
         </LinearLayout>
 

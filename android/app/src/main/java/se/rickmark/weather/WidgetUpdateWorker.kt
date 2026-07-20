@@ -110,23 +110,27 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
         v.setTextViewText(R.id.w_when, "Uppd. " + whenFmt.format(Date()))
 
         val st = sunTimes(dayFmt.format(Date()))
-        v.setTextViewText(R.id.w_sun, if (st != null) "☀️ ${st.first}  ·  🌙 ${st.second}" else "")
+        v.setTextViewText(R.id.w_sun, if (st != null) "☀️ ${st.first} · 🌙 ${st.second}" else "")
 
         v.setTextViewText(R.id.w_temp, f(d.temp, 1))
+        // Underrad vid tempsiffran: känns-som + daggpunkt (som i webbens toppöversikt)
+        val subParts = ArrayList<String>()
+        (d.feels ?: d.temp)?.let { subParts.add("Känns ${f(it, 0)}°") }
+        d.dew?.let { subParts.add("Daggp ${f(it, 0)}°") }
+        d.strikes?.takeIf { it > 0 }?.let { subParts.add("⚡$it") }
+        v.setTextViewText(R.id.w_sub, subParts.joinToString(" · "))
+
         v.setTextViewText(R.id.w_wind, f(d.wind?.div(3.6), 1))
+        v.setTextViewText(R.id.w_wnow, f((d.wnow ?: d.wind)?.div(3.6), 1))
         v.setTextViewText(R.id.w_rain, f(d.rain, 1))
         v.setTextViewText(R.id.w_hum, f(d.hum, 0))
+        v.setTextViewText(R.id.w_press, if (d.press != null) f(d.press, 0) else "–")
         v.setTextViewText(R.id.w_uv, if (d.uv != null) f(d.uv, 0) else "–")
         v.setTextViewText(R.id.w_lux, when {
             d.lux == null -> "–"
             d.lux!! < 30 -> "Mörkt"
             else -> f(d.lux, 0)
         })
-        v.setTextViewText(R.id.w_strk, (d.strikes ?: 0).toString())
-        v.setTextViewText(R.id.w_feels, f(d.feels ?: d.temp, 0))
-        v.setTextViewText(R.id.w_dew, f(d.dew, 1))
-        v.setTextViewText(R.id.w_press, if (d.press != null) f(d.press, 0) else "–")
-        v.setTextViewText(R.id.w_wnow, f((d.wnow ?: d.wind)?.div(3.6), 1))
         v.setTextViewText(R.id.w_wdir, d.windDir?.let { DIRS[((it / 22.5).roundToInt()) % 16] } ?: "–")
 
         val fcIds = intArrayOf(R.id.w_fc0, R.id.w_fc1, R.id.w_fc2, R.id.w_fc3, R.id.w_fc4)

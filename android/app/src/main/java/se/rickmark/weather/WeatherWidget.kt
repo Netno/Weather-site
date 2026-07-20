@@ -22,11 +22,11 @@ class WeatherWidget : AppWidgetProvider() {
     }
 
     override fun onEnabled(context: Context) {
-        val work = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(30, TimeUnit.MINUTES)
+        val work = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(15, TimeUnit.MINUTES)
             .setConstraints(net())
             .build()
         WorkManager.getInstance(context)
-            .enqueueUniquePeriodicWork("bramhult_widget_periodic", ExistingPeriodicWorkPolicy.KEEP, work)
+            .enqueueUniquePeriodicWork("bramhult_widget_periodic", ExistingPeriodicWorkPolicy.UPDATE, work)
         refreshNow(context)
     }
 
