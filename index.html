@@ -222,15 +222,28 @@
   .hart .a-bolt { animation: boltflash 4s steps(1) infinite; }
   @keyframes boltflash { 0%,92%,100% { opacity: 0; } 93%,96% { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .hart * { animation: none !important; } }
-  /* Ljus text på scenen oavsett tema */
-  .hero.has-scene .hero-temp .value { color: #f2f6fb; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
-  .hero.has-scene .hero-temp .unit { color: #c8d3df; }
-  .hero.has-scene .hero-sub { color: #d7e0ea; text-shadow: 0 1px 5px rgba(0,0,0,.5); }
-  .hero.has-scene .reading .label { color: #bcc8d5; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
-  .hero.has-scene .reading .val { color: #f2f6fb; text-shadow: 0 1px 5px rgba(0,0,0,.5); }
-  .hero.has-scene .reading .val small,
-  .hero.has-scene .reading .sub { color: #c2cdda; }
+  /* MÖRKT tema: mörka scener + ljus text */
+  :root[data-theme="dark"] .hero.has-scene .hero-temp .value { color: #f2f6fb; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+  :root[data-theme="dark"] .hero.has-scene .hero-temp .unit { color: #c8d3df; }
+  :root[data-theme="dark"] .hero.has-scene .hero-sub { color: #d7e0ea; text-shadow: 0 1px 5px rgba(0,0,0,.5); }
+  :root[data-theme="dark"] .hero.has-scene .reading .label { color: #bcc8d5; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  :root[data-theme="dark"] .hero.has-scene .reading .val { color: #f2f6fb; text-shadow: 0 1px 5px rgba(0,0,0,.5); }
+  :root[data-theme="dark"] .hero.has-scene .reading .val small,
+  :root[data-theme="dark"] .hero.has-scene .reading .sub { color: #c2cdda; }
   .hero.has-scene .reading.linked:hover { background: rgba(255,255,255,.10); }
+
+  /* LJUST tema: ljusa himmelsscener + mörk (temats) text — tydlig tint för läsbarhet */
+  :root[data-theme="light"] .htint { background: linear-gradient(180deg, rgba(244,247,250,.42), rgba(244,247,250,.66)); }
+  :root[data-theme="light"] .hero-scene .hsky { background: linear-gradient(165deg, #9cc2ec, #dfeaf6); }
+  :root[data-theme="light"] .hero-scene[data-scene="clear-day"]   .hsky { background: linear-gradient(165deg, #7db4ec, #d3e6fa); }
+  :root[data-theme="light"] .hero-scene[data-scene="partly-day"]  .hsky { background: linear-gradient(165deg, #86b6e8, #d8e7f7); }
+  :root[data-theme="light"] .hero-scene[data-scene="cloudy"]      .hsky { background: linear-gradient(165deg, #b3c1d0, #dde5ee); }
+  :root[data-theme="light"] .hero-scene[data-scene="rain"]        .hsky { background: linear-gradient(165deg, #9db0c2, #cfd9e4); }
+  :root[data-theme="light"] .hero-scene[data-scene="fog"]         .hsky { background: linear-gradient(165deg, #c1c9d1, #e0e5eb); }
+  :root[data-theme="light"] .hero-scene[data-scene="snow"]        .hsky { background: linear-gradient(165deg, #cbd7e5, #eef3f9); }
+  :root[data-theme="light"] .hero-scene[data-scene="thunder"]     .hsky { background: linear-gradient(165deg, #98a3b3, #c3ccd8); }
+  :root[data-theme="light"] .hero-scene[data-scene="clear-night"] .hsky { background: linear-gradient(165deg, #5f6d8c, #9aa5b9); }
+  :root[data-theme="light"] .hero-scene[data-scene="partly-night"].hsky { background: linear-gradient(165deg, #63708e, #a3adbf); }
 
   .reading.linked { cursor: pointer; border-radius: 8px; margin: -4px; padding: 4px; transition: background .12s; }
   .reading.linked:hover { background: var(--grid); }
