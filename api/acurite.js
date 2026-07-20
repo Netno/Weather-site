@@ -137,6 +137,7 @@ function extractAtlas(hub) {
   return {
     battery: pickBattery(atlas),
     batteryRaw: battDiag(atlas),
+    signal: atlas.signal_strength ?? atlas.signalStrength ?? atlas.signal ?? null,
     lastCheckIn: atlas.last_check_in_at ?? null,
     lux: num("Light Intensity"),
     measuredLightS: num("Measured Light"),
