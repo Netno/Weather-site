@@ -371,6 +371,153 @@ function showTip(tip, wrap, x, y, html) {
   tip.style.top = (y - tip.offsetHeight - 12) + "px";
 }
 
+/* ===== Nyp-zooma ett diagram i helskärm ===================================
+   Klonar det redan ritade SVG:t (vektor → skarpt vid all zoom) och visar det
+   i en helskärmsvy med nyp-zoom + panorering. Delas av live- och historik-
+   sidan; skapar sin egen overlay + CSS första gången setupChartZoom() körs. */
+const zoomState = { x: 0, y: 0, k: 1 };
+const zPointers = new Map();
+let zPinchPrev = null, zLastTapT = 0, zLastTapX = 0, zLastTapY = 0, zoomReady = false;
+const zStage = () => document.getElementById("zoom-stage");
+
+function refreshZoomButtons() {
+  document.querySelectorAll(".chart-card").forEach(card => {
+    const hasSvg = !!card.querySelector(".chart-wrap svg");
+    let btn = card.querySelector(".zoom-btn");
+    if (hasSvg && !btn) {
+      btn = document.createElement("button");
+      btn.type = "button"; btn.className = "zoom-btn"; btn.setAttribute("aria-label", "Förstora diagram");
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M14 10l7-7M10 14l-7 7"/></svg>';
+      btn.addEventListener("click", () => {
+        const svg = card.querySelector(".chart-wrap svg");
+        if (svg) openZoom(svg, card.querySelector("h2")?.textContent || "Diagram");
+      });
+      card.appendChild(btn);
+    } else if (!hasSvg && btn) {
+      btn.remove();
+    }
+  });
+}
+
+function applyZoom() {
+  document.getElementById("zoom-pan").style.transform =
+    `translate(${zoomState.x}px, ${zoomState.y}px) scale(${zoomState.k})`;
+}
+function clampZoom() {
+  const st = zStage(); const w = st.clientWidth, h = st.clientHeight;
+  if (zoomState.k <= 1.001) { zoomState.k = 1; zoomState.x = 0; zoomState.y = 0; return; }
+  zoomState.x = Math.min(0, Math.max(w - w * zoomState.k, zoomState.x));
+  zoomState.y = Math.min(0, Math.max(h - h * zoomState.k, zoomState.y));
+}
+function zoomAround(lx, ly, newK) {
+  newK = Math.min(8, Math.max(1, newK));
+  const r = newK / zoomState.k;
+  zoomState.x = lx - (lx - zoomState.x) * r;
+  zoomState.y = ly - (ly - zoomState.y) * r;
+  zoomState.k = newK;
+  clampZoom(); applyZoom();
+}
+function openZoom(svg, title) {
+  setupChartZoom();
+  const pan = document.getElementById("zoom-pan");
+  document.getElementById("zoom-title").textContent = title;
+  const clone = svg.cloneNode(true);
+  clone.removeAttribute("width"); clone.removeAttribute("height");
+  pan.innerHTML = ""; pan.append(clone);
+  zoomState.x = 0; zoomState.y = 0; zoomState.k = 1;
+  applyZoom();
+  document.getElementById("zoom-overlay").hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeZoom() {
+  document.getElementById("zoom-overlay").hidden = true;
+  document.getElementById("zoom-pan").innerHTML = "";
+  zPointers.clear(); zPinchPrev = null;
+  document.body.style.overflow = "";
+}
+function setupChartZoom() {
+  if (zoomReady) return;
+  zoomReady = true;
+  const style = document.createElement("style");
+  style.textContent = `
+    .chart-card { position: relative; }
+    .zoom-btn { position: absolute; top: 16px; right: 16px; z-index: 2; width: 30px; height: 30px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center; color: var(--ink-2); cursor: pointer;
+      background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; opacity: .7; }
+    .zoom-btn:hover { opacity: 1; background: var(--grid); color: var(--ink); }
+    .zoom-overlay { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column;
+      background: var(--bg); overscroll-behavior: contain; }
+    .zoom-overlay[hidden] { display: none; }
+    .zoom-bar { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--card-border); }
+    .zoom-title { font-size: 15px; font-weight: 650; color: var(--ink); flex: 1; }
+    .zoom-close { width: 34px; height: 34px; padding: 0; font-size: 17px; line-height: 1; cursor: pointer;
+      color: var(--ink-2); background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; }
+    .zoom-close:hover { background: var(--grid); color: var(--ink); }
+    .zoom-stage { flex: 1; overflow: hidden; position: relative; touch-action: none; }
+    .zoom-pan { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
+    .zoom-pan svg { position: absolute; top: 50%; left: 0; transform: translateY(-50%); width: 100%; height: auto; display: block; }
+    .zoom-hint { text-align: center; font-size: 12px; color: var(--ink-3); padding: 8px 12px 12px; }`;
+  document.head.append(style);
+
+  const overlay = document.createElement("div");
+  overlay.id = "zoom-overlay"; overlay.className = "zoom-overlay"; overlay.hidden = true;
+  overlay.innerHTML = `
+    <div class="zoom-bar"><span class="zoom-title" id="zoom-title"></span>
+      <button type="button" class="zoom-close" id="zoom-close" aria-label="Stäng">✕</button></div>
+    <div class="zoom-stage" id="zoom-stage"><div class="zoom-pan" id="zoom-pan"></div></div>
+    <div class="zoom-hint">Nyp för att zooma · dra för att panorera · dubbeltryck återställer</div>`;
+  document.body.append(overlay);
+
+  const st = zStage();
+  document.getElementById("zoom-close").addEventListener("click", closeZoom);
+  addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeZoom(); });
+  st.addEventListener("pointerdown", e => {
+    st.setPointerCapture(e.pointerId);
+    zPointers.set(e.pointerId, { x: e.clientX, y: e.clientY, moved: 0 });
+    zPinchPrev = null;
+  });
+  st.addEventListener("pointermove", e => {
+    const prev = zPointers.get(e.pointerId);
+    if (!prev) return;
+    const cur = { x: e.clientX, y: e.clientY, moved: prev.moved + Math.abs(e.clientX - prev.x) + Math.abs(e.clientY - prev.y) };
+    zPointers.set(e.pointerId, cur);
+    const rect = st.getBoundingClientRect();
+    if (zPointers.size === 1) {
+      zoomState.x += cur.x - prev.x; zoomState.y += cur.y - prev.y;
+      clampZoom(); applyZoom();
+    } else {
+      const pts = [...zPointers.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const lx = (pts[0].x + pts[1].x) / 2 - rect.left;
+      const ly = (pts[0].y + pts[1].y) / 2 - rect.top;
+      if (zPinchPrev) {
+        zoomAround(lx, ly, zoomState.k * dist / zPinchPrev.dist);
+        zoomState.x += lx - zPinchPrev.lx; zoomState.y += ly - zPinchPrev.ly;
+        clampZoom(); applyZoom();
+      }
+      zPinchPrev = { dist, lx, ly };
+    }
+  });
+  const endPointer = e => {
+    const p = zPointers.get(e.pointerId);
+    zPointers.delete(e.pointerId); zPinchPrev = null;
+    if (p && p.moved < 12 && zPointers.size === 0) {
+      const now = performance.now(), rect = st.getBoundingClientRect();
+      if (now - zLastTapT < 300 && Math.abs(e.clientX - zLastTapX) < 30 && Math.abs(e.clientY - zLastTapY) < 30) {
+        zoomAround(e.clientX - rect.left, e.clientY - rect.top, zoomState.k > 1.5 ? 1 : 3);
+        zLastTapT = 0;
+      } else { zLastTapT = now; zLastTapX = e.clientX; zLastTapY = e.clientY; }
+    }
+  };
+  st.addEventListener("pointerup", endPointer);
+  st.addEventListener("pointercancel", endPointer);
+  st.addEventListener("wheel", e => {
+    e.preventDefault();
+    const rect = st.getBoundingClientRect();
+    zoomAround(e.clientX - rect.left, e.clientY - rect.top, zoomState.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+  }, { passive: false });
+}
+
 /* Montera ett diagram i ett wrap-element. draw som returnerar false → tomtext.
    Dolda element (bredd 0) hoppas över — anroparen renderar om vid visning. */
 function mountChart(wrapId, draw) {
@@ -385,6 +532,7 @@ function mountChart(wrapId, draw) {
   if (draw(svg, tip, W) === false) {
     wrap.innerHTML = '<div class="chart-empty">Ingen data för det här valet ännu</div>';
   }
+  if (typeof refreshZoomButtons === "function") refreshZoomButtons();
 }
 
 /* ===== Renderare =========================================================== */

@@ -713,7 +713,7 @@ const charts = [];
 function chart(wrapId, draw) { charts.push({ wrapId, draw }); }
 
 function renderCharts() {
-  if (state.range !== "idag") { renderRangeCharts(); return; }
+  if (state.range !== "idag") { renderRangeCharts(); refreshZoomButtons(); return; }
   for (const c of charts) {
     const wrap = document.getElementById(c.wrapId);
     wrap.innerHTML = "";
@@ -727,9 +727,11 @@ function renderCharts() {
       wrap.innerHTML = '<div class="chart-empty">Ingen data ännu i dag</div>';
     }
   }
+  refreshZoomButtons();
 }
 let resizeRaf;
 addEventListener("resize", () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(renderCharts); });
+setupChartZoom();  // nyp-zoom-vy för diagrammen (delad kod i charts.js)
 
 /* Temperatur idag */
 chart("chart-temp", (svg, tip, W) => {
