@@ -204,7 +204,8 @@
   table.stats th:first-child, table.stats td:first-child { text-align: left; }
   table.stats th { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
   table.stats td:first-child { font-weight: 600; }
-  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: 0; }
+  .yr { display: inline-flex; align-items: center; white-space: nowrap; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; flex: none; vertical-align: 0; }
   .statday { display: block; font-size: 11px; font-weight: 400; color: var(--ink-3); margin-top: 1px; white-space: nowrap; }
 
   footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
@@ -970,7 +971,7 @@ async function renderManad() {
       <th>Nederbörd</th><th>Regndagar</th><th>Dagar med data</th></tr></thead>
     <tbody>${rows.map(r => `
       <tr>
-        <td><span class="swatch" style="background:${r.color}"></span>${r.year}</td>
+        <td><span class="yr"><span class="swatch" style="background:${r.color}"></span>${r.year}</span></td>
         <td>${fmt(r.avgHigh)}°</td><td>${fmt(r.avgLow)}°</td>
         <td>${fmt(r.maxHigh)}°<span class="statday">${r.maxHighDay} ${monthName}</span></td>
         <td>${fmt(r.minLow)}°<span class="statday">${r.minLowDay} ${monthName}</span></td>
