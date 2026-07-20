@@ -554,12 +554,16 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
       <div class="pool-pills" id="pool-pills"></div>
       <div class="pool-history" id="pool-history" hidden>
         <div class="ph-block">
-          <div class="ph-cap">Fritt klor idag <small>mg/l</small></div>
+          <div class="ph-cap">Fritt klor <span class="pday">idag</span> <small>mg/l</small></div>
           <div class="chart-wrap" id="chart-pool-cl"></div>
         </div>
         <div class="ph-block">
-          <div class="ph-cap">pH idag</div>
+          <div class="ph-cap">pH <span class="pday">idag</span></div>
           <div class="chart-wrap" id="chart-pool-ph"></div>
+        </div>
+        <div class="ph-block">
+          <div class="ph-cap">Vattentemp <span class="pday">idag</span> <small>°C</small></div>
+          <div class="chart-wrap" id="chart-pool-wt"></div>
         </div>
       </div>
     </div>
@@ -2019,14 +2023,29 @@ async function loadPool() {
 async function loadPoolHistory() {
   const box = document.getElementById("pool-history");
   if (!box) return;
-  let doc;
-  try { doc = await fetchJSON(`/api/pool-history?date=${todayIso()}`); } catch { box.hidden = true; return; }
-  const s = Array.isArray(doc?.samples) ? doc.samples : [];
-  const xOf = t => { const [h, m] = String(t).split(":").map(Number); return h + (m || 0) / 60; };
-  const clPts = s.filter(o => o.cl != null).map(o => ({ x: xOf(o.t), v: o.cl, t: o.t }));
-  const phPts = s.filter(o => o.ph != null).map(o => ({ x: xOf(o.t), v: o.ph, t: o.t }));
-  if (clPts.length < 2 && phPts.length < 2) { box.hidden = true; return; }
+  const drawable = arr => (Array.isArray(arr) ? arr : []).filter(o => o.cl != null || o.ph != null || o.wt != null).length >= 2;
+
+  // Visa dagens kurva; innan dagen hunnit fyllas på faller vi tillbaka till
+  // senaste dygn med data, så kortet aldrig står tomt i onödan.
+  const days = [todayIso(), addDaysIso(todayIso(), -1)];
+  let doc = null, isToday = true;
+  for (let i = 0; i < days.length; i++) {
+    try {
+      const dd = await fetchJSON(`/api/pool-history?date=${days[i]}`);
+      if (drawable(dd?.samples)) { doc = dd; isToday = i === 0; break; }
+    } catch {}
+  }
+  if (!doc) { box.hidden = true; return; }
   box.hidden = false;
+
+  const dayLabel = isToday ? "idag"
+    : new Date(doc.date + "T12:00").toLocaleDateString("sv-SE", { day: "numeric", month: "short" });
+  box.querySelectorAll(".pday").forEach(e => e.textContent = dayLabel);
+
+  const s = doc.samples;
+  const xOf = t => { const [h, m] = String(t).split(":").map(Number); return h + (m || 0) / 60; };
+  const pick = k => s.filter(o => o[k] != null).map(o => ({ x: xOf(o.t), v: o[k], t: o.t }));
+  const clPts = pick("cl"), phPts = pick("ph"), wtPts = pick("wt");
 
   const xLabels = [0, 6, 12, 18, 24].map(h => ({ label: String(h).padStart(2, "0"), x: h }));
   const tipTitle = xg => {
@@ -2035,20 +2054,23 @@ async function loadPoolHistory() {
     return `kl ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
   const opts = extra => ({ xMax: 24, snap: 1.2, endDot: true, gapX: 2, xLabels, yFmt: v => fmt(v, extra.dec), tipTitle, ...extra });
+  const draw = (id, pts, color, extra) => {
+    const elx = document.getElementById(id);
+    if (pts.length >= 2) multiLine(id, [{ label: extra.label, color, pts }], opts(extra));
+    else elx.innerHTML = '<div class="chart-empty">Samlar data…</div>';
+  };
 
-  const clEl = document.getElementById("chart-pool-cl");
-  if (clPts.length >= 2) {
-    const clHi = Math.max(1.6, Math.ceil((Math.max(...clPts.map(p => p.v)) + 0.2) * 5) / 5);
-    multiLine("chart-pool-cl", [{ label: "Fritt klor", color: css("--wind"), pts: clPts }], opts({ dec: 2, area: true, yLo: 0, yHi: clHi }));
-  } else clEl.innerHTML = '<div class="chart-empty">Samlar data…</div>';
+  const clHi = clPts.length ? Math.max(1.6, Math.ceil((Math.max(...clPts.map(p => p.v)) + 0.2) * 5) / 5) : 2;
+  draw("chart-pool-cl", clPts, css("--wind"), { label: "Fritt klor", dec: 2, area: true, yLo: 0, yHi: clHi });
 
-  const phEl = document.getElementById("chart-pool-ph");
-  if (phPts.length >= 2) {
+  if (phPts.length) {
     const pv = phPts.map(p => p.v);
     const phLo = Math.min(6.8, Math.floor(Math.min(...pv) * 10) / 10 - 0.1);
     const phHi = Math.max(7.8, Math.ceil(Math.max(...pv) * 10) / 10 + 0.1);
-    multiLine("chart-pool-ph", [{ label: "pH", color: css("--temp"), pts: phPts }], opts({ dec: 2, yLo: phLo, yHi: phHi }));
-  } else phEl.innerHTML = '<div class="chart-empty">Samlar data…</div>';
+    draw("chart-pool-ph", phPts, css("--temp"), { label: "pH", dec: 2, yLo: phLo, yHi: phHi });
+  } else draw("chart-pool-ph", phPts, css("--temp"), { label: "pH", dec: 2 });
+
+  draw("chart-pool-wt", wtPts, css("--rain"), { label: "Vattentemp", dec: 1 });
 }
 addEventListener("resize", () => { if (!document.getElementById("pool-history")?.hidden) loadPoolHistory(); });
 
