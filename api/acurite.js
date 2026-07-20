@@ -100,6 +100,31 @@ function parseDaySeries(day) {
   return [...byH.values()].sort((a, b) => a.h - b.h);
 }
 
+// Batteristatus kan ligga på olika ställen beroende på API-version:
+// direkt på enheten, som en egen sensor, eller per sensor (låg vinner).
+function pickBattery(d) {
+  if (!d) return null;
+  for (const k of ["battery_level", "batteryLevel", "battery"]) {
+    if (d[k] != null && d[k] !== "") return d[k];
+  }
+  const all = [...(d.sensors ?? []), ...(d.wired_sensors ?? [])];
+  const named = all.find(s => /batter/i.test(s.sensor_name ?? s.chart_title ?? ""));
+  if (named && (named.last_reading_value ?? named.battery_level) != null) return named.last_reading_value ?? named.battery_level;
+  const lv = all.map(s => s.battery_level ?? s.battery).filter(v => v != null && v !== "");
+  if (lv.length) return lv.find(v => /low|lågt|dålig|dead|weak/i.test(String(v))) ?? lv[0];
+  return null;
+}
+// Diagnostik (endast fältnamn/batterivärden, inga mätvärden) → hitta rätt fält
+function battDiag(d) {
+  const all = [...(d?.sensors ?? []), ...(d?.wired_sensors ?? [])];
+  return {
+    device: { battery_level: d?.battery_level ?? null, battery: d?.battery ?? null, batteryLevel: d?.batteryLevel ?? null },
+    sensors: all.map(s => ({ name: s.sensor_name ?? s.chart_title ?? null, battery_level: s.battery_level ?? null, battery: s.battery ?? null }))
+      .filter(s => s.battery_level != null || s.battery != null || /batter/i.test(s.name ?? "")),
+    deviceKeys: Object.keys(d ?? {}),
+  };
+}
+
 function extractAtlas(hub) {
   const atlas = findAtlas(hub);
   if (!atlas) return null;
@@ -110,7 +135,8 @@ function extractAtlas(hub) {
   };
   const dailyStrikes = Number(atlas.daily_cumulative_strikes);
   return {
-    battery: atlas.battery_level ?? null,
+    battery: pickBattery(atlas),
+    batteryRaw: battDiag(atlas),
     lastCheckIn: atlas.last_check_in_at ?? null,
     lux: num("Light Intensity"),
     measuredLightS: num("Measured Light"),
