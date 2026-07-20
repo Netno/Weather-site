@@ -1123,15 +1123,18 @@ async function buildRangeData() {
     const startAbs = nowAbs - 48;
     pts = pts.filter(p => p.x + 1 > startAbs && p.x <= nowAbs)
       .map(p => ({ ...p, x: Math.max(0, p.x - startAbs) }));
+    // Dygnsgränserna (midnatt) inom fönstret — alltid 24 h isär, krockar aldrig
     const xLabels = [];
-    // Startdygnet börjar mitt i — märk ändå upp fönstrets vänsterkant
-    if (startAbs > 0) xLabels.push({ label: dateLabel(dates[0]), x: 0 });
     dates.forEach((date, di) => {
       const midnight = di * 24;
       if (midnight >= startAbs && midnight <= nowAbs) {
         xLabels.push({ label: dateLabel(date), x: midnight - startAbs });
       }
     });
+    // Märk vänsterkanten (startdygnet) bara om första midnatt ligger en bit in,
+    // annars trycks etiketterna ihop (fönstret börjar t.ex. 21:32 → 19 jul 2,5 h in)
+    const firstMidnightX = xLabels.length ? xLabels[0].x : Infinity;
+    if (startAbs > 0 && firstMidnightX > 7) xLabels.unshift({ label: dateLabel(dates[0]), x: 0 });
     const covered = new Set(pts.map(p => p.date)).size;
     return { dates, hourly, pts, covered, xMax: 48, xLabels, window: { startAbs, nowAbs } };
   }
