@@ -1226,15 +1226,34 @@ const RENDERERS = { utforska: renderUtforska, dag: renderDag, arsdag: renderArsd
   aret: renderAret, vindros: renderVindros, rekord: renderRekord };
 let activeView = "utforska";
 
+function selectView(name) {
+  if (!RENDERERS[name]) return;
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.view === name));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
+  activeView = name;
+  // Rendera först när fliken är synlig — annars ritas diagrammen i bredd 0
+  RENDERERS[name]();
+}
 for (const btn of document.querySelectorAll(".tabs button")) {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn));
-    document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + btn.dataset.view));
-    activeView = btn.dataset.view;
-    // Rendera först när fliken är synlig — annars ritas diagrammen i bredd 0
-    RENDERERS[activeView]();
+    selectView(btn.dataset.view);
+    try { history.replaceState(null, "", "#vy=" + btn.dataset.view); } catch (e) { /* privat läge */ }
   });
 }
+/* Djuplänk från live-sidan: #vy=arsdag&md=MM-DD öppnar rätt flik (och datum) */
+function applyViewFromHash() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  const vy = q.get("vy");
+  if (!vy || !RENDERERS[vy]) return false;
+  const md = q.get("md");
+  if (vy === "arsdag" && md && /^\d{2}-\d{2}$/.test(md)) {
+    const mSel = document.getElementById("arsdag-manad"), dSel = document.getElementById("arsdag-dag");
+    if (mSel && dSel) { mSel.value = md.slice(0, 2); dSel.value = md.slice(3, 5); }
+  }
+  selectView(vy);
+  return true;
+}
+addEventListener("hashchange", applyViewFromHash);
 
 async function boot() {
   setupThemeToggle(); // resize-eventet ritar om aktiv flik med nya temat
@@ -1327,9 +1346,10 @@ async function boot() {
   vrAr.addEventListener("change", renderVindros);
   vrMan.addEventListener("change", renderVindros);
 
-  // Rendera bara den synliga fliken — övriga renderas vid flikbyte
+  // Rendera bara den synliga fliken — övriga renderas vid flikbyte.
+  // Öppna direkt på hash-vyn om live-sidan länkat hit, annars Utforska.
   await renderManadChips();
-  await renderUtforska();
+  if (!applyViewFromHash()) await renderUtforska();
 }
 boot();
 

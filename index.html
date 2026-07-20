@@ -246,6 +246,9 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   :root[data-theme="light"] .hero-scene[data-scene="clear-night"] .hsky { background: linear-gradient(165deg, #5f6d8c, #9aa5b9); }
   :root[data-theme="light"] .hero-scene[data-scene="partly-night"].hsky { background: linear-gradient(165deg, #63708e, #a3adbf); }
 
+  .linked-card { cursor: pointer; transition: border-color .12s, background .12s; }
+  .linked-card:hover { border-color: var(--axis); }
+  .dd-go { color: var(--temp); font-weight: 600; white-space: nowrap; margin-left: 2px; }
   .reading.linked { cursor: pointer; border-radius: 8px; margin: -4px; padding: 4px; transition: background .12s; }
   .reading.linked:hover { background: var(--grid); }
   .reading.linked .label::after { content: " ↓"; opacity: .55; }
@@ -1269,8 +1272,14 @@ async function loadDennaDag() {
     if (!parts.length) return;
     document.getElementById("dd-content").innerHTML =
       `${parseInt(today.slice(8), 10)} ${MONTHS[parseInt(today.slice(5, 7), 10) - 1]} under ${items.length} tidigare år: ` +
-      parts.join(" · ");
-    document.getElementById("denna-dag").style.display = "";
+      parts.join(" · ") + ` <span class="dd-go">Se alla år →</span>`;
+    const dd = document.getElementById("denna-dag");
+    dd.style.display = "";
+    if (!dd.dataset.linked) {
+      dd.classList.add("linked-card");
+      dd.addEventListener("click", () => { location.href = `/historik/#vy=arsdag&md=${todayIso().slice(5)}`; });
+      dd.dataset.linked = "1";
+    }
   } catch (err) { console.warn("denna dag:", err); }
 }
 
