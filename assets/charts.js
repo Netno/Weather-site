@@ -376,6 +376,7 @@ function showTip(tip, wrap, x, y, html) {
    i en helskärmsvy med nyp-zoom + panorering. Delas av live- och historik-
    sidan; skapar sin egen overlay + CSS första gången setupChartZoom() körs. */
 const zoomState = { x: 0, y: 0, k: 1 };
+let zoomMode = "image";                 // "image" = förstora klon · "detail" = interaktiv datazoom
 const zPointers = new Map();
 let zPinchPrev = null, zLastTapT = 0, zLastTapX = 0, zLastTapY = 0, zoomReady = false;
 const zStage = () => document.getElementById("zoom-stage");
@@ -389,8 +390,15 @@ function refreshZoomButtons() {
       btn.type = "button"; btn.className = "zoom-btn"; btn.setAttribute("aria-label", "Förstora diagram");
       btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M14 10l7-7M10 14l-7 7"/></svg>';
       btn.addEventListener("click", () => {
+        const wrap = card.querySelector(".chart-wrap");
+        const title = card.querySelector("h2")?.textContent || "Diagram";
+        const cfgFn = wrap && window.chartDetail && window.chartDetail[wrap.id];
+        if (cfgFn) {                                   // interaktiv detaljvy (riktig datazoom)
+          Promise.resolve(cfgFn(title)).then(cfg => { if (cfg && cfg.series?.some(s => s.pts.length)) openDetail(cfg); else { const svg = card.querySelector(".chart-wrap svg"); if (svg) openZoom(svg, title); } });
+          return;
+        }
         const svg = card.querySelector(".chart-wrap svg");
-        if (svg) openZoom(svg, card.querySelector("h2")?.textContent || "Diagram");
+        if (svg) openZoom(svg, title);                 // reserv: förstora bilden
       });
       card.appendChild(btn);
     } else if (!hasSvg && btn) {
@@ -419,11 +427,14 @@ function zoomAround(lx, ly, newK) {
 }
 function openZoom(svg, title) {
   setupChartZoom();
+  zoomMode = "image";
   const pan = document.getElementById("zoom-pan");
   document.getElementById("zoom-title").textContent = title;
+  pan.dataset.mode = "image";
   const clone = svg.cloneNode(true);
   clone.removeAttribute("width"); clone.removeAttribute("height");
   pan.innerHTML = ""; pan.append(clone);
+  document.getElementById("zoom-hint").textContent = "Zooma med + / − eller nyp · dra för att panorera · dubbeltryck återställer";
   zoomState.x = 0; zoomState.y = 0; zoomState.k = 1;
   applyZoom();
   document.getElementById("zoom-overlay").hidden = false;
@@ -434,6 +445,130 @@ function closeZoom() {
   document.getElementById("zoom-pan").innerHTML = "";
   zPointers.clear(); zPinchPrev = null;
   document.body.style.overflow = "";
+}
+
+/* ===== Interaktiv detaljvy: riktig datazoom med exakt tid & värde ==========
+   Ritar om ur datan (inte en förstorad bild): x/y-zoom, tidsaxel som blir
+   finare ju mer man zoomar, och ett hårkors som visar exakt klockslag+värde.
+   cfg = { title, series:[{color,dash?,label?,pts:[{x(tim),v}]}], xMin, xMax,
+           yFmt(v), unit?, yLo?, padL? } */
+const dWin = { x0: 0, x1: 24 };
+let dCfg = null, dCursor = null;
+
+function fmtClock(hoursFloat) {
+  let h = Math.floor(hoursFloat + 1e-9);
+  let m = Math.round((hoursFloat - h) * 60);
+  if (m >= 60) { m -= 60; h += 1; }
+  return ("0" + ((h % 24 + 24) % 24)).slice(-2) + ":" + ("0" + m).slice(-2);
+}
+function niceTimeStepHours(spanH) {
+  for (const s of [1 / 12, 1 / 6, 1 / 4, 1 / 2, 1, 2, 3, 6, 12]) if (s >= spanH / 6) return s;
+  return 24;
+}
+function dGeom() {
+  const st = zStage();
+  return { W: st.clientWidth, Hd: st.clientHeight, padT: 16, padB: 34, padR: 16, padL: dCfg.padL ?? 50 };
+}
+function openDetail(cfg) {
+  setupChartZoom();
+  zoomMode = "detail";
+  dCfg = cfg; dCursor = null;
+  dWin.x0 = cfg.xMin; dWin.x1 = cfg.xMax;
+  document.getElementById("zoom-title").textContent = cfg.title;
+  document.getElementById("zoom-hint").textContent = "Nyp/+ − för att zooma i tid · dra för att panorera · tryck för exakt tid";
+  document.getElementById("zoom-pan").style.transform = "none";
+  document.getElementById("zoom-overlay").hidden = false;
+  document.body.style.overflow = "hidden";
+  renderDetail();
+}
+function renderDetail() {
+  if (!dCfg) return;
+  const pan = document.getElementById("zoom-pan");
+  const { W, Hd, padT, padB, padR, padL } = dGeom();
+  const x0 = dWin.x0, x1 = dWin.x1, span = x1 - x0;
+  pan.dataset.mode = "detail"; pan.style.transform = "none"; pan.innerHTML = "";
+  const svg = el("svg", { viewBox: `0 0 ${W} ${Hd}`, width: W, height: Hd });
+  const tip = document.createElement("div"); tip.className = "tooltip";
+  pan.append(svg, tip);
+  const sx = x => padL + (x - x0) / span * (W - padL - padR);
+
+  // y-omfång ur synliga punkter → zoom avslöjar detaljer även i höjd
+  const vis = [];
+  for (const s of dCfg.series) for (const p of s.pts) if (p.x >= x0 - 1e-6 && p.x <= x1 + 1e-6) vis.push(p.v);
+  if (!vis.length) for (const s of dCfg.series) for (const p of s.pts) vis.push(p.v);
+  if (!vis.length) return;
+  let lo = Math.min(...vis), hi = Math.max(...vis);
+  if (dCfg.yLo != null) lo = Math.min(lo, dCfg.yLo);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const m = (hi - lo) * 0.12; lo -= m; hi += m;
+  const sy = v => padT + (hi - v) / (hi - lo) * (Hd - padT - padB);
+
+  const yStep = niceStep(hi - lo);
+  for (let v = Math.ceil(lo / yStep) * yStep; v <= hi + 1e-9; v += yStep) {
+    const y = sy(v);
+    svg.append(el("line", { x1: padL, x2: W - padR, y1: y, y2: y, stroke: css("--grid"), "stroke-width": 1 }));
+    const t = el("text", { x: padL - 8, y: y + 4, "text-anchor": "end", "font-size": 12, fill: css("--ink-3") });
+    t.textContent = dCfg.yFmt(v); svg.append(t);
+  }
+  const tStep = niceTimeStepHours(span);
+  for (let x = Math.ceil(x0 / tStep) * tStep; x <= x1 + 1e-6; x += tStep) {
+    const xp = sx(x);
+    svg.append(el("line", { x1: xp, x2: xp, y1: padT, y2: Hd - padB, stroke: css("--grid"), "stroke-width": 1, opacity: 0.5 }));
+    const t = el("text", { x: xp, y: Hd - 12, "text-anchor": "middle", "font-size": 12, fill: css("--ink-3") });
+    t.textContent = fmtClock(x); svg.append(t);
+  }
+  for (const s of dCfg.series) {
+    const seg = s.pts.filter(p => p.x >= x0 - span * 0.06 && p.x <= x1 + span * 0.06);
+    if (seg.length >= 2) {
+      const d = seg.map((p, i) => (i ? "L" : "M") + sx(p.x) + " " + sy(p.v)).join(" ");
+      const attrs = { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round" };
+      if (s.dash) { attrs["stroke-dasharray"] = "5 4"; attrs["stroke-width"] = 1.5; attrs.opacity = 0.75; }
+      svg.append(el("path", attrs));
+    }
+    if (span <= 4 && seg.length <= 200) for (const p of seg) svg.append(el("circle", { cx: sx(p.x), cy: sy(p.v), r: 2.4, fill: s.color }));
+  }
+  if (dCursor != null) {
+    const cx = Math.max(x0, Math.min(x1, dCursor));
+    const finest = dCfg.series.reduce((a, b) => b.pts.length > a.pts.length ? b : a, dCfg.series[0]);
+    const near = finest.pts.reduce((b, q) => Math.abs(q.x - cx) < Math.abs(b.x - cx) ? q : b, finest.pts[0]);
+    const xp = sx(near.x);
+    svg.append(el("line", { x1: xp, x2: xp, y1: padT, y2: Hd - padB, stroke: css("--axis"), "stroke-width": 1, "stroke-dasharray": "3 3" }));
+    const rows = dCfg.series.filter(s => s.pts.length).map(s => {
+      const p = s.pts.reduce((b, q) => Math.abs(q.x - near.x) < Math.abs(b.x - near.x) ? q : b, s.pts[0]);
+      svg.append(el("circle", { cx: sx(p.x), cy: sy(p.v), r: 4, fill: s.color, stroke: css("--card"), "stroke-width": 2 }));
+      return { s, p };
+    });
+    const html = `<span class="t-time">kl ${fmtClock(near.x)}</span><br>` + rows.map(({ s, p }) =>
+      `${s.label ? `<span style="color:${s.color}">●</span> ${s.label} ` : ""}<b>${dCfg.yFmt(p.v)}${dCfg.unit ? " " + dCfg.unit : ""}</b>`).join("<br>");
+    showTip(tip, pan, xp, sy(rows[0].p.v), html);
+  }
+}
+function detailZoomAt(clientX, factor) {
+  const st = zStage(); const rect = st.getBoundingClientRect();
+  const { W, padR, padL } = dGeom();
+  const frac = Math.max(0, Math.min(1, (clientX - rect.left - padL) / (W - padL - padR)));
+  const fx = dWin.x0 + frac * (dWin.x1 - dWin.x0);
+  const full = dCfg.xMax - dCfg.xMin;
+  const span = Math.max(0.25, Math.min(full, (dWin.x1 - dWin.x0) / factor));
+  let x0 = fx - frac * span, x1 = x0 + span;
+  if (x0 < dCfg.xMin) { x0 = dCfg.xMin; x1 = x0 + span; }
+  if (x1 > dCfg.xMax) { x1 = dCfg.xMax; x0 = x1 - span; }
+  dWin.x0 = Math.max(dCfg.xMin, x0); dWin.x1 = Math.min(dCfg.xMax, x1);
+  renderDetail();
+}
+function detailPan(dxPixels) {
+  const { W, padR, padL } = dGeom();
+  const span = dWin.x1 - dWin.x0;
+  let dh = -dxPixels / (W - padL - padR) * span;
+  if (dWin.x0 + dh < dCfg.xMin) dh = dCfg.xMin - dWin.x0;
+  if (dWin.x1 + dh > dCfg.xMax) dh = dCfg.xMax - dWin.x1;
+  dWin.x0 += dh; dWin.x1 += dh;
+}
+function detailCursorAt(clientX) {
+  const st = zStage(); const rect = st.getBoundingClientRect();
+  const { W, padR, padL } = dGeom();
+  const frac = Math.max(0, Math.min(1, (clientX - rect.left - padL) / (W - padL - padR)));
+  dCursor = dWin.x0 + frac * (dWin.x1 - dWin.x0);
 }
 function setupChartZoom() {
   if (zoomReady) return;
@@ -460,6 +595,7 @@ function setupChartZoom() {
     .zoom-stage { flex: 1; overflow: hidden; position: relative; touch-action: none; }
     .zoom-pan { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
     .zoom-pan svg { position: absolute; top: 50%; left: 0; transform: translateY(-50%); width: 100%; height: auto; display: block; }
+    .zoom-pan[data-mode="detail"] svg { top: 0; transform: none; height: 100%; }
     .zoom-hint { text-align: center; font-size: 12px; color: var(--ink-3); padding: 8px 12px 12px; }`;
   document.head.append(style);
 
@@ -472,14 +608,18 @@ function setupChartZoom() {
       <button type="button" class="zoom-ctrl" id="zoom-in" aria-label="Zooma in">+</button>
       <button type="button" class="zoom-close" id="zoom-close" aria-label="Stäng">✕</button></div>
     <div class="zoom-stage" id="zoom-stage"><div class="zoom-pan" id="zoom-pan"></div></div>
-    <div class="zoom-hint">Zooma med + / − eller nyp · dra för att panorera · dubbeltryck återställer</div>`;
+    <div class="zoom-hint" id="zoom-hint">Zooma med + / − eller nyp · dra för att panorera · dubbeltryck återställer</div>`;
   document.body.append(overlay);
 
   const st = zStage();
+  const center = () => { const r = st.getBoundingClientRect(); return r.left + r.width / 2; };
   const zoomBy = f => { const r = st.getBoundingClientRect(); zoomAround(r.width / 2, r.height / 2, zoomState.k * f); };
-  document.getElementById("zoom-in").addEventListener("click", () => zoomBy(1.5));
-  document.getElementById("zoom-out").addEventListener("click", () => zoomBy(1 / 1.5));
-  document.getElementById("zoom-reset").addEventListener("click", () => { zoomState.k = 1; clampZoom(); applyZoom(); });
+  document.getElementById("zoom-in").addEventListener("click", () => { if (zoomMode === "detail") detailZoomAt(center(), 1.6); else zoomBy(1.5); });
+  document.getElementById("zoom-out").addEventListener("click", () => { if (zoomMode === "detail") detailZoomAt(center(), 1 / 1.6); else zoomBy(1 / 1.5); });
+  document.getElementById("zoom-reset").addEventListener("click", () => {
+    if (zoomMode === "detail") { dWin.x0 = dCfg.xMin; dWin.x1 = dCfg.xMax; dCursor = null; renderDetail(); }
+    else { zoomState.k = 1; clampZoom(); applyZoom(); }
+  });
   document.getElementById("zoom-close").addEventListener("click", closeZoom);
   addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.hidden) closeZoom(); });
   st.addEventListener("pointerdown", e => {
@@ -493,6 +633,17 @@ function setupChartZoom() {
     const cur = { x: e.clientX, y: e.clientY, moved: prev.moved + Math.abs(e.clientX - prev.x) + Math.abs(e.clientY - prev.y) };
     zPointers.set(e.pointerId, cur);
     const rect = st.getBoundingClientRect();
+    if (zoomMode === "detail") {
+      if (zPointers.size === 1) { detailPan(cur.x - prev.x); detailCursorAt(cur.x); renderDetail(); }
+      else {
+        const pts = [...zPointers.values()];
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        const midX = (pts[0].x + pts[1].x) / 2;
+        if (zPinchPrev) detailZoomAt(midX, dist / zPinchPrev.dist);
+        zPinchPrev = { dist };
+      }
+      return;
+    }
     if (zPointers.size === 1) {
       zoomState.x += cur.x - prev.x; zoomState.y += cur.y - prev.y;
       clampZoom(); applyZoom();
@@ -512,21 +663,23 @@ function setupChartZoom() {
   const endPointer = e => {
     const p = zPointers.get(e.pointerId);
     zPointers.delete(e.pointerId); zPinchPrev = null;
-    if (p && p.moved < 12 && zPointers.size === 0) {
-      const now = performance.now(), rect = st.getBoundingClientRect();
-      if (now - zLastTapT < 300 && Math.abs(e.clientX - zLastTapX) < 30 && Math.abs(e.clientY - zLastTapY) < 30) {
-        zoomAround(e.clientX - rect.left, e.clientY - rect.top, zoomState.k > 1.5 ? 1 : 3);
-        zLastTapT = 0;
-      } else { zLastTapT = now; zLastTapX = e.clientX; zLastTapY = e.clientY; }
-    }
+    if (!(p && p.moved < 12 && zPointers.size === 0)) return;
+    if (zoomMode === "detail") { detailCursorAt(e.clientX); renderDetail(); return; }  // tryck → läs exakt tid
+    const now = performance.now(), rect = st.getBoundingClientRect();
+    if (now - zLastTapT < 300 && Math.abs(e.clientX - zLastTapX) < 30 && Math.abs(e.clientY - zLastTapY) < 30) {
+      zoomAround(e.clientX - rect.left, e.clientY - rect.top, zoomState.k > 1.5 ? 1 : 3);
+      zLastTapT = 0;
+    } else { zLastTapT = now; zLastTapX = e.clientX; zLastTapY = e.clientY; }
   };
   st.addEventListener("pointerup", endPointer);
   st.addEventListener("pointercancel", endPointer);
   st.addEventListener("wheel", e => {
     e.preventDefault();
+    if (zoomMode === "detail") { detailZoomAt(e.clientX, e.deltaY < 0 ? 1.2 : 1 / 1.2); return; }
     const rect = st.getBoundingClientRect();
     zoomAround(e.clientX - rect.left, e.clientY - rect.top, zoomState.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
   }, { passive: false });
+  addEventListener("resize", () => { if (!overlay.hidden && zoomMode === "detail") renderDetail(); });
 }
 
 /* Montera ett diagram i ett wrap-element. draw som returnerar false → tomtext.

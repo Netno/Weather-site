@@ -740,6 +740,57 @@ let resizeRaf;
 addEventListener("resize", () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(renderCharts); });
 try { if (typeof setupChartZoom === "function") setupChartZoom(); } catch (e) {}
 
+/* ===== Detaljvy-konfig: interaktiv datazoom med exakt tid ==================
+   Registrerar per diagram hur datan plockas. Försöker hämta WU:s 5-minuters-
+   observationer för dagens temp/vind/tryck (finare än AcuRites timserie);
+   faller tillbaka på timserien om de inte finns. */
+let todayFineCache;
+async function loadTodayFine() {
+  if (todayFineCache !== undefined) return todayFineCache;
+  try {
+    const t = await fetchJSON("/api/wu?e=today");
+    const obs = t.observations ?? [];
+    const toX = s => (+s.slice(11, 13)) + (+s.slice(14, 16)) / 60;
+    const temp = [], wind = [], gust = [], press = [];
+    for (const o of obs) {
+      if (!o?.obsTimeLocal || !o.metric) continue;
+      const x = toX(o.obsTimeLocal), m = o.metric;
+      const tv = inBounds(m.tempAvg ?? m.temp, "temp");
+      if (tv != null) temp.push({ x, v: tv });
+      const wv = inBounds(m.windspeedAvg ?? m.windSpeed, "windKph");
+      if (wv != null) wind.push({ x, v: ms(wv) });
+      const gv = inBounds(m.windgustHigh ?? m.windGust, "windKph");
+      if (gv != null) gust.push({ x, v: ms(gv) });
+      const pv = inBounds(m.pressure, "pressureRaw");
+      if (pv != null && tv != null) press.push({ x, v: seaLevel(pv, tv) });
+    }
+    todayFineCache = temp.length ? { temp, wind, gust, press } : null;
+  } catch (e) { todayFineCache = null; }
+  return todayFineCache;
+}
+const hourlyPts = (get) => (state.today || []).map(p => ({ x: p.h, v: get(p) })).filter(p => p.v != null && !Number.isNaN(p.v));
+const acuPts = (key) => (state.acuriteToday || []).filter(p => p[key] != null).map(p => ({ x: p.h, v: p[key] }));
+window.chartDetail = {
+  "chart-temp": async () => {
+    const f = await loadTodayFine();
+    const pts = (f && f.temp.length) ? f.temp : hourlyPts(p => p.temp);
+    return { title: "Temperatur", series: [{ color: css("--temp"), pts }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 1), unit: "°C" };
+  },
+  "chart-wind": async () => {
+    const f = await loadTodayFine();
+    const avg = (f && f.wind.length) ? f.wind : hourlyPts(p => ms(p.wind));
+    const gst = (f && f.gust.length) ? f.gust : hourlyPts(p => ms(p.gust));
+    return { title: "Vind", series: [{ color: css("--wind"), label: "Medelvind", pts: avg }, { color: css("--wind"), dash: true, label: "Byar", pts: gst }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 1), unit: "m/s", yLo: 0 };
+  },
+  "chart-pressure": async () => {
+    const f = await loadTodayFine();
+    const pts = (f && f.press.length) ? f.press : hourlyPts(p => seaLevel(p.pressure, p.temp));
+    return { title: "Lufttryck", series: [{ color: css("--ink-2"), pts }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 0), unit: "hPa", padL: 58 };
+  },
+  "chart-lux": () => ({ title: "Ljusintensitet", series: [{ color: LUX_COLOR, pts: acuPts("lux") }], xMin: 0, xMax: 24, yFmt: v => luxFmt(v), unit: "lux", padL: 54, yLo: 0 }),
+  "chart-uv": () => ({ title: "UV-index", series: [{ color: UV_COLOR, pts: acuPts("uv") }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 0), unit: "", yLo: 0 }),
+};
+
 /* Temperatur idag */
 chart("chart-temp", (svg, tip, W) => {
   const data = state.today;
