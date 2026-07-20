@@ -12,7 +12,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Brämhult väder">
-<script>try{document.documentElement.dataset.theme=localStorage.getItem("theme")||"dark"}catch(e){document.documentElement.dataset.theme="dark"}</script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("theme")||"dark"}catch(e){document.documentElement.dataset.theme="dark"}
+if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.add("in-app");</script>
 <script>if("serviceWorker"in navigator)addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){})})</script>
 <style>
   /* ===== Design tokens ===================================================== */
@@ -324,6 +325,7 @@
   .fc-hour .pr .pp { color: var(--ink-3); }
 
   .app-cta { display: flex; gap: 10px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
+  :root.in-app .app-cta { display: none; }  /* dölj "Installera som app" / "Widget" inuti Android-appen */
   .app-cta button, .app-cta .app-link {
     font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
     color: var(--ink); background: var(--card); border: 1px solid var(--card-border);

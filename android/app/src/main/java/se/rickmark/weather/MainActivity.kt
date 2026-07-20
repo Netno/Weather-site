@@ -32,6 +32,8 @@ class MainActivity : AppCompatActivity() {
             cacheMode = WebSettings.LOAD_DEFAULT
             loadWithOverviewMode = true
             useWideViewPort = true
+            // Märk WebViewen så sidan kan dölja "Installera som app"/"Widget" inuti appen
+            userAgentString = "$userAgentString BramhultApp"
         }
         web.webViewClient = WebViewClient()
 
