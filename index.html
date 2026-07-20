@@ -329,6 +329,7 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
 
   .app-cta { display: flex; gap: 10px; justify-content: center; margin-top: 26px; flex-wrap: wrap; }
   :root.in-app .app-cta { display: none; }  /* dölj "Installera som app" / "Widget" inuti Android-appen */
+  @media (min-width: 760px) { #install-btn { display: none !important; } }  /* "Installera som app" bara på mobil */
   .app-cta button, .app-cta .app-link {
     font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
     color: var(--ink); background: var(--card); border: 1px solid var(--card-border);
