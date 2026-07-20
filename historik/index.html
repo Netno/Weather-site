@@ -205,6 +205,7 @@
   table.stats th { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
   table.stats td:first-child { font-weight: 600; }
   .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: 0; }
+  .statday { display: block; font-size: 11px; font-weight: 400; color: var(--ink-3); margin-top: 1px; white-space: nowrap; }
 
   footer { color: var(--ink-3); font-size: 12.5px; text-align: center; margin-top: 28px; line-height: 1.7; }
   footer a { color: var(--ink-2); }
@@ -948,12 +949,19 @@ async function renderManad() {
   const table = document.getElementById("manad-stats");
   if (!perYear.length) { table.innerHTML = ""; return; }
   const rows = perYear.map(p => {
-    const obs = p.days.filter(d => d.obs).map(d => d.obs.metric);
-    if (!obs.length) return null;
+    const withObs = p.days.filter(d => d.obs);
+    if (!withObs.length) return null;
+    const obs = withObs.map(d => d.obs.metric);
     const avg = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
+    let hotDay = withObs[0], coldDay = withObs[0];
+    for (const d of withObs) {
+      if (d.obs.metric.tempHigh > hotDay.obs.metric.tempHigh) hotDay = d;
+      if (d.obs.metric.tempLow < coldDay.obs.metric.tempLow) coldDay = d;
+    }
     return { year: p.year, color: p.color, n: obs.length,
       avgHigh: avg(obs.map(o => o.tempHigh)), avgLow: avg(obs.map(o => o.tempLow)),
-      maxHigh: Math.max(...obs.map(o => o.tempHigh)), minLow: Math.min(...obs.map(o => o.tempLow)),
+      maxHigh: hotDay.obs.metric.tempHigh, maxHighDay: hotDay.day,
+      minLow: coldDay.obs.metric.tempLow, minLowDay: coldDay.day,
       rain: obs.reduce((a, o) => a + (o.precipTotal ?? 0), 0),
       rainDays: obs.filter(o => (o.precipTotal ?? 0) >= 0.1).length };
   }).filter(Boolean);
@@ -964,7 +972,8 @@ async function renderManad() {
       <tr>
         <td><span class="swatch" style="background:${r.color}"></span>${r.year}</td>
         <td>${fmt(r.avgHigh)}°</td><td>${fmt(r.avgLow)}°</td>
-        <td>${fmt(r.maxHigh)}°</td><td>${fmt(r.minLow)}°</td>
+        <td>${fmt(r.maxHigh)}°<span class="statday">${r.maxHighDay} ${monthName}</span></td>
+        <td>${fmt(r.minLow)}°<span class="statday">${r.minLowDay} ${monthName}</span></td>
         <td>${fmt(r.rain)} mm</td><td>${r.rainDays}</td><td>${r.n}</td>
       </tr>`).join("")}</tbody>`;
 }
