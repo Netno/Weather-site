@@ -27,6 +27,23 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
+// ---- scen-elementens datatyper (fil-nivå) ----
+private class Cluster(val cx: Float, val cy: Float, val r: Float, val phase: Float)
+private class Tendril(
+    val ox: Float, val oy: Float, val len: Float, val curveX: Float, val tone: Int,
+    val swayAmp: Float, val swaySpeed: Float, val phase: Float, val depth: Float,
+    val width: Float, val tip: Boolean, val fluff: Boolean
+)
+private class Seg(val x0: Float, val y0: Float, val cx: Float, val cy: Float, val x1: Float, val y1: Float, val w0: Float, val w1: Float)
+private class Sprite(
+    val x0: Float, val y0: Float, val depth: Float, val r: Float, val arms: Int, val legs: Int,
+    val rise: Float, val swayAmp: Float, val swaySpeed: Float, val phase: Float,
+    val rot: Float, val rotSpeed: Float, val wob: Float, val pulseSpeed: Float, val pulsePhase: Float
+)
+private class Lantern(val x: Float, val y: Float, val near: Float, val r: Float, val filterIndex: Int, val tw: Float, val ph: Float)
+private class Filament(val dir: Float, val reach: Float, val bow: Float, val phase: Float)
+private class MistBand(val y: Float, val h: Float)
+
 /**
  * Levande bakgrund: "Själarnas träd" (Eywa-inspirerat).
  *
@@ -130,23 +147,8 @@ class SoulTreeWallpaperService : WallpaperService() {
             )
         }
 
-        // ---- scen-element ----
-        private class Cluster(val cx: Float, val cy: Float, val r: Float, val phase: Float)
-        private class Tendril(
-            val ox: Float, val oy: Float, val len: Float, val curveX: Float, val tone: Int,
-            val swayAmp: Float, val swaySpeed: Float, val phase: Float, val depth: Float,
-            val width: Float, val tip: Boolean, val fluff: Boolean
-        )
-        private class Seg(val x0: Float, val y0: Float, val cx: Float, val cy: Float, val x1: Float, val y1: Float, val w0: Float, val w1: Float)
-        private class Sprite(
-            val x0: Float, val y0: Float, val depth: Float, val r: Float, val arms: Int, val legs: Int,
-            val rise: Float, val swayAmp: Float, val swaySpeed: Float, val phase: Float,
-            val rot: Float, val rotSpeed: Float, val wob: Float, val pulseSpeed: Float, val pulsePhase: Float
-        )
-        private class Lantern(val x: Float, val y: Float, val near: Float, val r: Float, val filterIndex: Int, val tw: Float, val ph: Float)
-        private class Filament(val dir: Float, val reach: Float, val bow: Float, val phase: Float)
-        private class MistBand(val y: Float, val h: Float)
-
+        // scen-elementens datatyper ligger på fil-nivå (Kotlin tillåter inte
+        // nästlade klasser inuti en inner class)
         private val clusters = ArrayList<Cluster>()
         private val tendrils = ArrayList<Tendril>()
         private val roots = ArrayList<Seg>()
