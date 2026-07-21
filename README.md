@@ -3,6 +3,10 @@
 Privat projekt: en publik vädersida för den personliga väderstationen **IBRMHULT2**
 (Brämhult), med data från Weather Underground / The Weather Company PWS API.
 
+> 📐 **Systemöversikt över alla delar** (väder + pool + Android-app, endpoints,
+> miljövariabler, schemalagda jobb): se [`DOCS.md`](DOCS.md). Den här filen
+> fokuserar på väderdelen och arkivet.
+
 **Status:** planering + mock. Mocken ligger i [`mock/index.html`](mock/index.html) —
 en fristående HTML-fil utan beroenden som kan öppnas direkt i webbläsaren.
 

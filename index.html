@@ -265,8 +265,9 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   .pool-more > summary:hover .chev { background: var(--card-border); color: var(--ink); }
   .pool-history { margin-top: 12px; display: grid; gap: 12px 24px; }
   @media (min-width: 620px) { .pool-history { grid-template-columns: 1fr 1fr; } }
-  .ph-cap { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
-  .ph-cap small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--ink-3); }
+  .ph-cap { display: flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; color: var(--ink); margin-bottom: 8px; }
+  .ph-cap .pday { font-size: 12.5px; font-weight: 500; color: var(--ink-3); }
+  .ph-cap small { font-size: 12px; font-weight: 400; color: var(--ink-3); }
   .pz-btn { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
     padding: 0; border: none; border-radius: 6px; background: var(--grid); color: var(--ink-3); cursor: pointer; font-size: 13px; line-height: 1; }
   .pz-btn:hover { background: var(--card-border); color: var(--ink); }
@@ -595,8 +596,8 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
           <button type="button" data-days="custom">Anpassad</button>
         </div>
         <div class="pool-custom" id="pool-custom" hidden>
-          <input type="date" id="pool-from" aria-label="Från"> <span>–</span>
-          <input type="date" id="pool-to" aria-label="Till">
+          <input type="date" id="pool-from" lang="sv-SE" aria-label="Från"> <span>–</span>
+          <input type="date" id="pool-to" lang="sv-SE" aria-label="Till">
           <button type="button" id="pool-apply">Visa</button>
         </div>
         <div class="pool-history" id="pool-history">
