@@ -91,5 +91,5 @@ export async function getPool(apiKey, unitId) {
   if (!serial) { const f = await firstSerial(apiKey); serial = f.serial; count = f.count; }
   if (!serial) return { pool: null, unitCount: 0 };
   const unit = await api(`/paired-units/${encodeURIComponent(serial)}`, apiKey);
-  return { pool: mapUnit(unit), unitCount: count, raw: unit };
+  return { pool: mapUnit(unit), unitCount: count };
 }
