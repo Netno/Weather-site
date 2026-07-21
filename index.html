@@ -265,8 +265,16 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   .pool-more > summary:hover .chev { background: var(--card-border); color: var(--ink); }
   .pool-history { margin-top: 12px; display: grid; gap: 12px 24px; }
   @media (min-width: 620px) { .pool-history { grid-template-columns: 1fr 1fr; } }
-  .ph-cap { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+  .ph-cap { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
   .ph-cap small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--ink-3); }
+  .pz-btn { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+    padding: 0; border: none; border-radius: 6px; background: var(--grid); color: var(--ink-3); cursor: pointer; font-size: 13px; line-height: 1; }
+  .pz-btn:hover { background: var(--card-border); color: var(--ink); }
+  .pool-range { margin-top: 14px; }
+  .pool-custom { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--ink-3); }
+  .pool-custom[hidden] { display: none; }
+  .pool-custom input[type="date"] { font: inherit; font-size: 13px; color: var(--ink); background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; padding: 4px 8px; }
+  .pool-custom button { font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; color: #fff; background: var(--ink-2); border: none; border-radius: 100px; padding: 5px 14px; }
   .pv.out .v { color: var(--warn-ink); }
 
   /* ===== Väderscen i toppöversikten ====================================== */
@@ -580,17 +588,31 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
         <summary>Dygnskurvor <span class="pday-sum">idag</span>
           <svg class="chev" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
+        <div class="chips pool-range" id="pool-range">
+          <button type="button" data-days="1" class="on">1 dygn</button>
+          <button type="button" data-days="7">7 dygn</button>
+          <button type="button" data-days="30">30 dygn</button>
+          <button type="button" data-days="custom">Anpassad</button>
+        </div>
+        <div class="pool-custom" id="pool-custom" hidden>
+          <input type="date" id="pool-from" aria-label="Från"> <span>–</span>
+          <input type="date" id="pool-to" aria-label="Till">
+          <button type="button" id="pool-apply">Visa</button>
+        </div>
         <div class="pool-history" id="pool-history">
           <div class="ph-block">
-            <div class="ph-cap">Fritt klor <span class="pday">idag</span> <small>mg/l</small></div>
+            <div class="ph-cap">Fritt klor <span class="pday">idag</span> <small>mg/l</small>
+              <button type="button" class="pz-btn" data-metric="cl" aria-label="Förstora">⤢</button></div>
             <div class="chart-wrap" id="chart-pool-cl"></div>
           </div>
           <div class="ph-block">
-            <div class="ph-cap">pH <span class="pday">idag</span></div>
+            <div class="ph-cap">pH <span class="pday">idag</span>
+              <button type="button" class="pz-btn" data-metric="ph" aria-label="Förstora">⤢</button></div>
             <div class="chart-wrap" id="chart-pool-ph"></div>
           </div>
           <div class="ph-block">
-            <div class="ph-cap">Vattentemp <span class="pday">idag</span> <small>°C</small></div>
+            <div class="ph-cap">Vattentemp <span class="pday">idag</span> <small>°C</small>
+              <button type="button" class="pz-btn" data-metric="wt" aria-label="Förstora">⤢</button></div>
             <div class="chart-wrap" id="chart-pool-wt"></div>
           </div>
         </div>
@@ -2057,71 +2079,141 @@ async function loadPool() {
   if (location.hash === "#pool") requestAnimationFrame(scrollToPool); // djuplänk från widgeten
 }
 
-// Dygnets klor- & pH-kurva (samplas var 30:e min av pool-log-workflowen).
-// Man ser kloret sjunka när pooltaket tas av och solen bryter ned det.
-let poolHist = null; // { doc, isToday } – senast hämtade dygnsdata
+// Pool-historik: klor/pH/vattentemp över valt intervall (1/7/30 dygn + anpassat),
+// med zoom per graf. Arkivet byggs på framåt av pool-log-workflowen (Asekos API
+// saknar historik-endpoint, så det går inte att backfilla deras 30 dagar).
+let poolHist = null;         // { from, to, samples:[{date,t,cl,ph,wt}], cfgs, empty? }
+let poolRange = { days: 1 }; // { days } eller { from, to, days:"custom" }
+
+const poolDaysBetween = (a, b) => Math.round((new Date(b + "T12:00:00Z") - new Date(a + "T12:00:00Z")) / 86400000);
+const poolShortDate = iso => new Date(iso + "T12:00:00Z").toLocaleDateString("sv-SE", { day: "numeric", month: "numeric" });
+
 async function loadPoolHistory() {
   const more = document.getElementById("pool-more");
   if (!more) return;
+  wirePoolRange();
   const drawable = arr => (Array.isArray(arr) ? arr : []).filter(o => o.cl != null || o.ph != null || o.wt != null).length >= 2;
 
-  // Visa dagens kurva; innan dagen hunnit fyllas på faller vi tillbaka till
-  // senaste dygn med data, så inget tomt utfäll visas i onödan.
-  const days = [todayIso(), addDaysIso(todayIso(), -1)];
-  let doc = null, isToday = true;
-  for (let i = 0; i < days.length; i++) {
+  let hist = null, label = "";
+  if (poolRange.days === 1) {
+    // 1 dygn: dagens kurva, annars fall tillbaka till senaste dygn med data
+    for (const dt of [todayIso(), addDaysIso(todayIso(), -1)]) {
+      try {
+        const dd = await fetchJSON(`/api/pool-history?date=${dt}`);
+        if (drawable(dd?.samples)) {
+          hist = { from: dt, to: dt, samples: dd.samples.map(o => ({ date: dt, ...o })) };
+          label = dt === todayIso() ? "idag" : poolShortDate(dt);
+          break;
+        }
+      } catch {}
+    }
+  } else {
+    const qs = poolRange.from ? `from=${poolRange.from}&to=${poolRange.to}` : `days=${poolRange.days}`;
     try {
-      const dd = await fetchJSON(`/api/pool-history?date=${days[i]}`);
-      if (drawable(dd?.samples)) { doc = dd; isToday = i === 0; break; }
+      const dd = await fetchJSON(`/api/pool-history?${qs}`);
+      label = poolRange.from ? `${poolShortDate(dd.from)}–${poolShortDate(dd.to)}` : `${poolRange.days} dygn`;
+      if (drawable(dd?.samples)) hist = { from: dd.from, to: dd.to, samples: dd.samples.map(o => ({ date: o.d, ...o })) };
     } catch {}
   }
-  if (!doc) { more.hidden = true; poolHist = null; return; }
-  poolHist = { doc, isToday };
-  more.hidden = false;
 
-  const dayLabel = isToday ? "idag"
-    : new Date(doc.date + "T12:00").toLocaleDateString("sv-SE", { day: "numeric", month: "short" });
-  document.querySelectorAll("#pool-more .pday, #pool-more .pday-sum").forEach(e => e.textContent = dayLabel);
-
-  if (!more._wired) { more._wired = true; more.addEventListener("toggle", () => { if (more.open) renderPoolCharts(); }); }
+  document.querySelectorAll("#pool-more .pday, #pool-more .pday-sum").forEach(e => e.textContent = label);
+  if (!hist) {
+    if (poolRange.days === 1) { more.hidden = true; poolHist = null; return; }
+    more.hidden = false; poolHist = { empty: true };  // intervall utan data → visa "ingen data"
+  } else {
+    more.hidden = false; poolHist = hist;
+  }
   if (more.open) renderPoolCharts(); // rita bara när utfället är öppet (bredd mäts då)
 }
 
-// Ritar de tre dygnsdiagrammen från senast hämtade data. Körs när utfället
-// öppnas – en dold behållare har 0 bredd och kan inte mätas av mountChart.
+// Ritar graferna från senast hämtade data. x mäts i timmar sedan intervallets
+// start så 1-dygns- och flerdygnsvyer använder samma renderare.
 function renderPoolCharts() {
   if (!poolHist) return;
-  const s = poolHist.doc.samples;
-  const xOf = t => { const [h, m] = String(t).split(":").map(Number); return h + (m || 0) / 60; };
-  const pick = k => s.filter(o => o[k] != null).map(o => ({ x: xOf(o.t), v: o[k], t: o.t }));
-  const clPts = pick("cl"), phPts = pick("ph"), wtPts = pick("wt");
+  const ids = ["chart-pool-cl", "chart-pool-ph", "chart-pool-wt"];
+  if (poolHist.empty) { ids.forEach(id => document.getElementById(id).innerHTML = '<div class="chart-empty">Ingen data för perioden ännu</div>'); return; }
 
-  const xLabels = [0, 6, 12, 18, 24].map(h => ({ label: String(h).padStart(2, "0"), x: h }));
-  const tipTitle = xg => {
-    let h = Math.floor(xg), m = Math.round((xg - h) * 60);
-    if (m === 60) { h += 1; m = 0; }
-    return `kl ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  const { from, to, samples } = poolHist;
+  const totalDays = poolDaysBetween(from, to) + 1;
+  const xMax = totalDays * 24;
+  const xOfSample = o => {
+    const [h, m] = String(o.t).split(":").map(Number);
+    return poolDaysBetween(from, o.date) * 24 + h + (m || 0) / 60;
   };
-  // gapX 8h: koppla ihop linjen även vid gles sampling (molnschemat kan hoppa
-  // över körningar); dots: markera varje faktiskt mätvärde så glesheten syns.
-  const opts = extra => ({ xMax: 24, snap: 1.2, endDot: true, dots: true, gapX: 8, xLabels, yFmt: v => fmt(v, extra.dec), tipTitle, ...extra });
-  const draw = (id, pts, color, extra) => {
+  const pick = k => samples.filter(o => o[k] != null).map(o => ({ x: xOfSample(o), v: o[k] }));
+
+  let xLabels;
+  if (totalDays === 1) {
+    xLabels = [0, 6, 12, 18, 24].map(h => ({ label: String(h).padStart(2, "0"), x: h }));
+  } else {
+    const step = totalDays <= 8 ? 1 : Math.ceil(totalDays / 6);
+    xLabels = [];
+    for (let day = 0; day < totalDays; day += step) xLabels.push({ label: poolShortDate(addDaysIso(from, day)), x: day * 24 });
+  }
+  const clockAt = xg => { const hod = xg - Math.floor(xg / 24) * 24; let h = Math.floor(hod), m = Math.round((hod - h) * 60); if (m === 60) { h++; m = 0; } return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
+  const tipTitle = totalDays === 1
+    ? xg => `kl ${clockAt(xg)}`
+    : xg => `${poolShortDate(addDaysIso(from, Math.floor(xg / 24 + 1e-9)))} ${clockAt(xg)}`;
+
+  const opts = extra => ({ xMax, snap: Math.max(1.2, xMax / 60), endDot: true, dots: totalDays <= 7, gapX: totalDays === 1 ? 8 : 48, xLabels, yFmt: v => fmt(v, extra.dec), tipTitle, ...extra });
+
+  const cfgs = {};
+  const rangeLabel = document.querySelector("#pool-more .pday-sum")?.textContent || "";
+  const draw = (id, metric, pts, color, extra) => {
     const elx = document.getElementById(id);
-    if (pts.length >= 2) multiLine(id, [{ label: extra.label, color, pts }], opts(extra));
-    else elx.innerHTML = '<div class="chart-empty">Samlar data…</div>';
+    if (pts.length >= 2) {
+      const o = opts(extra);
+      const series = [{ label: extra.label, color, pts }];
+      multiLine(id, series, o);
+      cfgs[metric] = { title: `${extra.label} · ${rangeLabel}`, xMin: 0, xMax, series, yFmt: o.yFmt, yLo: extra.yLo, unit: extra.unit, padL: 50 };
+    } else elx.innerHTML = '<div class="chart-empty">Samlar data…</div>';
   };
 
+  const clPts = pick("cl"), phPts = pick("ph"), wtPts = pick("wt");
   const clHi = clPts.length ? Math.max(1.6, Math.ceil((Math.max(...clPts.map(p => p.v)) + 0.2) * 5) / 5) : 2;
-  draw("chart-pool-cl", clPts, css("--wind"), { label: "Fritt klor", dec: 2, area: true, yLo: 0, yHi: clHi });
-
+  draw("chart-pool-cl", "cl", clPts, css("--wind"), { label: "Fritt klor", dec: 2, area: totalDays === 1, yLo: 0, yHi: clHi, unit: "mg/l" });
   if (phPts.length) {
     const pv = phPts.map(p => p.v);
-    const phLo = Math.min(6.8, Math.floor(Math.min(...pv) * 10) / 10 - 0.1);
-    const phHi = Math.max(7.8, Math.ceil(Math.max(...pv) * 10) / 10 + 0.1);
-    draw("chart-pool-ph", phPts, css("--temp"), { label: "pH", dec: 2, yLo: phLo, yHi: phHi });
-  } else draw("chart-pool-ph", phPts, css("--temp"), { label: "pH", dec: 2 });
+    draw("chart-pool-ph", "ph", phPts, css("--temp"), { label: "pH", dec: 2, yLo: Math.min(6.8, Math.floor(Math.min(...pv) * 10) / 10 - 0.1), yHi: Math.max(7.8, Math.ceil(Math.max(...pv) * 10) / 10 + 0.1) });
+  } else draw("chart-pool-ph", "ph", phPts, css("--temp"), { label: "pH", dec: 2 });
+  draw("chart-pool-wt", "wt", wtPts, css("--rain"), { label: "Vattentemp", dec: 1, unit: "°C" });
 
-  draw("chart-pool-wt", wtPts, css("--rain"), { label: "Vattentemp", dec: 1 });
+  poolHist.cfgs = cfgs;
+}
+
+// Kopplar intervallknappar, anpassat datumval och zoom-knappar (en gång).
+let poolRangeWired = false;
+function wirePoolRange() {
+  if (poolRangeWired) return; poolRangeWired = true;
+  const more = document.getElementById("pool-more");
+  more.addEventListener("toggle", () => { if (more.open) renderPoolCharts(); });
+
+  document.getElementById("pool-range").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-days]"); if (!btn) return;
+    document.querySelectorAll("#pool-range button").forEach(b => b.classList.toggle("on", b === btn));
+    const v = btn.dataset.days;
+    const custom = document.getElementById("pool-custom");
+    if (v === "custom") {
+      custom.hidden = false;
+      const from = document.getElementById("pool-from"), to = document.getElementById("pool-to");
+      from.max = to.max = todayIso();
+      if (!to.value) to.value = todayIso();
+      if (!from.value) from.value = addDaysIso(todayIso(), -6);
+      return;
+    }
+    custom.hidden = true;
+    poolRange = { days: +v };
+    loadPoolHistory();
+  });
+  document.getElementById("pool-apply").addEventListener("click", () => {
+    const f = document.getElementById("pool-from").value, t = document.getElementById("pool-to").value;
+    if (f && t) { poolRange = { from: f, to: t, days: "custom" }; loadPoolHistory(); }
+  });
+
+  document.querySelectorAll("#pool-more .pz-btn").forEach(btn => btn.addEventListener("click", () => {
+    const cfg = poolHist?.cfgs?.[btn.dataset.metric];
+    if (cfg && typeof openDetail === "function") openDetail(cfg);
+  }));
 }
 addEventListener("resize", () => { if (document.getElementById("pool-more")?.open) renderPoolCharts(); });
 
