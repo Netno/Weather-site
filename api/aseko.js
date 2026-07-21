@@ -17,10 +17,12 @@ export default async function handler(req, res) {
     });
   }
   try {
-    const { pool, unitCount } = await getPool(apiKey, process.env.ASEKO_UNIT_ID);
+    const { pool, unitCount, raw } = await getPool(apiKey, process.env.ASEKO_UNIT_ID);
     if (!pool) return res.status(200).json({ status: "inga enheter" });
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=120");
-    return res.status(200).json({ status: "ok", pool, unitCount });
+    const out = { status: "ok", pool, unitCount };
+    if (req.query?.debug) out.raw = raw; // ?debug=1 → hela råsvaret (för att se vilka fält som finns)
+    return res.status(200).json(out);
   } catch (err) {
     const status = err.code === "tos" ? 200 : 502;
     return res.status(status).json({ status: "fel", error: err.message, detail: err.detail ?? null });
