@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thumbnail för live-bakgrunds-väljaren: lysande träd i lila natt. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+
+    <path
+        android:pathData="M0,0h96v96h-96z"
+        android:fillColor="#1a2142" />
+    <path
+        android:pathData="M0,58h96v38h-96z"
+        android:fillColor="#0e1228" />
+
+    <!-- krona (hängande slingor) -->
+    <path
+        android:pathData="M30,26 L29,52 M37,22 L36,54 M44,20 L44,56 M51,20 L52,54 M58,22 L60,50 M65,26 L67,48 M24,32 L23,50 M72,32 L74,46"
+        android:strokeColor="#dcb0e6"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+    <!-- kron-sken -->
+    <path
+        android:pathData="M48,30m-22,0a22,14 0,1 1,44 0a22,14 0,1 1,-44 0"
+        android:fillColor="#66d0a8e0" />
+
+    <!-- slingrande stam -->
+    <path
+        android:pathData="M46,58 C40,50 54,46 48,38 C44,44 52,50 48,58 Z"
+        android:fillColor="#281d40" />
+    <!-- rötter -->
+    <path
+        android:pathData="M48,58 L36,74 M48,58 L60,74 M48,58 L48,76"
+        android:strokeColor="#281d40"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+
+    <!-- marklyktor -->
+    <path
+        android:pathData="M18,70 l0,0 M30,78 l0,0 M66,78 l0,0 M78,70 l0,0 M42,82 l0,0 M56,82 l0,0"
+        android:strokeColor="#ffc680"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+</vector>
