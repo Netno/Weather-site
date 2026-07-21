@@ -13,15 +13,6 @@
         android:src="@drawable/scene_clear_day"
         android:contentDescription="@null" />
 
-    <!-- Mörk scrim för textläsbarhet på ljusa scener.
-         OBS: RemoteViews stödjer inte <View>, så vi använder ImageView. -->
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitXY"
-        android:src="@drawable/w_scrim"
-        android:contentDescription="@null" />
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -35,11 +26,11 @@
             <TextView
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                 android:text="Brämhult" android:textColor="@color/ink" android:textStyle="bold"
-                android:textSize="14sp" android:shadowColor="#cc000000" android:shadowRadius="2.5" android:shadowDx="0" android:shadowDy="0"/>
+                android:textSize="14sp" android:shadowColor="#e6000000" android:shadowRadius="3.5" android:shadowDx="0" android:shadowDy="0"/>
             <TextView android:id="@+id/w_when"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="—" android:textColor="@color/ink2" android:textSize="11sp"
-                android:shadowColor="#99000000" android:shadowRadius="3"/>
+                android:shadowColor="#d9000000" android:shadowRadius="3.5"/>
         </LinearLayout>
 
         <!-- Hero: stor temperatur (över scenen) + sol -->
@@ -62,12 +53,12 @@
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="°C" android:textColor="@color/ink2" android:textSize="16sp"
                         android:paddingStart="3dp"
-                        android:shadowColor="#99000000" android:shadowRadius="3"/>
+                        android:shadowColor="#cc000000" android:shadowRadius="3"/>
                 </LinearLayout>
                 <TextView android:id="@+id/w_sub"
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:text="" android:textColor="@color/ink2" android:textSize="11sp"
-                    android:shadowColor="#99000000" android:shadowRadius="3"/>
+                    android:shadowColor="#d9000000" android:shadowRadius="3.5"/>
             </LinearLayout>
 
             <LinearLayout
@@ -80,7 +71,7 @@
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:text="" android:textColor="@color/ink2" android:textSize="11sp"
                     android:gravity="end" android:paddingTop="2dp"
-                    android:shadowColor="#99000000" android:shadowRadius="3"/>
+                    android:shadowColor="#cc000000" android:shadowRadius="3"/>
             </LinearLayout>
         </LinearLayout>
 
