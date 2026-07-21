@@ -1,14 +1,12 @@
 /*
- * TILLFÄLLIG probe för att hitta Asekos historik-endpoint i det officiella
- * API:et (api.aseko.cloud/api/v1). Web-appen visar dygnshistorik, så någon
- * endpoint returnerar tidsserier – den här testar ett gäng kandidater och
- * rapporterar status + ett litet smakprov, så vi kan implementera hämtningen
- * på riktigt. Tas bort när rätt endpoint hittats.
+ * TILLFÄLLIG probe. Steg 2: hämta OpenAPI-specen för att lista ALLA riktiga
+ * endpoints i api.aseko.cloud/api/v1 (NestJS → JSON ligger oftast på /docs-json).
+ * Då ser vi om Aseko exponerar historik och i så fall på vilken väg.
  *
- *   GET /api/aseko-probe            (dagens datum)
- *   GET /api/aseko-probe?date=2026-07-21
+ *   GET /api/aseko-probe
  */
-const BASE = "https://api.aseko.cloud/api/v1";
+const ROOT = "https://api.aseko.cloud";
+const BASE = `${ROOT}/api/v1`;
 
 function headers(apiKey) {
   return {
@@ -19,52 +17,41 @@ function headers(apiKey) {
   };
 }
 
-async function firstSerial(apiKey) {
-  const r = await fetch(`${BASE}/paired-units?page=1&limit=100`, { headers: headers(apiKey) });
-  if (!r.ok) return null;
-  const d = await r.json();
-  return Array.isArray(d?.items) && d.items.length ? d.items[0].serialNumber : null;
-}
-
 export default async function handler(req, res) {
   const apiKey = process.env.ASEKO_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "ASEKO_API_KEY saknas" });
 
-  const date = String(req.query?.date || "").match(/^\d{4}-\d{2}-\d{2}$/)?.[0]
-    || new Date().toISOString().slice(0, 10);
-  const s = process.env.ASEKO_UNIT_ID || (await firstSerial(apiKey));
-  if (!s) return res.status(200).json({ error: "hittade ingen enhet" });
-
-  const from = `${date}T00:00:00.000Z`;
-  const to = `${date}T23:59:59.999Z`;
-  const u = `/paired-units/${encodeURIComponent(s)}`;
-  const candidates = [
-    `${u}/history?date=${date}`,
-    `${u}/history?day=${date}`,
-    `${u}/history?from=${from}&to=${to}`,
-    `${u}/history`,
-    `${u}/measurements?date=${date}`,
-    `${u}/measurements?from=${from}&to=${to}`,
-    `${u}/values?date=${date}`,
-    `${u}/values?from=${from}&to=${to}`,
-    `${u}/data?date=${date}`,
-    `${u}/graph?date=${date}`,
-    `${u}/timeline?date=${date}`,
-    `${u}/charts?date=${date}`,
-    `/history?serialNumber=${s}&date=${date}`,
-    `/measurements?serialNumber=${s}&from=${from}&to=${to}`,
+  // Kandidater för OpenAPI/Swagger-specen (olika ramverk lägger den olika)
+  const specUrls = [
+    `${BASE}/docs-json`, `${BASE}/docs-yaml`, `${BASE}/docs/json`,
+    `${BASE}/swagger-json`, `${BASE}/swagger.json`, `${BASE}/openapi.json`,
+    `${ROOT}/api-json`, `${ROOT}/api/docs-json`, `${ROOT}/docs-json`,
+    `${BASE}/openapi`, `${BASE}/spec`,
   ];
 
-  const out = [];
-  for (const path of candidates) {
+  let spec = null, specFrom = null, rawSnippet = null;
+  for (const u of specUrls) {
     try {
-      const r = await fetch(`${BASE}${path}`, { headers: headers(apiKey) });
-      const body = await r.text();
-      out.push({ path, status: r.status, ok: r.ok, sample: r.ok ? body.slice(0, 400) : body.slice(0, 120) });
-    } catch (e) {
-      out.push({ path, status: "ERR", ok: false, sample: String(e).slice(0, 120) });
-    }
+      const r = await fetch(u, { headers: headers(apiKey) });
+      if (!r.ok) continue;
+      const txt = await r.text();
+      try {
+        const j = JSON.parse(txt);
+        if (j && (j.paths || j.openapi || j.swagger)) { spec = j; specFrom = u; break; }
+      } catch {
+        if (!rawSnippet) rawSnippet = { url: u, body: txt.slice(0, 200) };
+      }
+    } catch {}
   }
-  res.setHeader("Cache-Control", "no-store");
-  return res.status(200).json({ serial: s, date, results: out });
+
+  if (spec?.paths) {
+    const paths = Object.keys(spec.paths).sort();
+    const methods = {};
+    for (const p of paths) methods[p] = Object.keys(spec.paths[p]).join(",");
+    const interesting = paths.filter(p => /histor|measure|log|value|graph|stat|chart|data|trend|sample|series|reading/i.test(p));
+    return res.status(200).json({ specFrom, title: spec.info?.title, count: paths.length, interesting, paths: methods });
+  }
+
+  // Ingen spec hittad – rapportera vad vi fick så vi kan gå vidare
+  return res.status(200).json({ specFound: false, rawSnippet, triedSpecUrls: specUrls });
 }
