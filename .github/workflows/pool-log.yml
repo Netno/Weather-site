@@ -5,10 +5,9 @@ name: Pool-logg (klor & pH)
 # att inte trigga en Vercel-deploy vid varje sampel (se vercel.json).
 
 on:
-  schedule:
-    # Var 15:e min. GitHubs schemaläggare är best-effort och hoppar över körningar
-    # vid låg last (t.ex. nattetid) – tätare schema ⇒ fler slottar går igenom.
-    - cron: "*/15 * * * *"
+  # Schemat är avstängt: samplingen sköts numera av en pålitlig extern
+  # schemaläggare (cron-job.org → /api/pool-sample) för jämn upplösning dygnet
+  # runt. En enda skrivare undviker krockar i arkivet. Kvar för manuell körning.
   workflow_dispatch:
 
 permissions:
