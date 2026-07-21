@@ -13,11 +13,14 @@
         android:src="@drawable/scene_clear_day"
         android:contentDescription="@null" />
 
-    <!-- Mörk scrim för textläsbarhet på ljusa scener -->
-    <View
+    <!-- Mörk scrim för textläsbarhet på ljusa scener.
+         OBS: RemoteViews stödjer inte <View>, så vi använder ImageView. -->
+    <ImageView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/w_scrim" />
+        android:scaleType="fitXY"
+        android:src="@drawable/w_scrim"
+        android:contentDescription="@null" />
 
     <LinearLayout
         android:layout_width="match_parent"
