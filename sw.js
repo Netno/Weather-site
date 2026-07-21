@@ -7,11 +7,11 @@
  *  - Övrigt statiskt (js/ikoner/manifest): stale-while-revalidate.
  *  - Externa värdar (Blitzortung, SMHI via proxy sker på origin) rörs inte.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = "shell-" + VERSION;
 const DATA = "data-" + VERSION;
 const SHELL_ASSETS = [
-  "/", "/index.html", "/assets/charts.js?v=2", "/historik/", "/historik/index.html",
+  "/", "/index.html", "/assets/charts.js?v=3", "/historik/", "/historik/index.html",
   "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png",
 ];
 

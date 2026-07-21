@@ -769,6 +769,12 @@ function multiLine(wrapId, series, opts) {
       if (s.dash) { attrs["stroke-dasharray"] = "5 4"; attrs["stroke-width"] = 1.5; attrs.opacity = 0.7; }
       svg.append(el("path", attrs));
     }
+    // Pricka varje mätpunkt (bra vid gles data, t.ex. pooldata som samplas sällan)
+    if (opts.dots) {
+      for (const s of series) for (const p of s.pts) {
+        svg.append(el("circle", { cx: sx(p.x), cy: sy(p.v), r: 2.3, fill: s.color, opacity: 0.85 }));
+      }
+    }
     if (opts.endDot && series[0]?.pts.length) {
       const last = series[0].pts[series[0].pts.length - 1];
       svg.append(el("circle", { cx: sx(last.x), cy: sy(last.v), r: 4, fill: series[0].color, stroke: css("--card"), "stroke-width": 2 }));

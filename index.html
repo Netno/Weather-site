@@ -688,7 +688,7 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   </footer>
 </div>
 
-<script src="/assets/charts.js?v=2"></script>
+<script src="/assets/charts.js?v=3"></script>
 <script>
 "use strict";
 /* =============================================================================
@@ -2102,7 +2102,9 @@ function renderPoolCharts() {
     if (m === 60) { h += 1; m = 0; }
     return `kl ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   };
-  const opts = extra => ({ xMax: 24, snap: 1.2, endDot: true, gapX: 2, xLabels, yFmt: v => fmt(v, extra.dec), tipTitle, ...extra });
+  // gapX 8h: koppla ihop linjen även vid gles sampling (molnschemat kan hoppa
+  // över körningar); dots: markera varje faktiskt mätvärde så glesheten syns.
+  const opts = extra => ({ xMax: 24, snap: 1.2, endDot: true, dots: true, gapX: 8, xLabels, yFmt: v => fmt(v, extra.dec), tipTitle, ...extra });
   const draw = (id, pts, color, extra) => {
     const elx = document.getElementById(id);
     if (pts.length >= 2) multiLine(id, [{ label: extra.label, color, pts }], opts(extra));
