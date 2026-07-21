@@ -1,12 +1,11 @@
 /*
- * TILLFÄLLIG probe. Steg 2: hämta OpenAPI-specen för att lista ALLA riktiga
- * endpoints i api.aseko.cloud/api/v1 (NestJS → JSON ligger oftast på /docs-json).
- * Då ser vi om Aseko exponerar historik och i så fall på vilken väg.
+ * TILLFÄLLIG probe. Steg 3: specen finns som YAML på /api/v1/docs-yaml.
+ * Vi hämtar den och plockar ut alla endpoint-vägar (rader "  /...:" under paths:)
+ * samt metoderna, så vi ser om historik exponeras.
  *
  *   GET /api/aseko-probe
  */
-const ROOT = "https://api.aseko.cloud";
-const BASE = `${ROOT}/api/v1`;
+const BASE = "https://api.aseko.cloud/api/v1";
 
 function headers(apiKey) {
   return {
@@ -21,37 +20,31 @@ export default async function handler(req, res) {
   const apiKey = process.env.ASEKO_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "ASEKO_API_KEY saknas" });
 
-  // Kandidater för OpenAPI/Swagger-specen (olika ramverk lägger den olika)
-  const specUrls = [
-    `${BASE}/docs-json`, `${BASE}/docs-yaml`, `${BASE}/docs/json`,
-    `${BASE}/swagger-json`, `${BASE}/swagger.json`, `${BASE}/openapi.json`,
-    `${ROOT}/api-json`, `${ROOT}/api/docs-json`, `${ROOT}/docs-json`,
-    `${BASE}/openapi`, `${BASE}/spec`,
-  ];
-
-  let spec = null, specFrom = null, rawSnippet = null;
-  for (const u of specUrls) {
-    try {
-      const r = await fetch(u, { headers: headers(apiKey) });
-      if (!r.ok) continue;
-      const txt = await r.text();
-      try {
-        const j = JSON.parse(txt);
-        if (j && (j.paths || j.openapi || j.swagger)) { spec = j; specFrom = u; break; }
-      } catch {
-        if (!rawSnippet) rawSnippet = { url: u, body: txt.slice(0, 200) };
-      }
-    } catch {}
+  let yaml;
+  try {
+    const r = await fetch(`${BASE}/docs-yaml`, { headers: headers(apiKey) });
+    yaml = await r.text();
+    if (!r.ok) return res.status(200).json({ error: `docs-yaml HTTP ${r.status}`, snippet: yaml.slice(0, 200) });
+  } catch (e) {
+    return res.status(200).json({ error: String(e) });
   }
 
-  if (spec?.paths) {
-    const paths = Object.keys(spec.paths).sort();
-    const methods = {};
-    for (const p of paths) methods[p] = Object.keys(spec.paths[p]).join(",");
-    const interesting = paths.filter(p => /histor|measure|log|value|graph|stat|chart|data|trend|sample|series|reading/i.test(p));
-    return res.status(200).json({ specFrom, title: spec.info?.title, count: paths.length, interesting, paths: methods });
+  // Plocka ut path-block: rad "  /xxx:" följt av metodrader "    get:" osv.
+  const lines = yaml.split("\n");
+  const endpoints = [];
+  let cur = null;
+  let inPaths = false;
+  for (const ln of lines) {
+    if (/^paths:\s*$/.test(ln)) { inPaths = true; continue; }
+    if (!inPaths) continue;
+    if (/^\S/.test(ln)) break; // ny toppnivå-nyckel → paths slut
+    const pm = ln.match(/^  (\/\S+):\s*$/);
+    if (pm) { cur = { path: pm[1], methods: [] }; endpoints.push(cur); continue; }
+    const mm = ln.match(/^    (get|post|put|patch|delete):\s*$/);
+    if (mm && cur) cur.methods.push(mm[1].toUpperCase());
   }
 
-  // Ingen spec hittad – rapportera vad vi fick så vi kan gå vidare
-  return res.status(200).json({ specFound: false, rawSnippet, triedSpecUrls: specUrls });
+  const list = endpoints.map(e => `${e.methods.join(",")} ${e.path}`);
+  const interesting = list.filter(s => /histor|measure|log|value|graph|stat|chart|data|trend|sample|series|reading|export/i.test(s));
+  return res.status(200).json({ count: list.length, interesting, endpoints: list });
 }
