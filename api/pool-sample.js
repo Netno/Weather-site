@@ -6,12 +6,15 @@
  *   GET /api/pool-sample?key=<POOL_SAMPLE_KEY>
  *
  * Miljövariabler i Vercel:
+ *   ASEKO_API_KEY      (redan satt – används för att läsa nuvärdet direkt)
  *   GITHUB_TOKEN       fine-grained PAT för repo Netno/Weather-site, Contents: Read and write
  *   POOL_SAMPLE_KEY    valfri hemlig sträng – krävs som ?key= om den är satt (spärrar spam)
  *
  * Skriver till pool/<YYYY-MM-DD>.json via GitHubs Contents-API. Dubbletter samma
  * minut hoppas över. /api/pool-history läser samma arkiv.
  */
+import { getPool } from "./_aseko.js";
+
 const OWNER = "Netno", REPO = "Weather-site", BRANCH = "pool-data";
 const GH = `https://api.github.com/repos/${OWNER}/${REPO}/contents`;
 
@@ -28,20 +31,20 @@ function ghHeaders(token) {
 
 export default async function handler(req, res) {
   const token = process.env.GITHUB_TOKEN;
+  const apiKey = process.env.ASEKO_API_KEY;
   const key = process.env.POOL_SAMPLE_KEY;
   if (!token) return res.status(500).json({ status: "fel", error: "GITHUB_TOKEN saknas i Vercel" });
+  if (!apiKey) return res.status(500).json({ status: "fel", error: "ASEKO_API_KEY saknas i Vercel" });
   if (key && req.query?.key !== key) return res.status(401).json({ status: "fel", error: "fel eller saknad key" });
 
-  // 1) Hämta nuvärdet via vår egen /api/aseko
-  const host = req.headers["x-forwarded-host"] || req.headers.host || "weather.rickmark.se";
-  const proto = req.headers["x-forwarded-proto"] || "https";
+  // 1) Hämta nuvärdet direkt från Aseko (ingen self-fetch)
   let pool;
   try {
-    const d = await (await fetch(`${proto}://${host}/api/aseko`)).json();
-    if (d?.status !== "ok" || !d.pool) return res.status(200).json({ status: "hoppar över", reason: "ingen pooldata", got: d?.status });
-    pool = d.pool;
+    const r = await getPool(apiKey, process.env.ASEKO_UNIT_ID);
+    if (!r.pool) return res.status(200).json({ status: "hoppar över", reason: "ingen enhet" });
+    pool = r.pool;
   } catch (e) {
-    return res.status(502).json({ status: "fel", error: "kunde inte läsa /api/aseko", detail: String(e).slice(0, 120) });
+    return res.status(502).json({ status: "fel", error: "kunde inte läsa Aseko", detail: (e.detail || e.message || String(e)).slice(0, 160) });
   }
 
   // 2) Lokal tid (Stockholm)
