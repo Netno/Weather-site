@@ -6,7 +6,9 @@ name: Pool-logg (klor & pH)
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # Var 15:e min. GitHubs schemaläggare är best-effort och hoppar över körningar
+    # vid låg last (t.ex. nattetid) – tätare schema ⇒ fler slottar går igenom.
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 permissions:
