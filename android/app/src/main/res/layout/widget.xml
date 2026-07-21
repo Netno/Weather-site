@@ -13,6 +13,12 @@
         android:src="@drawable/scene_clear_day"
         android:contentDescription="@null" />
 
+    <!-- Mörk scrim för textläsbarhet på ljusa scener -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/w_scrim" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
