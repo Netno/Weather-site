@@ -591,6 +591,7 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
         </summary>
         <div class="chips pool-range" id="pool-range">
           <button type="button" data-days="1" class="on">1 dygn</button>
+          <button type="button" data-days="48h">48 tim</button>
           <button type="button" data-days="7">7 dygn</button>
           <button type="button" data-days="30">30 dygn</button>
           <button type="button" data-days="custom">Anpassad</button>
@@ -2096,7 +2097,14 @@ async function loadPoolHistory() {
   const drawable = arr => (Array.isArray(arr) ? arr : []).filter(o => o.cl != null || o.ph != null || o.wt != null).length >= 2;
 
   let hist = null, label = "";
-  if (poolRange.days === 1) {
+  if (poolRange.hours) {
+    // Rullande fönster (48 tim): hämta de tre kalenderdygn som täcker det, rendera filtrerar sen
+    try {
+      const dd = await fetchJSON(`/api/pool-history?days=3`);
+      label = `${poolRange.hours} tim`;
+      if (drawable(dd?.samples)) hist = { from: dd.from, to: dd.to, hours: poolRange.hours, samples: dd.samples.map(o => ({ date: o.d, ...o })) };
+    } catch {}
+  } else if (poolRange.days === 1) {
     // 1 dygn: dagens kurva, annars fall tillbaka till senaste dygn med data
     for (const dt of [todayIso(), addDaysIso(todayIso(), -1)]) {
       try {
@@ -2135,28 +2143,41 @@ function renderPoolCharts() {
   if (poolHist.empty) { ids.forEach(id => document.getElementById(id).innerHTML = '<div class="chart-empty">Ingen data för perioden ännu</div>'); return; }
 
   const { from, to, samples } = poolHist;
+  const hoursMode = !!poolHist.hours;
   const totalDays = poolDaysBetween(from, to) + 1;
-  const xMax = totalDays * 24;
-  const xOfSample = o => {
-    const [h, m] = String(o.t).split(":").map(Number);
-    return poolDaysBetween(from, o.date) * 24 + h + (m || 0) / 60;
-  };
-  const pick = k => samples.filter(o => o[k] != null).map(o => ({ x: xOfSample(o), v: o[k] }));
+  const singleDay = !hoursMode && totalDays === 1;
+  const hourOf = t => { const [h, m] = String(t).split(":").map(Number); return h + (m || 0) / 60; };
+  const xAbs = o => poolDaysBetween(from, o.date) * 24 + hourOf(o.t); // timmar sedan from:s midnatt
+  const clockAt = xg => { const hod = ((xg % 24) + 24) % 24; let h = Math.floor(hod), m = Math.round((hod - h) * 60); if (m === 60) { h++; m = 0; } return `${String(h % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
 
-  let xLabels;
-  if (totalDays === 1) {
-    xLabels = [0, 6, 12, 18, 24].map(h => ({ label: String(h).padStart(2, "0"), x: h }));
-  } else {
-    const step = totalDays <= 8 ? 1 : Math.ceil(totalDays / 6);
+  let startHours, xMax, xLabels, tipTitle;
+  if (hoursMode) {
+    // Rullande fönster som slutar NU
+    const nd = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+    const g = t => nd.find(p => p.type === t).value;
+    const nowAbs = poolDaysBetween(from, `${g("year")}-${g("month")}-${g("day")}`) * 24 + (+g("hour")) + (+g("minute")) / 60;
+    xMax = poolHist.hours; startHours = nowAbs - xMax;
     xLabels = [];
-    for (let day = 0; day < totalDays; day += step) xLabels.push({ label: poolShortDate(addDaysIso(from, day)), x: day * 24 });
+    for (let d = from; d <= to; d = addDaysIso(d, 1)) { // datumetiketter vid midnätterna i fönstret
+      const x = poolDaysBetween(from, d) * 24 - startHours;
+      if (x >= 0.5 && x <= xMax - 0.5) xLabels.push({ label: poolShortDate(d), x });
+    }
+    tipTitle = xg => { const abs = xg + startHours; return `${poolShortDate(addDaysIso(from, Math.floor(abs / 24 + 1e-9)))} ${clockAt(abs)}`; };
+  } else {
+    startHours = 0; xMax = totalDays * 24;
+    if (totalDays === 1) {
+      xLabels = [0, 6, 12, 18, 24].map(h => ({ label: String(h).padStart(2, "0"), x: h }));
+    } else {
+      const step = totalDays <= 8 ? 1 : Math.ceil(totalDays / 6);
+      xLabels = [];
+      for (let day = 0; day < totalDays; day += step) xLabels.push({ label: poolShortDate(addDaysIso(from, day)), x: day * 24 });
+    }
+    tipTitle = totalDays === 1 ? xg => `kl ${clockAt(xg)}` : xg => `${poolShortDate(addDaysIso(from, Math.floor(xg / 24 + 1e-9)))} ${clockAt(xg)}`;
   }
-  const clockAt = xg => { const hod = xg - Math.floor(xg / 24) * 24; let h = Math.floor(hod), m = Math.round((hod - h) * 60); if (m === 60) { h++; m = 0; } return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
-  const tipTitle = totalDays === 1
-    ? xg => `kl ${clockAt(xg)}`
-    : xg => `${poolShortDate(addDaysIso(from, Math.floor(xg / 24 + 1e-9)))} ${clockAt(xg)}`;
 
-  const opts = extra => ({ xMax, snap: Math.max(1.2, xMax / 60), endDot: true, dots: totalDays <= 7, gapX: totalDays === 1 ? 8 : 48, xLabels, yFmt: v => fmt(v, extra.dec), tipTitle, ...extra });
+  const pick = k => samples.filter(o => o[k] != null).map(o => ({ x: xAbs(o) - startHours, v: o[k] })).filter(p => p.x >= -0.01 && p.x <= xMax + 0.01);
+
+  const opts = extra => ({ xMax, snap: Math.max(1.2, xMax / 60), endDot: true, dots: xMax <= 168, gapX: (hoursMode || singleDay) ? 8 : 48, xLabels, yFmt: v => fmt(v, extra.dec), tipTitle, ...extra });
 
   const cfgs = {};
   const rangeLabel = document.querySelector("#pool-more .pday-sum")?.textContent || "";
@@ -2172,7 +2193,7 @@ function renderPoolCharts() {
 
   const clPts = pick("cl"), phPts = pick("ph"), wtPts = pick("wt");
   const clHi = clPts.length ? Math.max(1.6, Math.ceil((Math.max(...clPts.map(p => p.v)) + 0.2) * 5) / 5) : 2;
-  draw("chart-pool-cl", "cl", clPts, css("--wind"), { label: "Fritt klor", dec: 2, area: totalDays === 1, yLo: 0, yHi: clHi, unit: "mg/l" });
+  draw("chart-pool-cl", "cl", clPts, css("--wind"), { label: "Fritt klor", dec: 2, area: singleDay, yLo: 0, yHi: clHi, unit: "mg/l" });
   if (phPts.length) {
     const pv = phPts.map(p => p.v);
     draw("chart-pool-ph", "ph", phPts, css("--temp"), { label: "pH", dec: 2, yLo: Math.min(6.8, Math.floor(Math.min(...pv) * 10) / 10 - 0.1), yHi: Math.max(7.8, Math.ceil(Math.max(...pv) * 10) / 10 + 0.1) });
@@ -2203,7 +2224,7 @@ function wirePoolRange() {
       return;
     }
     custom.hidden = true;
-    poolRange = { days: +v };
+    poolRange = v === "48h" ? { hours: 48 } : { days: +v };
     loadPoolHistory();
   });
   document.getElementById("pool-apply").addEventListener("click", () => {
