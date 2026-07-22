@@ -8,4 +8,10 @@
     <string name="soul_tree_desc">Levande bakgrund: ett lysande pilträd som gungar i vinden och rör sig när du lutar telefonen, med svävande fröandar och en mark full av lyktor.</string>
     <string name="set_soul_tree_label">Själarnas träd (bakgrund)</string>
     <string name="soul_tree_open_failed">Kunde inte öppna bakgrundsväljaren. Välj den manuellt under Inställningar → Bakgrund → Live-bakgrunder.</string>
+
+    <string name="widget_settings_label">Väder-widget: opacitet</string>
+    <string name="widget_settings_title">Widgetens opacitet</string>
+    <string name="widget_settings_hint">Justera hur genomskinlig widgetens bakgrund är. Texten påverkas inte och förblir alltid läsbar.</string>
+    <string name="widget_opacity_label">BAKGRUNDSOPACITET</string>
+    <string name="widget_settings_note">Ändringen tillämpas direkt på alla placerade widgetar.</string>
 </resources>

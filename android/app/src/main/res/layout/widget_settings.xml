@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="@string/widget_settings_title"
+        android:textColor="#F2F6FB" android:textSize="22sp" android:textStyle="bold"
+        android:paddingBottom="8dp" />
+
+    <TextView
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/widget_settings_hint"
+        android:textColor="#A6B2BF" android:textSize="14sp"
+        android:paddingBottom="28dp" />
+
+    <TextView
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="@string/widget_opacity_label"
+        android:textColor="#A6B2BF" android:textSize="12sp"
+        android:letterSpacing="0.06" android:paddingBottom="6dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <SeekBar
+            android:id="@+id/opacity_seek"
+            android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+        <TextView
+            android:id="@+id/opacity_val"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:minWidth="56dp" android:gravity="end"
+            android:text="100 %" android:textColor="#F2F6FB" android:textSize="16sp" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/widget_settings_note"
+        android:textColor="#6E7C8B" android:textSize="12sp"
+        android:paddingTop="28dp" />
+</LinearLayout>

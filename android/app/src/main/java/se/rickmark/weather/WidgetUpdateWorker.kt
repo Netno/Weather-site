@@ -120,6 +120,13 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWork
         val v = RemoteViews(ctx.packageName, R.layout.widget)
         val night = d.lux?.let { it < 30 } ?: isNight()
         v.setImageViewResource(R.id.w_bg, sceneDrawable(d.symb, night))
+        // Bakgrundsopacitet (sparad i inställningen) – rör bara scenen, aldrig texten
+        val opacity = ctx.getSharedPreferences(
+            WidgetSettingsActivity.PREFS, Context.MODE_PRIVATE
+        ).getInt(WidgetSettingsActivity.KEY_OPACITY, 100).coerceIn(0, 100)
+        val bgAlpha = (opacity * 255) / 100
+        v.setInt(R.id.w_bg, "setImageAlpha", bgAlpha)
+        v.setInt(R.id.root, "setBackgroundColor", (bgAlpha shl 24) or 0x0B1018)
         v.setTextViewText(R.id.w_icon, iconFor(d.symb, night))
         v.setTextViewText(R.id.w_when, "Uppd. " + whenFmt.format(Date()))
 
