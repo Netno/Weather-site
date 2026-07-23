@@ -3,9 +3,14 @@ name: Hämta väderdata
 on:
   schedule:
     # 01:30 UTC = 02:30/03:30 svensk tid — säkert efter midnatt året om.
-    # Hämtar gårdagens dygn till AcuRite-arkivet.
+    # Hämtar gårdagens dygn; under backfill betar varje körning av upp till
+    # ~150 dagar (300 anrop à 2 per dag) tills arkivet är ikapp.
     - cron: "30 1 * * *"
   workflow_dispatch:
+    inputs:
+      call_budget:
+        description: "Max antal API-anrop (lågt = snällt mot WU:s gratisnivå)"
+        default: "300"
 
 permissions:
   contents: write
@@ -24,14 +29,23 @@ jobs:
         with:
           node-version: "20"
 
-      # OBS: Weather Underground-backfillen (scripts/fetch-history.mjs) är
-      # avstängd med flit. WU-arkivet (data/daily/, data/hourly/) läses inte
-      # längre av siten — period-/historikvyerna bygger helt på AcuRite-arkivet,
-      # som redan täcker 2018→nu och hålls aktuellt av steget nedan. Den gamla
-      # kronologiska WU-krypningen fyllde bara på data ingen läser och parkerade
-      # historiken i 2023/2024. Vill man återuppta den finns steget i git-loggen.
+      # WU-arkivet (data/daily/, data/hourly/) är sitens enda källa till
+      # temperatur/regn/vind/tryck före mars 2025 — AcuRite-manifestet påstår
+      # 2018→nu men dagarna före 2025-03 är null (myAcuRite saknar filer där).
+      # Backfillen måste därför gå klart; den lägger sig sedan i inkrementellt
+      # läge (gårdagens dygn) av sig själv.
+      - name: Hämta ny data till arkivet
+        env:
+          WU_API_KEY: ${{ secrets.WU_API_KEY }}
+          # Lågt tak + långsam takt: WU:s gratisnivå tål inte massladdning av
+          # historik (för aggressiv backfill fick nyckeln avstängd med HTTP 401).
+          CALL_BUDGET: ${{ github.event.inputs.call_budget || '300' }}
+          PACE_MS: "4000"
+        run: node scripts/fetch-history.mjs
 
       - name: Hämta myAcuRite-data till arkivet
+        # Körs även om WU-steget failar; hoppar över sig själv om secret saknas
+        if: always()
         env:
           ACURITE_DATA_URL: ${{ secrets.ACURITE_DATA_URL }}
         run: node scripts/fetch-acurite.mjs
@@ -47,7 +61,8 @@ jobs:
           if git diff --cached --quiet; then
             echo "Ingen ny data att committa."
           else
-            CURSOR=$(node -p "require('./data/acurite/manifest.json').lastFetched")
+            # Markören = det äldsta av de två arkivens lägen; dit är arkivet komplett
+            CURSOR=$(node -p "const a=require('./data/manifest.json').lastFetched, b=require('./data/acurite/manifest.json').lastFetched; a<b?a:b")
             git commit -m "Uppdatera väderarkivet t.o.m. $CURSOR"
             # main kan ha fått nya commits under den långa körningen —
             # rebasa och försök igen i stället för att tappa arkivet
