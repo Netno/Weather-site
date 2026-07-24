@@ -4,199 +4,493 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TryggVardag – Utbildning, första hjälpen och trygghet för butik och skola</title>
-  <meta name="description" content="Första hjälpen-utbildning, nischade första hjälpen-väskor och överfallslarm för butiker och skolor. Årsavtal med påfyllnad och repetitionsutbildning.">
+  <meta name="description" content="Första hjälpen-utbildning, nischade första hjälpen-väskor och överfallslarm för butiker och skolor. Årsavtal med miljögenomgång, påfyllnad och repetitionsutbildning.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="container topbar-inner">
-      <a href="#" class="logo">Trygg<span>Vardag</span></a>
-      <nav class="nav">
-        <a href="#tjanster">Tjänster</a>
-        <a href="#butik">För butik</a>
-        <a href="#skola">För skola</a>
-        <a href="#arsavtal">Årsavtal</a>
-        <a href="#om">Om oss</a>
-        <a href="#kontakt" class="nav-cta">Kontakta oss</a>
-      </nav>
-    </div>
-  </header>
+<header class="topbar" id="top">
+  <div class="container topbar-inner">
+    <a href="#top" class="logo" aria-label="TryggVardag – till startsidan">
+      <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M20 3 34 9v10c0 9.5-6 15.5-14 18C12 34.5 6 28.5 6 19V9l14-6z" fill="#1f5c46"/>
+        <path d="M17.5 12h5v5.5H28v5h-5.5V28h-5v-5.5H12v-5h5.5V12z" fill="#fff"/>
+      </svg>
+      <span class="logo-text">Trygg<em>Vardag</em></span>
+    </a>
+    <nav class="nav" id="nav">
+      <a href="#tjanster">Tjänster</a>
+      <a href="#butik">För butik</a>
+      <a href="#skola">För skola</a>
+      <a href="#paket">Paket &amp; priser</a>
+      <a href="#faq">Frågor</a>
+      <a href="#kontakt" class="btn btn-small btn-primary">Boka genomgång</a>
+    </nav>
+    <button class="nav-toggle" id="navToggle" aria-label="Meny" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
 
+<main>
+
+  <!-- ============ HERO ============ -->
   <section class="hero">
-    <div class="container">
-      <h1>Trygghet och beredskap<br>för butik och skola</h1>
-      <p class="hero-sub">
-        Vi utbildar er personal i första hjälpen och hantering av hotfulla situationer,
-        utrustar er med första hjälpen-väskor anpassade för just er verksamhet
-        och ser till att allt är på plats – år efter år.
-      </p>
-      <div class="hero-actions">
-        <a href="#kontakt" class="btn btn-primary">Boka kostnadsfri genomgång</a>
-        <a href="#tjanster" class="btn btn-ghost">Se våra tjänster</a>
+    <div class="container hero-grid">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">Utbildning · Första hjälpen · Överfallslarm</p>
+        <h1>När något händer ska er personal <span class="mark">veta exakt vad de ska göra</span></h1>
+        <p class="lead">
+          Vi utbildar personal i butik och skola i första hjälpen och hantering av hotfulla
+          situationer, utrustar er med första hjälpen-väskor byggda för just er verksamhet
+          – och kommer tillbaka varje år så att tryggheten aldrig hinner rinna ut i sanden.
+        </p>
+        <div class="hero-actions">
+          <a href="#kontakt" class="btn btn-primary btn-large">Boka kostnadsfri behovsanalys</a>
+          <a href="#tjanster" class="btn btn-outline btn-large">Se hur det fungerar</a>
+        </div>
+        <ul class="hero-trust">
+          <li>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 13.6 4.9 10l-1.4 1.4 5 5 9-9L16.1 6z" fill="currentColor"/></svg>
+            Alltid på plats hos er
+          </li>
+          <li>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 13.6 4.9 10l-1.4 1.4 5 5 9-9L16.1 6z" fill="currentColor"/></svg>
+            Årsavtal med påfyllnad
+          </li>
+          <li>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 13.6 4.9 10l-1.4 1.4 5 5 9-9L16.1 6z" fill="currentColor"/></svg>
+            Oberoende larmrådgivning
+          </li>
+        </ul>
+      </div>
+
+      <div class="hero-visual reveal" aria-hidden="true">
+        <div class="visual-card visual-card-main">
+          <div class="visual-card-head">
+            <span class="dot dot-green"></span>
+            <strong>Årskontroll – Vasagatans Livs</strong>
+          </div>
+          <ul class="visual-checklist">
+            <li class="done"><span>✓</span> Miljögenomgång av lokalen</li>
+            <li class="done"><span>✓</span> Första hjälpen-väska påfylld</li>
+            <li class="done"><span>✓</span> Repetition: HLR &amp; hotfulla kunder</li>
+            <li class="active"><span></span> Larmrutin testad med personalen</li>
+          </ul>
+          <div class="visual-progress"><div style="width:78%"></div></div>
+          <p class="visual-note">3 av 4 moment klara</p>
+        </div>
+        <div class="visual-card visual-card-float">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 6v6c0 5.5 3.8 9.7 9 11 5.2-1.3 9-5.5 9-11V6l-9-4z" fill="#1f5c46"/><path d="M10.6 8h2.8v2.6H16v2.8h-2.6V16h-2.8v-2.6H8v-2.8h2.6V8z" fill="#fff"/></svg>
+          <div>
+            <strong>Väska 2/2 kontrollerad</strong>
+            <small>Nästa besök: aug 2027</small>
+          </div>
+        </div>
+        <div class="visual-badge">
+          <strong>1 gång<span>/år</span></strong>
+          <small>kommer vi ut till er</small>
+        </div>
       </div>
     </div>
   </section>
 
+  <!-- ============ STATS ============ -->
+  <section class="stats">
+    <div class="container stats-grid">
+      <div class="stat reveal">
+        <strong>3 min</strong>
+        <span>Vid hjärtstopp avgör de första minuterna – innan ambulansen hinner fram</span>
+      </div>
+      <div class="stat reveal">
+        <strong>7 av 10</strong>
+        <span>i handeln och skolan uppger att de mött hot eller aggressivitet i arbetet</span>
+      </div>
+      <div class="stat reveal">
+        <strong>1 gång/år</strong>
+        <span>ses vi för genomgång, påfyllnad och repetition – så att kunskapen sitter kvar</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TJÄNSTER ============ -->
   <section id="tjanster" class="section">
     <div class="container">
-      <h2>Tre delar – en helhet</h2>
-      <p class="section-intro">
-        Utbildning, utrustning och larm hänger ihop. Kunskapen gör att ni vågar agera,
-        utrustningen gör att ni kan, och larmet gör att hjälpen aldrig är långt borta.
-      </p>
+      <div class="section-head reveal">
+        <p class="eyebrow">Våra tjänster</p>
+        <h2>Tre delar som hänger ihop</h2>
+        <p class="section-intro">
+          Kunskapen gör att er personal <strong>vågar</strong> agera. Utrustningen gör att de
+          <strong>kan</strong>. Larmet gör att hjälpen <strong>aldrig är långt borta</strong>.
+          Vi levererar helheten – inte lösryckta delar.
+        </p>
+      </div>
+
       <div class="cards">
-        <article class="card">
-          <div class="card-icon">🎓</div>
+        <article class="card reveal">
+          <div class="card-icon icon-green">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5 2 11l14 6 11-4.7V20h3v-9L16 5z" fill="currentColor"/><path d="M8 17.6V22c0 2.2 3.6 4 8 4s8-1.8 8-4v-4.4l-8 3.4-8-3.4z" fill="currentColor" opacity=".55"/></svg>
+          </div>
           <h3>Utbildning &amp; coaching</h3>
           <p>
-            Praktisk första hjälpen-utbildning och träning i att hantera hotfulla
-            situationer – anpassad efter er vardag, på plats hos er.
+            Praktisk träning på plats i er egen miljö – inte i en anonym kurslokal.
+            Vi övar på det som faktiskt kan hända hos just er.
           </p>
-          <ul>
-            <li>Första hjälpen &amp; HLR</li>
-            <li>Hot och våld – bemötande och avväpnande samtal</li>
-            <li>Scenarioträning utifrån er miljö</li>
-            <li>Repetitionsutbildning varje år</li>
+          <ul class="feature-list">
+            <li>Första hjälpen &amp; HLR med hjärtstartare</li>
+            <li>Hot och våld – bemötande som trappar ner</li>
+            <li>Scenarioträning i era lokaler</li>
+            <li>Årlig repetition så kunskapen sitter kvar</li>
           </ul>
         </article>
-        <article class="card">
-          <div class="card-icon">⛑️</div>
-          <h3>Första hjälpen-väskor</h3>
+
+        <article class="card card-featured reveal">
+          <span class="card-flag">Vår specialitet</span>
+          <div class="card-icon icon-amber">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 9h20a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V12a3 3 0 0 1 3-3z" fill="currentColor"/><path d="M12 9V7a4 4 0 0 1 8 0v2h-2.6V7a1.4 1.4 0 0 0-2.8 0v2H12z" fill="currentColor"/><path d="M14.2 14h3.6v3.2H21v3.6h-3.2V24h-3.6v-3.2H11v-3.6h3.2V14z" fill="#fff"/></svg>
+          </div>
+          <h3>Nischade första hjälpen-väskor</h3>
           <p>
-            Inga standardväskor från hyllan. Vi sätter ihop innehållet utifrån de skador
-            och situationer som faktiskt inträffar i just er verksamhet.
+            Inga standardväskor från hyllan. Vi sätter ihop innehållet efter de skador
+            och situationer som faktiskt inträffar i er verksamhet.
           </p>
-          <ul>
-            <li>Nischat innehåll för butik respektive skola</li>
+          <ul class="feature-list">
+            <li>Butiksväskan – kassa, lager, ensamarbete</li>
+            <li>Skolväskan – idrott, slöjd, skolgård</li>
             <li>Rätt väska på rätt plats i lokalen</li>
-            <li>Årlig kontroll och påfyllnad</li>
-            <li>Personalen vet var den finns – och hur den används</li>
+            <li>Årlig kontroll och påfyllnad ingår i avtalet</li>
           </ul>
         </article>
-        <article class="card">
-          <div class="card-icon">🔔</div>
+
+        <article class="card reveal">
+          <div class="card-icon icon-green">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3a9 9 0 0 0-9 9v6l-3 5v1h24v-1l-3-5v-6a9 9 0 0 0-9-9z" fill="currentColor"/><path d="M12.5 26a3.5 3.5 0 0 0 7 0h-7z" fill="currentColor"/></svg>
+          </div>
           <h3>Överfallslarm</h3>
           <p>
-            I samarbete med etablerade larmleverantörer hjälper vi er välja och komma
-            igång med överfallslarm som passar er lokal och er personal.
+            I samarbete med etablerade larmleverantörer hjälper vi er välja rätt larm –
+            och ser till att personalen vet exakt vad som händer när det går.
           </p>
-          <ul>
-            <li>Behovsanalys på plats</li>
-            <li>Oberoende rådgivning – rätt larm för er</li>
-            <li>Installation via samarbetspartner</li>
-            <li>Rutiner: vad händer när larmet går?</li>
+          <ul class="feature-list">
+            <li>Behovsanalys på plats hos er</li>
+            <li>Oberoende rådgivning – vi säljer trygghet, inte boxar</li>
+            <li>Installation via kvalitetssäkrad partner</li>
+            <li>Larmrutiner övas in med personalen</li>
           </ul>
         </article>
       </div>
     </div>
   </section>
 
-  <section id="butik" class="section section-alt">
+  <!-- ============ SÅ FUNKAR DET ============ -->
+  <section class="section section-alt">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">Så fungerar det</p>
+        <h2>Från första besök till trygg vardag</h2>
+      </div>
+      <ol class="process">
+        <li class="reveal">
+          <span class="process-num">1</span>
+          <h3>Kostnadsfri behovsanalys</h3>
+          <p>Vi besöker er, går igenom lokalerna och lyssnar på vad er personal möter i vardagen.</p>
+        </li>
+        <li class="reveal">
+          <span class="process-num">2</span>
+          <h3>Utbildning på plats</h3>
+          <p>Personalen tränas i första hjälpen och hotfulla situationer – i er egen miljö, med era förutsättningar.</p>
+        </li>
+        <li class="reveal">
+          <span class="process-num">3</span>
+          <h3>Utrustning &amp; larm</h3>
+          <p>Skräddarsydda första hjälpen-väskor placeras ut och eventuellt överfallslarm installeras via vår partner.</p>
+        </li>
+        <li class="reveal">
+          <span class="process-num">4</span>
+          <h3>Årlig uppföljning</h3>
+          <p>En gång om året: miljön checkas av, väskorna fylls på och kunskapen repeteras. Ni behöver aldrig tänka på det.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ FÖR BUTIK ============ -->
+  <section id="butik" class="section">
     <div class="container split">
-      <div>
-        <h2>För butik</h2>
+      <div class="split-copy reveal">
+        <p class="eyebrow">För butik</p>
+        <h2>Er personal möter mycket – ofta ensamma</h2>
         <p>
           Hotfulla kunder, rånrisk, stress vid kassan och olyckor i lager och på golvet.
-          Butikspersonal möter mycket – ofta ensamma. Vi hjälper er att vara förberedda.
+          Vi förbereder er personal på det ni hoppas aldrig ska hända – och ger dem
+          verktygen att hantera vardagens incidenter.
         </p>
         <ul class="checklist">
           <li>Träning i att möta hotfulla och aggressiva kunder</li>
-          <li>Rutiner vid rån och efterarbete när något har hänt</li>
-          <li>Första hjälpen-väska anpassad för butiksmiljö</li>
-          <li>Överfallslarm för kassa och ensamarbete</li>
-          <li>Genomgång av lokalen – var finns riskerna?</li>
+          <li>Rutiner vid rån – och stöd i efterarbetet</li>
+          <li>Butiksväskan: första hjälpen anpassad för kassa, lager och golv</li>
+          <li>Överfallslarm för ensamarbete och sena kvällar</li>
+          <li>Miljögenomgång: var i lokalen finns riskerna?</li>
         </ul>
         <a href="#kontakt" class="btn btn-primary">Prata med oss om er butik</a>
       </div>
-      <div class="quote-box">
-        <p>”Den som har övat vågar agera. Den som vågar agera kan förhindra att en obehaglig situation blir en farlig situation.”</p>
-      </div>
+      <aside class="split-panel panel-green reveal">
+        <blockquote>
+          <p>”Efter utbildningen känner jag mig inte längre ensam bakom kassan på kvällarna. Jag vet vad jag ska göra – och jag vet att larmet fungerar.”</p>
+          <footer>Butiksmedarbetare, livsmedelsbutik <span>(exempelcitat)</span></footer>
+        </blockquote>
+        <div class="panel-fact">
+          <strong>Vanligast i butik:</strong>
+          <p>skärskador, fallolyckor och hotfulla situationer vid kassa och stängning.</p>
+        </div>
+      </aside>
     </div>
   </section>
 
-  <section id="skola" class="section">
-    <div class="container split">
-      <div>
-        <h2>För skola</h2>
+  <!-- ============ FÖR SKOLA ============ -->
+  <section id="skola" class="section section-alt">
+    <div class="container split split-reverse">
+      <div class="split-copy reveal">
+        <p class="eyebrow">För skola</p>
+        <h2>Trygga vuxna ger trygga elever</h2>
         <p>
           Allt fler i skolans personal upplever hot – ibland från elever. Samtidigt sker
-          vardagsolyckor på raster, i idrottshallen och i slöjdsalen. Vi ger personalen
-          trygghet att hantera båda delarna.
+          vardagsolyckorna på raster, i idrottshallen och i slöjdsalen. Vi ger personalen
+          trygghet att hantera båda delarna, utan att trappa upp.
         </p>
         <ul class="checklist">
-          <li>Hantera hot och konflikter med elever – utan att trappa upp</li>
+          <li>Hantera hot och konflikter med elever – lågaffektivt bemötande</li>
           <li>Stöd och rutiner för personal som blivit utsatt</li>
-          <li>Första hjälpen-väskor nischade för skolmiljö</li>
+          <li>Skolväskan: första hjälpen för idrott, slöjd och skolgård</li>
           <li>Överfallslarm och larmrutiner för utsatta arbetsplatser</li>
           <li>Trygghetsvandring – vi checkar av miljön tillsammans med er</li>
         </ul>
         <a href="#kontakt" class="btn btn-primary">Prata med oss om er skola</a>
       </div>
-      <div class="quote-box">
-        <p>”Trygga vuxna ger trygga elever. Personal som vet vad de ska göra sprider lugn i hela huset.”</p>
-      </div>
+      <aside class="split-panel panel-amber reveal">
+        <blockquote>
+          <p>”Vi hade väskor i varje korridor – men ingen visste vad som fanns i dem eller vågade använda dem. Nu vet alla. Det förändrar stämningen i hela huset.”</p>
+          <footer>Rektor, grundskola <span>(exempelcitat)</span></footer>
+        </blockquote>
+        <div class="panel-fact">
+          <strong>Vanligast i skolan:</strong>
+          <p>idrottsskador, fallolyckor på skolgården och hotfulla situationer i korridor och klassrum.</p>
+        </div>
+      </aside>
     </div>
   </section>
 
-  <section id="arsavtal" class="section section-dark">
+  <!-- ============ PAKET ============ -->
+  <section id="paket" class="section section-dark">
     <div class="container">
-      <h2>Årsavtalet – trygghet som håller över tid</h2>
-      <p class="section-intro">
-        En utbildning glöms bort och en väska töms. Därför bygger vi långsiktiga
-        relationer: en gång om året kommer vi ut till er och ser till att allt fungerar.
-      </p>
-      <div class="steps">
-        <div class="step">
-          <span class="step-num">1</span>
-          <h3>Vi checkar av miljön</h3>
-          <p>Genomgång av lokaler, risker och rutiner. Har något förändrats sedan sist?</p>
-        </div>
-        <div class="step">
-          <span class="step-num">2</span>
-          <h3>Vi fyller på väskorna</h3>
-          <p>Första hjälpen-väskorna kontrolleras, kompletteras och byts ut vid behov.</p>
-        </div>
-        <div class="step">
-          <span class="step-num">3</span>
-          <h3>Vi repeterar med personalen</h3>
-          <p>Kort repetitionsutbildning så att kunskapen sitter kvar – även hos nyanställda.</p>
-        </div>
+      <div class="section-head reveal">
+        <p class="eyebrow">Paket &amp; priser</p>
+        <h2>Välj nivå – väx när ni är redo</h2>
+        <p class="section-intro">
+          Alla paket börjar med en kostnadsfri behovsanalys. Priserna anpassas efter
+          verksamhetens storlek – kontakta oss för en offert.
+        </p>
       </div>
+      <div class="pricing">
+        <article class="price-card reveal">
+          <h3>Grund</h3>
+          <p class="price"><span>från</span> 8 900 kr</p>
+          <p class="price-desc">För er som vill komma igång med det viktigaste.</p>
+          <ul class="feature-list light">
+            <li>Halvdagsutbildning: första hjälpen &amp; HLR</li>
+            <li>1 nischad första hjälpen-väska</li>
+            <li>Miljögenomgång av lokalen</li>
+            <li>Intyg till all personal</li>
+          </ul>
+          <a href="#kontakt" class="btn btn-outline-light">Begär offert</a>
+        </article>
+
+        <article class="price-card price-card-featured reveal">
+          <span class="price-flag">Populärast</span>
+          <h3>Trygghet <small>· årsavtal</small></h3>
+          <p class="price"><span>från</span> 1 490 kr<em>/mån</em></p>
+          <p class="price-desc">Helheten som håller över tid – vårt rekommenderade upplägg.</p>
+          <ul class="feature-list light">
+            <li>Allt i Grund</li>
+            <li>Utbildning i hot &amp; våld / konflikthantering</li>
+            <li>Väskor på alla nyckelplatser</li>
+            <li><strong>Årligt besök:</strong> genomgång, påfyllnad &amp; repetition</li>
+            <li>Prioriterad support när något hänt</li>
+          </ul>
+          <a href="#kontakt" class="btn btn-primary">Begär offert</a>
+        </article>
+
+        <article class="price-card reveal">
+          <h3>Helhet</h3>
+          <p class="price">Offert</p>
+          <p class="price-desc">För kedjor, kommuner och flera enheter.</p>
+          <ul class="feature-list light">
+            <li>Allt i Trygghet, för alla era enheter</li>
+            <li>Överfallslarm via samarbetspartner</li>
+            <li>Gemensamma rutiner och larmövningar</li>
+            <li>Central rapportering till huvudkontor/huvudman</li>
+          </ul>
+          <a href="#kontakt" class="btn btn-outline-light">Begär offert</a>
+        </article>
+      </div>
+      <p class="pricing-note reveal">Priserna är exempel i denna förhandsversion och fastställs inför lansering.</p>
     </div>
   </section>
 
+  <!-- ============ OM ============ -->
   <section id="om" class="section">
-    <div class="container narrow">
-      <h2>Om oss</h2>
-      <p>
-        [Här berättar vi om dig: din bakgrund, varför du brinner för trygghet i butik
-        och skola, och vad som gör att kunderna kan lita på dig. Den här texten skriver
-        vi tillsammans – det är ofta den viktigaste sidan på hela sajten.]
-      </p>
-    </div>
-  </section>
-
-  <section id="kontakt" class="section section-alt">
-    <div class="container narrow">
-      <h2>Kontakta oss</h2>
-      <p class="section-intro">
-        Nyfiken? Vi kommer gärna ut och tittar på er verksamhet – kostnadsfritt och
-        utan förpliktelser.
-      </p>
-      <div class="contact-box">
-        <p><strong>Telefon:</strong> [070-XXX XX XX]</p>
-        <p><strong>E-post:</strong> [info@dindoman.se]</p>
-        <p><strong>Vi finns i:</strong> [Ort/region]</p>
+    <div class="container about">
+      <div class="about-photo reveal" aria-hidden="true">
+        <svg viewBox="0 0 200 200">
+          <rect width="200" height="200" rx="16" fill="#e8f2ee"/>
+          <circle cx="100" cy="78" r="34" fill="#1f5c46" opacity=".25"/>
+          <path d="M40 178c6-38 30-56 60-56s54 18 60 56" fill="#1f5c46" opacity=".25"/>
+          <text x="100" y="108" text-anchor="middle" font-size="13" fill="#1f5c46" font-family="sans-serif">Ditt foto här</text>
+        </svg>
+      </div>
+      <div class="about-copy reveal">
+        <p class="eyebrow">Om oss</p>
+        <h2>Byggt på erfarenhet från golvet</h2>
+        <p>
+          [Här berättar vi din historia: din bakgrund, åren i verksamheten och varför du
+          brinner för att personal i butik och skola ska känna sig trygga på jobbet.
+          I den här branschen köper kunden <strong>personen</strong> – den här texten
+          skriver vi tillsammans.]
+        </p>
+        <p>
+          [Andra stycket: din utbildning/certifiering inom första hjälpen, eventuella
+          samarbeten och vad kunderna kan förvänta sig av ett besök från dig.]
+        </p>
       </div>
     </div>
   </section>
 
-  <footer class="footer">
-    <div class="container">
-      <p>© 2026 TryggVardag (arbetsnamn) · Utbildning, första hjälpen och trygghet för butik och skola</p>
+  <!-- ============ FAQ ============ -->
+  <section id="faq" class="section section-alt">
+    <div class="container narrow">
+      <div class="section-head reveal">
+        <p class="eyebrow">Vanliga frågor</p>
+        <h2>Bra att veta</h2>
+      </div>
+      <div class="faq reveal">
+        <details>
+          <summary>Måste vi ha första hjälpen-utrustning på arbetsplatsen?</summary>
+          <p>Ja. Enligt Arbetsmiljöverkets föreskrifter ska det finnas beredskap och utrustning för första hjälpen anpassad efter verksamhetens risker. Det är precis det vi hjälper er med – utrustning, kunskap och rutiner som hänger ihop.</p>
+        </details>
+        <details>
+          <summary>Hur lång är en utbildning?</summary>
+          <p>Grundutbildningen i första hjälpen och HLR tar en halvdag. Utbildningen i hot och våld tar ytterligare en halvdag. Den årliga repetitionen är kortare – cirka två timmar – och kan ofta läggas i samband med ett personalmöte.</p>
+        </details>
+        <details>
+          <summary>Vad ingår i årsavtalet?</summary>
+          <p>Ett besök per år där vi går igenom miljön, kontrollerar och fyller på alla första hjälpen-väskor och håller en repetitionsutbildning med personalen. Ni behöver aldrig själva hålla koll på utgångsdatum eller att kunskapen falnar.</p>
+        </details>
+        <details>
+          <summary>Säljer ni själva överfallslarmen?</summary>
+          <p>Nej – och det är en poäng. Vi samarbetar med etablerade larmleverantörer och står på er sida som oberoende rådgivare. Vi hjälper er välja rätt lösning, partnern sköter installation och drift, och vi övar in larmrutinerna med er personal.</p>
+        </details>
+        <details>
+          <summary>Kan ni ta flera enheter eller en hel kommun?</summary>
+          <p>Ja. Med paketet Helhet arbetar vi med kedjor, kommuner och huvudmän med flera enheter, med gemensamma rutiner och central rapportering.</p>
+        </details>
+      </div>
     </div>
-  </footer>
+  </section>
 
+  <!-- ============ CTA ============ -->
+  <section class="cta-band">
+    <div class="container cta-inner reveal">
+      <div>
+        <h2>Osäker på var ni står idag?</h2>
+        <p>Boka en kostnadsfri behovsanalys så går vi igenom er verksamhet tillsammans – utan förpliktelser.</p>
+      </div>
+      <a href="#kontakt" class="btn btn-light btn-large">Boka kostnadsfri behovsanalys</a>
+    </div>
+  </section>
+
+  <!-- ============ KONTAKT ============ -->
+  <section id="kontakt" class="section">
+    <div class="container contact-grid">
+      <div class="contact-copy reveal">
+        <p class="eyebrow">Kontakt</p>
+        <h2>Berätta om er verksamhet</h2>
+        <p>
+          Fyll i formuläret eller ring direkt. Vi återkommer inom en arbetsdag och
+          bokar in en kostnadsfri behovsanalys på plats hos er.
+        </p>
+        <ul class="contact-details">
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z" fill="currentColor"/></svg>
+            <span><strong>Telefon</strong><br>[070-XXX XX XX]</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z" fill="currentColor"/></svg>
+            <span><strong>E-post</strong><br>[info@dindoman.se]</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg>
+            <span><strong>Område</strong><br>[Ort och omnejd]</span>
+          </li>
+        </ul>
+      </div>
+      <form class="contact-form reveal" onsubmit="event.preventDefault(); this.querySelector('.form-sent').hidden=false;">
+        <div class="form-row">
+          <label>Namn
+            <input type="text" name="namn" placeholder="För- och efternamn" required>
+          </label>
+          <label>Telefon eller e-post
+            <input type="text" name="kontakt" placeholder="Så vi kan nå dig" required>
+          </label>
+        </div>
+        <label>Verksamhet
+          <select name="verksamhet">
+            <option>Butik</option>
+            <option>Skola</option>
+            <option>Flera enheter / kedja / kommun</option>
+            <option>Annat</option>
+          </select>
+        </label>
+        <label>Berätta kort om era behov
+          <textarea name="meddelande" rows="4" placeholder="T.ex. hur många anställda ni är och vad ni vill ha hjälp med"></textarea>
+        </label>
+        <button type="submit" class="btn btn-primary btn-large">Skicka förfrågan</button>
+        <p class="form-sent" hidden>Tack! Detta är en förhandsversion – formuläret kopplas in vid lansering.</p>
+        <p class="form-note">Vi hör av oss inom en arbetsdag. Inga nyhetsbrev, inget tjat.</p>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="container footer-grid">
+    <div>
+      <a href="#top" class="logo logo-light">
+        <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <path d="M20 3 34 9v10c0 9.5-6 15.5-14 18C12 34.5 6 28.5 6 19V9l14-6z" fill="#e8a33d"/>
+          <path d="M17.5 12h5v5.5H28v5h-5.5V28h-5v-5.5H12v-5h5.5V12z" fill="#143d2f"/>
+        </svg>
+        <span class="logo-text">Trygg<em>Vardag</em></span>
+      </a>
+      <p class="footer-tag">Utbildning, första hjälpen och trygghet för butik och skola.</p>
+    </div>
+    <nav aria-label="Sidfot">
+      <h4>Snabbt till</h4>
+      <a href="#tjanster">Tjänster</a>
+      <a href="#butik">För butik</a>
+      <a href="#skola">För skola</a>
+      <a href="#paket">Paket &amp; priser</a>
+    </nav>
+    <div>
+      <h4>Kontakt</h4>
+      <p>[070-XXX XX XX]<br>[info@dindoman.se]<br>[Ort och omnejd]</p>
+    </div>
+  </div>
+  <div class="container footer-legal">
+    <p>© 2026 TryggVardag (arbetsnamn) · Alla rättigheter förbehållna</p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
 </body>
 </html>
