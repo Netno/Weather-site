@@ -1273,10 +1273,9 @@ async function boot() {
     const daysLeft = Math.round((new Date(yesterday) - new Date(manifest.lastFetched)) / 86400e3);
     const nights = Math.ceil(daysLeft / 150);
     const notice = document.getElementById("backfill-notice");
-    notice.textContent = `Historiken hämtas fortfarande in: arkivet täcker ${manifest.firstDate} `
-      + `till ${manifest.lastFetched} och fylls på med ~150 dygn per natt `
-      + `(${daysLeft} dygn kvar ≈ ${nights} ${nights === 1 ? "natt" : "nätter"}). `
-      + `Vyerna öppnar därför på senaste arkiverade dygnet — de hittar fram till idag av sig själva.`;
+    notice.textContent = `Arkivet byggs ifatt i bakgrunden: just nu ${manifest.firstDate} → ${manifest.lastFetched}, `
+      + `och det växer med ~150 dygn per natt (${daysLeft} dygn kvar ≈ ${nights} ${nights === 1 ? "natt" : "nätter"}). `
+      + `Vyerna öppnar på senaste arkiverade dygnet och hittar fram till idag av sig själva.`;
     notice.classList.add("on");
   }
   const firstYear = parseInt(manifest.firstDate.slice(0, 4), 10);

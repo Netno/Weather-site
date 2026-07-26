@@ -7,7 +7,7 @@
  *  - Övrigt statiskt (js/ikoner/manifest): stale-while-revalidate.
  *  - Externa värdar (Blitzortung, SMHI via proxy sker på origin) rörs inte.
  */
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL = "shell-" + VERSION;
 const DATA = "data-" + VERSION;
 const SHELL_ASSETS = [
@@ -49,6 +49,18 @@ self.addEventListener("fetch", (e) => {
     return;
   }
   if (url.pathname.startsWith("/data/")) {
+    // Manifesten styr vilka datum/år vyerna visar — hämta dem färskt först,
+    // annars ligger bannern en deploy efter (cachen är bara offline-reserv)
+    if (url.pathname.endsWith("manifest.json")) {
+      e.respondWith(
+        caches.open(DATA).then((cache) =>
+          fetch(req)
+            .then((res) => { if (res && res.ok) cache.put(req, res.clone()); return res; })
+            .catch(() => cache.match(req))
+        )
+      );
+      return;
+    }
     e.respondWith(staleWhileRevalidate(req, DATA));
     return;
   }
