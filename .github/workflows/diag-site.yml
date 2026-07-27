@@ -1,0 +1,23 @@
+name: Diagnos av live-sajten
+
+# Tillfällig kontroll att produktionen kör senaste versionen. Tas bort direkt.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kontrollera språkstöd och arkiv i produktion
+        run: |
+          echo "=== /assets/i18n.js finns? ==="
+          curl -sS -o /dev/null -w "i18n.js: HTTP %{http_code}\n" https://weather.rickmark.se/assets/i18n.js
+          curl -sS -o /dev/null -w "i18n-live.js: HTTP %{http_code}\n" https://weather.rickmark.se/assets/i18n-live.js
+          curl -sS -o /dev/null -w "i18n-hist.js: HTTP %{http_code}\n" https://weather.rickmark.se/assets/i18n-hist.js
+          echo "=== språkknapp i sidhuvudet? ==="
+          curl -sS https://weather.rickmark.se/historik/ -o /tmp/h
+          grep -o 'id="lang-toggle"' /tmp/h | head -1 || echo "(språkknapp saknas — gammal deploy)"
+          grep -o 'data-i18n="hist.tab.explore"' /tmp/h | head -1 || echo "(data-i18n saknas)"
+          echo "=== arkivets läge ==="
+          curl -sS https://weather.rickmark.se/data/manifest.json
