@@ -164,21 +164,21 @@
       </div>
       <div class="wsun">☀️ <b id="sunup">–</b> &nbsp;·&nbsp; 🌙 <b id="sundn">–</b></div>
       <div class="grid">
-        <div class="cell"><div class="val temp"><span id="temp">–</span><span class="u">°C</span></div><div class="lab">Temp</div></div>
-        <div class="cell"><div class="val"><span id="wind">–</span><span class="u">m/s</span> <span class="arrow" id="warr">➤</span></div><div class="lab">Vind</div></div>
-        <div class="cell"><div class="val"><span class="um">☂</span><span id="rain">–</span><span class="u">mm</span></div><div class="lab">Regn idag</div></div>
-        <div class="cell"><div class="val"><span id="hum">–</span><span class="u">%</span></div><div class="lab">Luftfuktighet</div></div>
-        <div class="cell"><div class="val" id="uv">–</div><div class="lab">UV-index</div></div>
-        <div class="cell"><div class="val" id="lux">–</div><div class="lab">Ljus</div></div>
-        <div class="cell"><div class="val" id="strk">–</div><div class="lab">Blixtar idag</div></div>
-        <div class="cell"><div class="val"><span id="feels">–</span><span class="u">°C</span></div><div class="lab">Känns som</div></div>
-        <div class="cell"><div class="val"><span id="dew">–</span><span class="u">°C</span></div><div class="lab">Daggpunkt</div></div>
-        <div class="cell"><div class="val"><span id="press">–</span><span class="u">hPa</span></div><div class="lab">Lufttryck</div></div>
-        <div class="cell"><div class="val"><span id="wnow">–</span><span class="u">m/s</span></div><div class="lab">Vind nu</div></div>
-        <div class="cell"><div class="val" id="wdir">–</div><div class="lab">Riktning</div></div>
+        <div class="cell"><div class="val temp"><span id="temp">–</span><span class="u">°C</span></div><div class="lab" data-wl="temp">Temp</div></div>
+        <div class="cell"><div class="val"><span id="wind">–</span><span class="u">m/s</span> <span class="arrow" id="warr">➤</span></div><div class="lab" data-wl="wind">Vind</div></div>
+        <div class="cell"><div class="val"><span class="um">☂</span><span id="rain">–</span><span class="u">mm</span></div><div class="lab" data-wl="rain">Regn idag</div></div>
+        <div class="cell"><div class="val"><span id="hum">–</span><span class="u">%</span></div><div class="lab" data-wl="hum">Luftfuktighet</div></div>
+        <div class="cell"><div class="val" id="uv">–</div><div class="lab" data-wl="uv">UV-index</div></div>
+        <div class="cell"><div class="val" id="lux">–</div><div class="lab" data-wl="light">Ljus</div></div>
+        <div class="cell"><div class="val" id="strk">–</div><div class="lab" data-wl="strikes">Blixtar idag</div></div>
+        <div class="cell"><div class="val"><span id="feels">–</span><span class="u">°C</span></div><div class="lab" data-wl="feels">Känns som</div></div>
+        <div class="cell"><div class="val"><span id="dew">–</span><span class="u">°C</span></div><div class="lab" data-wl="dew">Daggpunkt</div></div>
+        <div class="cell"><div class="val"><span id="press">–</span><span class="u">hPa</span></div><div class="lab" data-wl="press">Lufttryck</div></div>
+        <div class="cell"><div class="val"><span id="wnow">–</span><span class="u">m/s</span></div><div class="lab" data-wl="windNow">Vind nu</div></div>
+        <div class="cell"><div class="val" id="wdir">–</div><div class="lab" data-wl="dir">Riktning</div></div>
       </div>
       <div class="wfc" id="wfc" hidden>
-        <div class="wfc-head">Prognos · SMHI</div>
+        <div class="wfc-head" data-wl="forecast">Prognos · SMHI</div>
         <div class="wfc-days" id="fcdays"></div>
       </div>
       <div class="foot"><a href="https://weather.rickmark.se" target="_blank" rel="noopener">weather.rickmark.se →</a></div>
@@ -187,14 +187,41 @@
 
 <script>
 "use strict";
+const WLANG = (() => {
+  // Widgeten bäddas in på andra sidor och i appen — språk via ?lang=, annars
+  // sajtens sparade val, annars svenska
+  const q = new URLSearchParams(location.search).get("lang");
+  if (q === "sv" || q === "en") return q;
+  try { const s = localStorage.getItem("lang"); if (s === "sv" || s === "en") return s; } catch (e) { /* iframe utan tillgång */ }
+  return "sv";
+})();
+const WLOCALE = WLANG === "en" ? "en-GB" : "sv-SE";
+const WORDS = {
+  sv: { temp: "Temp", wind: "Vind", rain: "Regn idag", hum: "Luftfuktighet", uv: "UV-index",
+    light: "Ljus", strikes: "Blixtar idag", feels: "Känns som", dew: "Daggpunkt",
+    press: "Lufttryck", windNow: "Vind nu", dir: "Riktning", forecast: "Prognos · SMHI",
+    dark: "Mörkt", title: "Brämhult väder · widget (stor)",
+    dirs: ["N","NNO","NO","ONO","O","OSO","SO","SSO","S","SSV","SV","VSV","V","VNV","NV","NNV"],
+    days: ["Sön","Mån","Tis","Ons","Tor","Fre","Lör"] },
+  en: { temp: "Temp", wind: "Wind", rain: "Rain today", hum: "Humidity", uv: "UV index",
+    light: "Light", strikes: "Lightning today", feels: "Feels like", dew: "Dew point",
+    press: "Pressure", windNow: "Wind now", dir: "Direction", forecast: "Forecast · SMHI",
+    dark: "Dark", title: "Brämhult weather · widget (large)",
+    dirs: ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"],
+    days: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] },
+};
+const W = WORDS[WLANG];
+document.documentElement.lang = WLANG;
+document.title = W.title;
+document.querySelectorAll("[data-wl]").forEach(el => { el.textContent = W[el.dataset.wl]; });
 const $ = (id) => document.getElementById(id);
-const num = (v, d = 0) => (typeof v === "number" && isFinite(v)) ? v.toLocaleString("sv-SE", { minimumFractionDigits: d, maximumFractionDigits: d }) : "–";
-const DIRS = ["N","NNO","NO","ONO","O","OSO","SO","SSO","S","SSV","SV","VSV","V","VNV","NV","NNV"];
-const DAY_NAMES = ["Sön","Mån","Tis","Ons","Tor","Fre","Lör"];
+const num = (v, d = 0) => (typeof v === "number" && isFinite(v)) ? v.toLocaleString(WLOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }) : "–";
+const DIRS = W.dirs;
+const DAY_NAMES = W.days;
 const WSYMB = { 1:"☀️",2:"🌤️",3:"⛅",4:"🌤️",5:"☁️",6:"☁️",7:"🌫️",8:"🌦️",9:"🌦️",10:"🌧️",11:"⛈️",12:"🌨️",13:"🌨️",14:"🌨️",15:"🌨️",16:"🌨️",17:"❄️",18:"🌧️",19:"🌧️",20:"🌧️",21:"⛈️",22:"🌨️",23:"🌨️",24:"🌨️",25:"🌨️",26:"❄️",27:"❄️" };
 const STATION_LAT = 57.7216, STATION_LON = 13.01;
 const todayStockholm = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
-const whenText = (iso) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(iso ? new Date(iso) : new Date());
+const whenText = (iso) => new Intl.DateTimeFormat(WLOCALE, { timeZone: "Europe/Stockholm", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(iso ? new Date(iso) : new Date());
 async function fetchJSON(u) { const r = await fetch(u, { cache: "no-store" }); if (!r.ok) throw 0; return r.json(); }
 
 function sunAltitudeDeg(d) {
@@ -246,7 +273,7 @@ function paint(o) {
   $("hum").textContent = num(o.hum, 0);
   $("uv").textContent = o.uv != null ? num(o.uv, 0) : "–";
   if (o.lux == null) $("lux").innerHTML = '<span class="dim">–</span>';
-  else if (o.lux < 30) $("lux").innerHTML = '<span class="dim" style="font-size:19px">Mörkt</span>';
+  else if (o.lux < 30) $("lux").innerHTML = `<span class="dim" style="font-size:19px">${W.dark}</span>`;
   else $("lux").innerHTML = `${num(o.lux, 0)}<span class="u"> lux</span>`;
   $("strk").textContent = o.strikes != null ? num(o.strikes, 0) : "0";
   $("feels").textContent = num(o.feels != null ? o.feels : o.temp, 0);

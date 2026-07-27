@@ -29,7 +29,34 @@ Dataarkiv (git, byggs på av schemalagda jobb, sajten läser dem):
 | `index.html` | Live-vyn: hero, mätvärden, grafer (Idag/48h/vecka/månad), prognos, blixtkarta, **poolkort** (mätare + utfällbara dygnskurvor med 1/7/30-dygn + zoom) |
 | `historik/index.html` | Historikvyer: Utforska, Dag, Samma dag genom åren, Månadsjämförelse, Året, Vindros, Rekord |
 | `assets/charts.js` | Delad graf-/datamodul: `multiLine`, `barsChart`, `bandChart`, zoom-overlay (`openZoom`/`openDetail`), datatvätt (`BOUNDS`, `cleanDailyObs`), sol-/datum­hjälpare. Cache-bustas via `?v=N` (matcha i `index.html`, `historik/index.html` och `sw.js`) |
+| `assets/i18n.js` | Språkmotorn + gemensam ordlista (månader, veckodagar, väderstreck, diagramtexter). Laddas först av alla skript |
+| `assets/i18n-live.js` / `assets/i18n-hist.js` | Ordlistor per sida (`live.*` respektive `hist.*`) |
 | `sw.js` | Service worker (PWA): network-first för HTML/JS, cachar skalet |
+
+### Språk (svenska som standard, engelska valbart)
+
+Språkknappen sitter i sidhuvudet bredvid temaknappen och sparar valet i
+`localStorage` under nyckeln `lang`. Saknas valet körs svenska.
+
+- **Text i markup:** `data-i18n="nyckel"` (textContent), `data-i18n-html="nyckel"`
+  (innehåll med taggar) och `data-i18n-attr="aria-label:nyckel"` (attribut).
+  Motorn applicerar dem vid start och vid varje språkbyte.
+- **Text i JS:** `tr("nyckel")` eller `tr("nyckel", { namn: värde })` där ordlistan
+  skriver platshållare som `{namn}`. Hjälparen heter `tr` och inte `t`, eftersom
+  koden använder `t` som lokal variabel på många ställen.
+- **Listor:** `I18N.list("common.months")` m.fl. `MONTHS`, `WEEKDAYS`, `DAY_NAMES`
+  och `DIRS16` i `charts.js` fylls ur ordlistan och byts på plats vid språkbyte,
+  så vanlig indexering fortsätter fungera.
+- **Tal och datum:** använd `I18N.locale` (`sv-SE`/`en-GB`) vid formatering för
+  visning. Teknisk kod som behöver ISO-datum eller tidszonen Europe/Stockholm
+  (t.ex. `todayIso()`) ska ligga kvar på `sv-SE` — den är inte visning.
+- **Vid språkbyte** körs eventet `langchange` på `document`. Statisk markup sköter
+  motorn; sidorna lyssnar själva och ritar om dynamiskt innehåll.
+- **Widgetarna** (`widget/`) är fristående och laddar inte motorn. De läser språk
+  från `?lang=sv|en`, annars sajtens sparade val, och har en egen liten ordlista.
+- Ej översatt med flit: `manifest.webmanifest` (PWA-namnet läses en gång vid
+  installation), Android-appen (`android/`, egna resursfiler) och felmeddelanden
+  i `api/` som riktar sig till driftansvarig snarare än besökare.
 
 ## Serverless-endpoints (`api/`)
 

@@ -7,13 +7,20 @@
 /* ===== Konstanter & format ================================================= */
 const ELEV = 209.1; // stationens höjd enligt API:et — för havsnivåomräkning
 const ms = kmh => kmh / 3.6;
-const fmt = (n, d = 1) => n.toLocaleString("sv-SE", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmt = (n, d = 1) => n.toLocaleString(I18N.locale, { minimumFractionDigits: d, maximumFractionDigits: d });
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const hh = h => ("0" + h).slice(-2);
-const MONTHS = ["januari", "februari", "mars", "april", "maj", "juni",
-  "juli", "augusti", "september", "oktober", "november", "december"];
-const WEEKDAYS = ["söndag", "måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag"];
-const DAY_NAMES = ["Sön", "Mån", "Tis", "Ons", "Tor", "Fre", "Lör"];
+// Namnlistorna fylls ur ordlistan och byts på plats vid språkbyte, så att all
+// kod kan fortsätta läsa MONTHS[i] utan att bry sig om språket
+const MONTHS = [], WEEKDAYS = [], DAY_NAMES = [];
+function refreshLocaleNames() {
+  const fill = (arr, key) => { arr.length = 0; arr.push(...I18N.list(key)); };
+  fill(MONTHS, "common.months");
+  fill(WEEKDAYS, "common.weekdays");
+  fill(DAY_NAMES, "common.dayNames");
+}
+refreshLocaleNames();
+document.addEventListener("langchange", refreshLocaleNames);
 const YEAR_COLORS = ["#CE711A", "#2E7CC4", "#0F9182", "#9A6BD0", "#C2517A",
   "#7A8C3F", "#C4A030", "#5B7A99", "#B0653A"];
 
@@ -65,8 +72,8 @@ function setupThemeToggle(onChange) {
   const paint = () => {
     const dark = currentTheme() === "dark";
     btn.innerHTML = dark ? THEME_ICONS.toLight : THEME_ICONS.toDark;
-    btn.setAttribute("aria-label", dark ? "Byt till ljust tema" : "Byt till mörkt tema");
-    btn.setAttribute("title", dark ? "Ljust tema" : "Mörkt tema");
+    btn.setAttribute("aria-label", tr(dark ? "chart.themeToLight" : "chart.themeToDark"));
+    btn.setAttribute("title", tr(dark ? "chart.themeLight" : "chart.themeDark"));
   };
   paint();
   btn.addEventListener("click", () => {
@@ -330,7 +337,10 @@ function acuriteDayPts(day) {
 
 /* ===== Sol & geometri ====================================================== */
 const STATION_LAT = 57.7216;
-const DIRS16 = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSV", "SV", "VSV", "V", "VNV", "NV", "NNV"];
+const DIRS16 = [];   // fylls ur ordlistan (öst/väst heter E/W på engelska)
+function refreshDirNames() { DIRS16.length = 0; DIRS16.push(...I18N.list("common.dirs16")); }
+refreshDirNames();
+document.addEventListener("langchange", refreshDirNames);
 
 /* Astronomisk dagslängd (timmar) för stationens latitud — solnedgångsekvationen */
 function daylightHours(iso) {
@@ -416,7 +426,7 @@ function refreshZoomButtons() {
     let btn = card.querySelector(".zoom-btn");
     if (hasSvg && !btn) {
       btn = document.createElement("button");
-      btn.type = "button"; btn.className = "zoom-btn"; btn.setAttribute("aria-label", "Förstora diagram");
+      btn.type = "button"; btn.className = "zoom-btn"; btn.setAttribute("aria-label", tr("chart.zoomAria"));
       btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M14 10l7-7M10 14l-7 7"/></svg>';
       btn.addEventListener("click", () => {
         const wrap = card.querySelector(".chart-wrap");
@@ -464,7 +474,7 @@ function openZoom(svg, title) {
   const clone = svg.cloneNode(true);
   clone.removeAttribute("width"); clone.removeAttribute("height");
   pan.innerHTML = ""; pan.append(clone);
-  document.getElementById("zoom-hint").textContent = "Zooma med + / − eller nyp · dra för att panorera · dubbeltryck återställer";
+  document.getElementById("zoom-hint").textContent = tr("chart.hintImage");
   zoomState.x = 0; zoomState.y = 0; zoomState.k = 1;
   applyZoom();
   document.getElementById("zoom-overlay").hidden = false;
@@ -505,7 +515,7 @@ function openDetail(cfg) {
   dCfg = cfg; dCursor = null;
   dWin.x0 = cfg.xMin; dWin.x1 = cfg.xMax;
   document.getElementById("zoom-title").textContent = cfg.title;
-  document.getElementById("zoom-hint").textContent = "Nyp/+ − för att zooma i tid · dra för att panorera · tryck för exakt tid";
+  document.getElementById("zoom-hint").textContent = tr("chart.hintDetail");
   document.getElementById("zoom-pan").style.transform = "none";
   document.getElementById("zoom-overlay").hidden = false;
   document.body.style.overflow = "hidden";
@@ -574,7 +584,7 @@ function renderDetail() {
       return { s, p };
     });
     const vFmt = dCfg.vFmt ?? dCfg.yFmt;
-    const head = dCfg.tipTitle ? dCfg.tipTitle(near.x) : `kl ${fmtClock(near.x)}`;
+    const head = dCfg.tipTitle ? dCfg.tipTitle(near.x) : tr("chart.clockAt", { time: fmtClock(near.x) });
     const html = `<span class="t-time">${head}</span><br>` + rows.map(({ s, p }) =>
       `${s.label ? `<span style="color:${s.color}">●</span> ${s.label} ` : ""}<b>${vFmt(p.v)}${dCfg.unit ? " " + dCfg.unit : ""}</b>`).join("<br>");
     showTip(tip, pan, xp, sy(rows[0].p.v), html);
@@ -640,10 +650,10 @@ function setupChartZoom() {
   overlay.id = "zoom-overlay"; overlay.className = "zoom-overlay"; overlay.hidden = true;
   overlay.innerHTML = `
     <div class="zoom-bar"><span class="zoom-title" id="zoom-title"></span>
-      <button type="button" class="zoom-ctrl reset" id="zoom-reset" aria-label="Återställ">100%</button>
-      <button type="button" class="zoom-ctrl" id="zoom-out" aria-label="Zooma ut">−</button>
-      <button type="button" class="zoom-ctrl" id="zoom-in" aria-label="Zooma in">+</button>
-      <button type="button" class="zoom-close" id="zoom-close" aria-label="Stäng">✕</button></div>
+      <button type="button" class="zoom-ctrl reset" id="zoom-reset" aria-label="${tr("chart.resetAria")}">100%</button>
+      <button type="button" class="zoom-ctrl" id="zoom-out" aria-label="${tr("chart.zoomOutAria")}">−</button>
+      <button type="button" class="zoom-ctrl" id="zoom-in" aria-label="${tr("chart.zoomInAria")}">+</button>
+      <button type="button" class="zoom-close" id="zoom-close" aria-label="${tr("chart.closeAria")}">✕</button></div>
     <div class="zoom-stage" id="zoom-stage"><div class="zoom-pan" id="zoom-pan"></div></div>
     <div class="zoom-hint" id="zoom-hint">Zooma med + / − eller nyp · dra för att panorera · dubbeltryck återställer</div>`;
   document.body.append(overlay);
@@ -735,7 +745,7 @@ function mountChart(wrapId, draw) {
   tip.className = "tooltip";
   wrap.append(svg, tip);
   if (draw(svg, tip, W) === false) {
-    wrap.innerHTML = '<div class="chart-empty">Ingen data för det här valet ännu</div>';
+    wrap.innerHTML = `<div class="chart-empty">${tr("chart.empty")}</div>`;
   }
   if (typeof refreshZoomButtons === "function") refreshZoomButtons();
 }
@@ -869,9 +879,9 @@ function bandChart(wrapId, pts, color, opts) {
     window.chartDetailAuto[wrapId] = title => ({
       title,
       series: [
-        { label: "Max", color, dash: true, pts: pts.map(p => ({ x: p.x, v: p.hi })) },
-        { label: "Medel", color, pts: pts.map(p => ({ x: p.x, v: p.avg })) },
-        { label: "Min", color, dash: true, pts: pts.map(p => ({ x: p.x, v: p.lo })) },
+        { label: tr("common.max"), color, dash: true, pts: pts.map(p => ({ x: p.x, v: p.hi })) },
+        { label: tr("common.avg"), color, pts: pts.map(p => ({ x: p.x, v: p.avg })) },
+        { label: tr("common.min"), color, dash: true, pts: pts.map(p => ({ x: p.x, v: p.lo })) },
       ],
       xMin: 0, xMax: opts.xMax,
       yFmt: v => v + "°", vFmt: v => fmt(v) + "°",

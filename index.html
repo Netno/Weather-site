@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Brämhult väderstation · IBRMHULT2</title>
+<title data-i18n="live.title">Brämhult väderstation · IBRMHULT2</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#10161D">
 <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
@@ -471,13 +471,14 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
 <div class="page">
   <header>
     <div class="station">
-      <h1>Brämhult väderstation</h1>
-      <div class="meta"><span class="id">IBRMHULT2</span> · 209 m ö.h. · Weather Underground PWS</div>
+      <h1 data-i18n="common.station">Brämhult väderstation</h1>
+      <div class="meta"><span class="id">IBRMHULT2</span> · <span data-i18n="common.stationMeta">209 m ö.h.</span> · Weather Underground PWS</div>
     </div>
     <div class="status">
-      <span><span class="dot" id="dot"></span><span id="obs-status">Hämtar …</span></span>
-      <span class="live-badge">Live</span>
-      <a class="nav-link" href="/historik/">Historik →</a>
+      <span><span class="dot" id="dot"></span><span id="obs-status" data-i18n="common.loading">Hämtar …</span></span>
+      <span class="live-badge" data-i18n="live.liveBadge">Live</span>
+      <a class="nav-link" href="/historik/" data-i18n="live.navHistory">Historik →</a>
+      <button class="theme-toggle lang-toggle" id="lang-toggle" type="button">EN</button>
       <button class="theme-toggle" id="theme-toggle" type="button"></button>
     </div>
   </header>
@@ -712,6 +713,8 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
   </footer>
 </div>
 
+<script src="/assets/i18n.js?v=1"></script>
+<script src="/assets/i18n-live.js?v=1"></script>
 <script src="/assets/charts.js?v=4"></script>
 <script>
 "use strict";
