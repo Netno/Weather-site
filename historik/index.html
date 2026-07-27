@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Historik · Brämhult väderstation</title>
+<title data-i18n="hist.title">Historik · Brämhult väderstation</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#10161D">
 <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
@@ -219,11 +219,11 @@
 <div class="page">
   <header>
     <div class="station">
-      <h1>Brämhult väderstation</h1>
-      <div class="meta"><span class="id">IBRMHULT2</span> · 209 m ö.h. · Historik ur eget arkiv</div>
+      <h1 data-i18n="common.station">Brämhult väderstation</h1>
+      <div class="meta"><span class="id">IBRMHULT2</span> · <span data-i18n="common.stationMeta">209 m ö.h.</span> · <span data-i18n="hist.metaSource">Historik ur eget arkiv</span></div>
     </div>
     <nav class="nav">
-      <a href="/">Live</a>
+      <a href="/" data-i18n="hist.navLive">Live</a>
       <a href="/historik/" aria-current="page" data-i18n="hist.navHistory">Historik</a>
       <button class="theme-toggle lang-toggle" id="lang-toggle" type="button">EN</button>
       <button class="theme-toggle" id="theme-toggle" type="button"></button>
@@ -233,38 +233,38 @@
   <div class="notice" id="backfill-notice"></div>
 
   <div class="tabs">
-    <button data-view="utforska" class="active">Utforska</button>
-    <button data-view="dag">Dag</button>
-    <button data-view="arsdag">Samma dag genom åren</button>
-    <button data-view="manad">Månadsjämförelse</button>
-    <button data-view="aret">Året</button>
-    <button data-view="vindros">Vindros</button>
-    <button data-view="rekord">Rekord</button>
+    <button data-view="utforska" class="active" data-i18n="hist.tab.explore">Utforska</button>
+    <button data-view="dag" data-i18n="hist.tab.day">Dag</button>
+    <button data-view="arsdag" data-i18n="hist.tab.yearday">Samma dag genom åren</button>
+    <button data-view="manad" data-i18n="hist.tab.month">Månadsjämförelse</button>
+    <button data-view="aret" data-i18n="hist.tab.year">Året</button>
+    <button data-view="vindros" data-i18n="hist.tab.windrose">Vindros</button>
+    <button data-view="rekord" data-i18n="hist.tab.records">Rekord</button>
   </div>
 
   <!-- ===== Vy: Utforska =================================================== -->
   <section class="view active" id="view-utforska">
     <div class="controls">
       <select id="utf-metric">
-        <option value="temp">Temperatur</option>
-        <option value="hum">Luftfuktighet</option>
-        <option value="wind">Vind</option>
-        <option value="rain">Nederbörd</option>
-        <option value="pressure">Lufttryck</option>
-        <option value="dewpt">Daggpunkt</option>
-        <option value="uv">UV-index</option>
-        <option value="lux">Ljusintensitet</option>
-        <option value="ljustid">Ljustid</option>
-        <option value="solighet">Solighet</option>
-        <option value="blixt">Blixtar</option>
+        <option value="temp" data-i18n="hist.metric.temp">Temperatur</option>
+        <option value="hum" data-i18n="hist.metric.hum">Luftfuktighet</option>
+        <option value="wind" data-i18n="hist.metric.wind">Vind</option>
+        <option value="rain" data-i18n="hist.metric.rain">Nederbörd</option>
+        <option value="pressure" data-i18n="hist.metric.pressure">Lufttryck</option>
+        <option value="dewpt" data-i18n="hist.metric.dewpt">Daggpunkt</option>
+        <option value="uv" data-i18n="hist.metric.uv">UV-index</option>
+        <option value="lux" data-i18n="hist.metric.lux">Ljusintensitet</option>
+        <option value="ljustid" data-i18n="hist.metric.ljustid">Ljustid</option>
+        <option value="solighet" data-i18n="hist.metric.solighet">Solighet</option>
+        <option value="blixt" data-i18n="hist.metric.blixt">Blixtar</option>
       </select>
       <span class="chips" id="utf-range">
-        <button data-range="48h">48 tim</button>
-        <button data-range="vecka" class="on">Vecka</button>
-        <button data-range="manad">Månad</button>
-        <button data-range="ar">År</button>
-        <button data-range="allt">Allt</button>
-        <button data-range="eget">Eget …</button>
+        <button data-range="48h" data-i18n="hist.range.48h">48 tim</button>
+        <button data-range="vecka" class="on" data-i18n="hist.range.week">Vecka</button>
+        <button data-range="manad" data-i18n="hist.range.month">Månad</button>
+        <button data-range="ar" data-i18n="hist.range.year">År</button>
+        <button data-range="allt" data-i18n="hist.range.all">Allt</button>
+        <button data-range="eget" data-i18n="hist.range.custom">Eget …</button>
       </span>
       <span id="utf-custom" style="display:none">
         <input type="date" id="utf-from">
@@ -273,7 +273,7 @@
     </div>
     <div class="grid">
       <div class="card span2 chart-card">
-        <h2 id="utf-title">Temperatur</h2>
+        <h2 id="utf-title" data-i18n="hist.metric.temp">Temperatur</h2>
         <p class="subtitle" id="utf-sub"></p>
         <div class="chart-wrap" id="utf-chart"></div>
         <div class="legend" id="utf-legend"></div>
@@ -284,30 +284,30 @@
   <!-- ===== Vy: Dag ======================================================== -->
   <section class="view" id="view-dag">
     <div class="controls">
-      <button class="step" id="dag-prev" aria-label="Föregående dag">←</button>
+      <button class="step" id="dag-prev" aria-label="Föregående dag" data-i18n-attr="aria-label:hist.dag.prevAria">←</button>
       <input type="date" id="dag-datum">
-      <button class="step" id="dag-next" aria-label="Nästa dag">→</button>
+      <button class="step" id="dag-next" aria-label="Nästa dag" data-i18n-attr="aria-label:hist.dag.nextAria">→</button>
       <span id="dag-namn" style="font-size:13px;color:var(--ink-3)"></span>
     </div>
     <div class="grid">
       <div class="card span2"><div class="readings" id="dag-summering"></div></div>
       <div class="card chart-card">
-        <h2>Temperatur</h2>
+        <h2 data-i18n="hist.metric.temp">Temperatur</h2>
         <p class="subtitle" id="dag-t-sub"></p>
         <div class="chart-wrap" id="dag-chart-temp"></div>
       </div>
       <div class="card chart-card">
-        <h2>Nederbörd</h2>
+        <h2 data-i18n="hist.metric.rain">Nederbörd</h2>
         <p class="subtitle" id="dag-r-sub"></p>
         <div class="chart-wrap" id="dag-chart-rain"></div>
       </div>
       <div class="card span2 chart-card">
-        <h2>Vind</h2>
-        <p class="subtitle">Medelvind och byar per timme</p>
+        <h2 data-i18n="hist.metric.wind">Vind</h2>
+        <p class="subtitle" data-i18n="hist.dag.windSub">Medelvind och byar per timme</p>
         <div class="chart-wrap" id="dag-chart-wind"></div>
         <div class="legend">
-          <span><span class="key" style="border-color: var(--wind)"></span>Medelvind</span>
-          <span><span class="key" style="border-color: var(--wind); border-top-style: dashed"></span>Byar</span>
+          <span><span class="key" style="border-color: var(--wind)"></span><span data-i18n="hist.label.windAvg">Medelvind</span></span>
+          <span><span class="key" style="border-color: var(--wind); border-top-style: dashed"></span><span data-i18n="hist.label.gusts">Byar</span></span>
         </div>
       </div>
     </div>
@@ -316,20 +316,20 @@
   <!-- ===== Vy: Samma dag genom åren ====================================== -->
   <section class="view" id="view-arsdag">
     <div class="controls">
-      <label for="arsdag-dag">Datum</label>
+      <label for="arsdag-dag" data-i18n="hist.arsdag.dateLabel">Datum</label>
       <select id="arsdag-dag"></select>
       <select id="arsdag-manad"></select>
     </div>
     <div class="grid">
       <div class="card span2 chart-card">
-        <h2>Temperatur under dygnet, år för år</h2>
+        <h2 data-i18n="hist.arsdag.chartTitle">Temperatur under dygnet, år för år</h2>
         <p class="subtitle" id="arsdag-sub"></p>
         <div class="chart-wrap" id="arsdag-chart"></div>
         <div class="legend" id="arsdag-legend"></div>
       </div>
       <div class="card span2 chart-card">
-        <h2>Max, min och nederbörd</h2>
-        <p class="subtitle">Samma datum, alla år i arkivet</p>
+        <h2 data-i18n="hist.arsdag.stripTitle">Max, min och nederbörd</h2>
+        <p class="subtitle" data-i18n="hist.arsdag.stripSub">Samma datum, alla år i arkivet</p>
         <div class="days" id="arsdag-strip"></div>
       </div>
     </div>
@@ -338,25 +338,25 @@
   <!-- ===== Vy: Månadsjämförelse ========================================== -->
   <section class="view" id="view-manad">
     <div class="controls">
-      <label for="manad-manad">Månad</label>
+      <label for="manad-manad" data-i18n="hist.manad.monthLabel">Månad</label>
       <select id="manad-manad"></select>
       <span class="chips" id="manad-ar"></span>
     </div>
     <div class="grid">
       <div class="card span2 chart-card">
-        <h2>Dygnets maxtemperatur</h2>
+        <h2 data-i18n="hist.manad.tempTitle">Dygnets maxtemperatur</h2>
         <p class="subtitle" id="manad-t-sub"></p>
         <div class="chart-wrap" id="manad-chart-temp"></div>
         <div class="legend" id="manad-legend"></div>
       </div>
       <div class="card span2 chart-card">
-        <h2>Ackumulerad nederbörd</h2>
-        <p class="subtitle">Summerat från månadens första dag</p>
+        <h2 data-i18n="hist.manad.rainTitle">Ackumulerad nederbörd</h2>
+        <p class="subtitle" data-i18n="hist.manad.rainSub">Summerat från månadens första dag</p>
         <div class="chart-wrap" id="manad-chart-rain"></div>
       </div>
       <div class="card span2 chart-card">
-        <h2>Statistik</h2>
-        <p class="subtitle">Per valt år</p>
+        <h2 data-i18n="hist.manad.statsTitle">Statistik</h2>
+        <p class="subtitle" data-i18n="hist.manad.statsSub">Per valt år</p>
         <div style="overflow-x:auto"><table class="stats" id="manad-stats"></table></div>
       </div>
     </div>
@@ -365,19 +365,19 @@
   <!-- ===== Vy: Året (värmekarta) ========================================= -->
   <section class="view" id="view-aret">
     <div class="controls">
-      <label for="aret-ar">År</label>
+      <label for="aret-ar" data-i18n="hist.label.year">År</label>
       <select id="aret-ar"></select>
       <select id="aret-matvarde">
-        <option value="temp">Dygnsmedeltemp</option>
-        <option value="regn">Nederbörd</option>
-        <option value="blixt">Blixtar</option>
-        <option value="lux">Ljusintensitet</option>
-        <option value="solighet">Solighet</option>
+        <option value="temp" data-i18n="hist.aret.optTemp">Dygnsmedeltemp</option>
+        <option value="regn" data-i18n="hist.metric.rain">Nederbörd</option>
+        <option value="blixt" data-i18n="hist.metric.blixt">Blixtar</option>
+        <option value="lux" data-i18n="hist.metric.lux">Ljusintensitet</option>
+        <option value="solighet" data-i18n="hist.metric.solighet">Solighet</option>
       </select>
     </div>
     <div class="grid">
       <div class="card span2 chart-card">
-        <h2 id="aret-title">Året</h2>
+        <h2 id="aret-title" data-i18n="hist.tab.year">Året</h2>
         <p class="subtitle" id="aret-sub"></p>
         <div style="overflow-x:auto" id="aret-heatmap"></div>
         <div class="legend" id="aret-legend"></div>
@@ -388,16 +388,16 @@
   <!-- ===== Vy: Vindros =================================================== -->
   <section class="view" id="view-vindros">
     <div class="controls">
-      <label for="vr-ar">Period</label>
+      <label for="vr-ar" data-i18n="hist.vr.periodLabel">Period</label>
       <select id="vr-ar"></select>
       <select id="vr-manad">
-        <option value="">Hela året</option>
+        <option value="" data-i18n="hist.vr.wholeYear">Hela året</option>
       </select>
     </div>
     <div class="grid">
       <div class="card span2 chart-card">
-        <h2>Vindros</h2>
-        <p class="subtitle" id="vr-sub">Andel blåsiga timmar (≥ 5 km/h) per riktning · stationens sensor sedan mars 2025</p>
+        <h2 data-i18n="hist.tab.windrose">Vindros</h2>
+        <p class="subtitle" id="vr-sub" data-i18n="hist.vr.subStatic">Andel blåsiga timmar (≥ 5 km/h) per riktning · stationens sensor sedan mars 2025</p>
         <div id="vr-rose" style="display:flex;justify-content:center"></div>
       </div>
     </div>
@@ -407,24 +407,24 @@
   <section class="view" id="view-rekord">
     <div class="grid">
       <div class="card span2 chart-card">
-        <h2>Temperatur, nederbörd & vind</h2>
+        <h2 data-i18n="hist.rk.wuTitle">Temperatur, nederbörd & vind</h2>
         <p class="subtitle" id="rk-wu-note"></p>
         <div class="readings" id="rk-wu"></div>
       </div>
       <div class="card span2 chart-card">
-        <h2>Ljus & blixtar</h2>
+        <h2 data-i18n="hist.rk.acuTitle">Ljus & blixtar</h2>
         <p class="subtitle" id="rk-acu-note"></p>
         <div class="readings" id="rk-acu"></div>
       </div>
       <div class="card span2 chart-card">
-        <h2>Frost & växtsäsong</h2>
-        <p class="subtitle">Sista vårfrost, första höstfrost och frostfria dagar däremellan</p>
+        <h2 data-i18n="hist.rk.frostTitle">Frost & växtsäsong</h2>
+        <p class="subtitle" data-i18n="hist.rk.frostSub">Sista vårfrost, första höstfrost och frostfria dagar däremellan</p>
         <div style="overflow-x:auto"><table class="stats" id="rk-frost"></table></div>
       </div>
     </div>
   </section>
 
-  <footer>
+  <footer data-i18n-html="hist.footer">
     Historiken läses ur stationens eget arkiv (<span id="arkiv-span">hämtar …</span>).<br>
     Arkivet fylls på varje natt · <a href="/">till live-vyn</a>
   </footer>
@@ -446,18 +446,19 @@ let years = [];
 /* ===== Vy: Utforska ========================================================
    Fritt val av mätvärde + period. ≤ 14 dagar ritas med timupplösning ur
    data/hourly/, längre perioder med dygnsupplösning ur data/daily/. */
+// label/unit läses ur ordlistan vid varje uppslag, så M.label följer språkbytet
 const METRICS = {
-  temp: { label: "Temperatur", unit: "°C", color: () => css("--temp") },
-  hum: { label: "Luftfuktighet", unit: "%", color: () => css("--rain") },
-  wind: { label: "Vind", unit: "m/s", color: () => css("--wind") },
-  rain: { label: "Nederbörd", unit: "mm", color: () => css("--rain") },
-  pressure: { label: "Lufttryck", unit: "hPa", color: () => css("--ink-2") },
-  dewpt: { label: "Daggpunkt", unit: "°C", color: () => css("--wind") },
-  uv: { label: "UV-index", unit: "", color: () => UV_COLOR },
-  lux: { label: "Ljusintensitet", unit: "lux", color: () => LUX_COLOR },
-  ljustid: { label: "Ljustid", unit: "h", color: () => LUX_COLOR },
-  blixt: { label: "Blixtar", unit: "st", color: () => BLIXT_COLOR },
-  solighet: { label: "Solighet", unit: "%", color: () => LUX_COLOR },
+  temp: { get label() { return tr("hist.metric.temp"); }, unit: "°C", color: () => css("--temp") },
+  hum: { get label() { return tr("hist.metric.hum"); }, unit: "%", color: () => css("--rain") },
+  wind: { get label() { return tr("hist.metric.wind"); }, unit: "m/s", color: () => css("--wind") },
+  rain: { get label() { return tr("hist.metric.rain"); }, unit: "mm", color: () => css("--rain") },
+  pressure: { get label() { return tr("hist.metric.pressure"); }, unit: "hPa", color: () => css("--ink-2") },
+  dewpt: { get label() { return tr("hist.metric.dewpt"); }, unit: "°C", color: () => css("--wind") },
+  uv: { get label() { return tr("hist.metric.uv"); }, unit: "", color: () => UV_COLOR },
+  lux: { get label() { return tr("hist.metric.lux"); }, unit: "lux", color: () => LUX_COLOR },
+  ljustid: { get label() { return tr("hist.metric.ljustid"); }, unit: "h", color: () => LUX_COLOR },
+  blixt: { get label() { return tr("hist.metric.blixt"); }, get unit() { return tr("hist.unit.strikes"); }, color: () => BLIXT_COLOR },
+  solighet: { get label() { return tr("hist.metric.solighet"); }, unit: "%", color: () => LUX_COLOR },
 };
 // Mätvärden som läses ur myAcuRite-arkivet (fulltäckande sedan 2018-12-05,
 // till skillnad från WU där UV saknas i äldre år)
@@ -522,13 +523,13 @@ async function renderUtforskaAcu(metric) {
     const xMax = dates.length * 24 - 1;
     const tipT = x => {
       const p = pts.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, pts[0]);
-      return p ? `${dateLabel(p.date)} kl ${hh(p.h)}` : "";
+      return p ? tr("hist.tip.dayHour", { date: dateLabel(p.date), h: hh(p.h) }) : "";
     };
     if (metric === "blixt") {
       const bars = pts.filter(p => p.strikes != null)
-        .map(p => ({ x: p.x, v: p.strikes, t: `${dateLabel(p.date)} kl ${hh(p.h)}–${hh(p.h + 1)}` }));
-      barsChart("utf-chart", bars, dates.length * 24, { xLabels, color: BLIXT_COLOR, unit: "st", dec: 0, minY: 4 });
-      sub.innerHTML = `${period} · totalt <b>${bars.reduce((a, b) => a + b.v, 0)} st</b> (sensorns råräkning)`;
+        .map(p => ({ x: p.x, v: p.strikes, t: tr("hist.tip.dayHourRange", { date: dateLabel(p.date), from: hh(p.h), to: hh(p.h + 1) }) }));
+      barsChart("utf-chart", bars, dates.length * 24, { xLabels, color: BLIXT_COLOR, unit: tr("hist.unit.strikes"), dec: 0, minY: 4 });
+      sub.innerHTML = tr("hist.utf.blixtSubHourly", { period, total: bars.reduce((a, b) => a + b.v, 0) });
     } else {
       const key = metric === "ljustid" ? "lightMin" : metric;
       const vals = pts.filter(p => p[key] != null).map(p => ({ x: p.x, v: p[key] }));
@@ -537,8 +538,9 @@ async function renderUtforskaAcu(metric) {
         yFmt: metric === "lux" ? luxFmt : v => v,
         tipTitle: tipT });
       const vs = vals.map(p => p.v);
+      const unitTxt = " " + (metric === "ljustid" ? tr("hist.unit.lightMinPerHour") : M.unit);
       sub.innerHTML = vs.length
-        ? `${period} · max <b>${fmt(Math.max(...vs), 0)}${metric === "ljustid" ? " min ljus/tim" : " " + M.unit}</b>`
+        ? tr("hist.utf.subMax", { period, value: fmt(Math.max(...vs), 0) + unitTxt })
         : period;
     }
     return;
@@ -554,11 +556,11 @@ async function renderUtforskaAcu(metric) {
   if (metric === "blixt") {
     const bars = days.filter(d => d.a && d.a.strikes > 0)
       .map(d => ({ x: d.x, v: d.a.strikes,
-        t: `${dateLabel(d.date)} ${d.date.slice(0, 4)}${d.a.closestKm ? ` · närmast ${d.a.closestKm} km` : ""}` }));
-    barsChart("utf-chart", bars, dates.length, { xLabels, color: BLIXT_COLOR, unit: "st", dec: 0, minY: 4 });
+        t: `${dateLabel(d.date)} ${d.date.slice(0, 4)}${d.a.closestKm ? ` ${tr("hist.tip.closest", { km: d.a.closestKm })}` : ""}` }));
+    barsChart("utf-chart", bars, dates.length, { xLabels, color: BLIXT_COLOR, unit: tr("hist.unit.strikes"), dec: 0, minY: 4 });
     const total = days.reduce((a, d) => a + (d.a?.strikes ?? 0), 0);
     const stormDays = days.filter(d => d.a?.strikes > 0).length;
-    sub.innerHTML = `${period} · totalt <b>${total} st</b> på <b>${stormDays}</b> åskdagar (sensorns råräkning)`;
+    sub.innerHTML = tr("hist.utf.blixtSubDaily", { period, total, days: stormDays });
   } else {
     const getters = {
       lux: d => d.luxMax,
@@ -582,8 +584,8 @@ async function renderUtforskaAcu(metric) {
     const vs = vals.map(p => p.v);
     const avg = vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null;
     sub.innerHTML = vs.length
-      ? `${period} · dygnsmax · topp <b>${fmt(Math.max(...vs), metric === "ljustid" ? 1 : 0)} ${M.unit}</b>` +
-        (metric === "ljustid" ? ` · medel <b>${fmt(avg, 1)} h/dag</b>` : "")
+      ? tr("hist.utf.subPeak", { period, value: `${fmt(Math.max(...vs), metric === "ljustid" ? 1 : 0)} ${M.unit}` }) +
+        (metric === "ljustid" ? " " + tr("hist.utf.subMeanPerDay", { value: fmt(avg, 1) }) : "")
       : period;
   }
 }
@@ -596,7 +598,7 @@ async function renderUtforska() {
   const { from, to } = utfRange();
   const dates = listDates(from, to);
   const hourly = dates.length <= 14;
-  document.getElementById("utf-title").textContent = M.label + (metric === "pressure" ? " (havsnivå)" : "");
+  document.getElementById("utf-title").textContent = M.label + (metric === "pressure" ? " " + tr("hist.suffix.seaLevel") : "");
   document.getElementById("utf-custom").style.display = utfState.range === "eget" ? "inline" : "none";
   const legend = document.getElementById("utf-legend");
   legend.innerHTML = "";
@@ -604,10 +606,10 @@ async function renderUtforska() {
   const summarize = (min, max, avg, sum) => {
     document.getElementById("utf-sub").innerHTML =
       `${dateLabel(from)} – ${dateLabel(to)} ${to.slice(0, 4)}` +
-      (sum != null ? ` · totalt <b>${fmt(sum)} ${M.unit}</b>` : "") +
-      (min != null ? ` · min <b>${fmt(min)}</b>` : "") +
-      (max != null ? ` · max <b>${fmt(max)}</b>` : "") +
-      (avg != null ? ` · medel <b>${fmt(avg)} ${M.unit}</b>` : "");
+      (sum != null ? " " + tr("hist.utf.partTotal", { value: `${fmt(sum)} ${M.unit}` }) : "") +
+      (min != null ? " " + tr("hist.utf.partMin", { value: fmt(min) }) : "") +
+      (max != null ? " " + tr("hist.utf.partMax", { value: fmt(max) }) : "") +
+      (avg != null ? " " + tr("hist.utf.partAvg", { value: `${fmt(avg)} ${M.unit}` }) : "");
   };
   const avgOf = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
   const xLabels = rangeXLabels(dates, hourly);
@@ -615,20 +617,21 @@ async function renderUtforska() {
   if (hourly) {
     const pts = await collectHourly(dates);
     const xMax = dates.length * 24 - 1;
-    const tipT = p => `${dateLabel(p.date)} kl ${hh(p.h)}`;
+    const tipT = p => tr("hist.tip.dayHour", { date: dateLabel(p.date), h: hh(p.h) });
     if (metric === "rain") {
-      const bars = pts.map(p => ({ x: p.x, v: p.rain, t: `${dateLabel(p.date)} kl ${hh(p.h)}–${hh(p.h + 1)}` }));
+      const bars = pts.map(p => ({ x: p.x, v: p.rain,
+        t: tr("hist.tip.dayHourRange", { date: dateLabel(p.date), from: hh(p.h), to: hh(p.h + 1) }) }));
       barsChart("utf-chart", bars, dates.length * 24, { xLabels });
       summarize(null, null, null, bars.reduce((a, b) => a + b.v, 0));
     } else if (metric === "wind") {
       const mk = (get, label) => ({ label, color: M.color(), pts: pts.filter(p => get(p) != null).map(p => ({ x: p.x, v: ms(get(p)), t: tipT(p) })) });
-      const serie = [mk(p => p.wind, "Medelvind"), mk(p => p.gust, "Byar")];
+      const serie = [mk(p => p.wind, tr("hist.label.windAvg")), mk(p => p.gust, tr("hist.label.gusts"))];
       multiLine("utf-chart", serie, { xMax, snap: 2, yLo: 0, xLabels, tipTitle: x => {
         const p = pts.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, pts[0]);
         return p ? tipT(p) : "";
       } });
-      legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>Medelvind</span>
-        <span><span class="key" style="border-color:${M.color()}; border-top-style: dashed"></span>Byar</span>`;
+      legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>${tr("hist.label.windAvg")}</span>
+        <span><span class="key" style="border-color:${M.color()}; border-top-style: dashed"></span>${tr("hist.label.gusts")}</span>`;
       const winds = pts.map(p => ms(p.wind)).filter(v => v != null);
       summarize(null, Math.max(...pts.map(p => ms(p.gust) || 0)), avgOf(winds));
     } else {
@@ -645,7 +648,7 @@ async function renderUtforska() {
   } else {
     const days = (await collectDaily(dates)).filter(d => d.obs);
     if (!days.length) {
-      document.getElementById("utf-chart").innerHTML = '<div class="chart-empty">Ingen data i den här perioden</div>';
+      document.getElementById("utf-chart").innerHTML = `<div class="chart-empty">${tr("hist.empty.period")}</div>`;
       document.getElementById("utf-sub").textContent = "";
       return;
     }
@@ -654,8 +657,8 @@ async function renderUtforska() {
       const pts = days.map(d => ({ x: d.x, lo: d.obs.metric.tempLow, hi: d.obs.metric.tempHigh,
         avg: d.obs.metric.tempAvg, t: dateLabel(d.date) + " " + d.date.slice(0, 4) }));
       bandChart("utf-chart", pts, M.color(), { xMax, xLabels });
-      legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>Dygnsmedel</span>
-        <span><span class="key" style="border-color:${M.color()}; opacity:.35; border-top-width:8px"></span>Max–min</span>`;
+      legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>${tr("hist.legend.dayMean")}</span>
+        <span><span class="key" style="border-color:${M.color()}; opacity:.35; border-top-width:8px"></span>${tr("hist.legend.maxMin")}</span>`;
       summarize(Math.min(...pts.map(p => p.lo)), Math.max(...pts.map(p => p.hi)), avgOf(pts.map(p => p.avg)));
     } else if (metric === "rain") {
       const bars = days.map(d => ({ x: d.x, v: d.obs.metric.precipTotal ?? 0, t: dateLabel(d.date) + " " + d.date.slice(0, 4) }));
@@ -679,7 +682,7 @@ async function renderUtforska() {
         } });
       const vs = vals.map(p => p.v);
       summarize(Math.min(...vs), Math.max(...vs), avgOf(vs));
-      if (metric === "wind") legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>Dygnets medelvind</span>`;
+      if (metric === "wind") legend.innerHTML = `<span><span class="key" style="border-color:${M.color()}"></span>${tr("hist.legend.dayWindAvg")}</span>`;
     }
   }
 }
@@ -689,7 +692,8 @@ async function renderDag() {
   const date = document.getElementById("dag-datum").value;
   if (!date) return;
   const d = new Date(date + "T12:00:00");
-  document.getElementById("dag-namn").textContent = `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  document.getElementById("dag-namn").textContent = tr("hist.dateFull", {
+    weekday: WEEKDAYS[d.getDay()], day: d.getDate(), month: MONTHS[d.getMonth()], year: d.getFullYear() });
 
   const [dayObs, monthData] = await Promise.all([
     dailyYear(date.slice(0, 4)).then(y => y[date] ?? null),
@@ -700,19 +704,19 @@ async function renderDag() {
   const sum = document.getElementById("dag-summering");
   if (!dayObs) {
     sum.innerHTML = `<div class="chart-empty" style="grid-column:1/-1">${
-      date > manifest.lastFetched ? "Det här dygnet har inte arkiverats ännu — arkivet är framme vid " + manifest.lastFetched + "."
-      : "Ingen data för det här dygnet (stationen var offline)."}</div>`;
+      date > manifest.lastFetched ? tr("hist.empty.notArchived", { date: manifest.lastFetched })
+      : tr("hist.empty.dayOffline")}</div>`;
   } else {
     const m = dayObs.metric;
     const pMid = seaLevel((m.pressureMax + m.pressureMin) / 2, m.tempAvg);
     sum.innerHTML = [
-      { label: "Max", val: `${fmt(m.tempHigh)}<small>°C</small>` },
-      { label: "Min", val: `${fmt(m.tempLow)}<small>°C</small>` },
-      { label: "Nederbörd", val: `${fmt(m.precipTotal)}<small>mm</small>` },
-      { label: "Kraftigaste by", val: `${fmt(ms(m.windgustHigh))}<small>m/s</small>` },
-      { label: "Medelvind", val: `${fmt(ms(m.windspeedAvg))}<small>m/s</small>` },
-      { label: "Lufttryck", val: `${fmt(pMid, 0)}<small>hPa</small>`, sub: "havsnivå, dygnsmitt" },
-      { label: "Luftfuktighet", val: `${Math.round(dayObs.humidityAvg)}<small>%</small>`, sub: "dygnsmedel" },
+      { label: tr("common.max"), val: `${fmt(m.tempHigh)}<small>°C</small>` },
+      { label: tr("common.min"), val: `${fmt(m.tempLow)}<small>°C</small>` },
+      { label: tr("hist.metric.rain"), val: `${fmt(m.precipTotal)}<small>mm</small>` },
+      { label: tr("hist.label.maxGust"), val: `${fmt(ms(m.windgustHigh))}<small>m/s</small>` },
+      { label: tr("hist.label.windAvg"), val: `${fmt(ms(m.windspeedAvg))}<small>m/s</small>` },
+      { label: tr("hist.metric.pressure"), val: `${fmt(pMid, 0)}<small>hPa</small>`, sub: tr("hist.dag.pressureSub") },
+      { label: tr("hist.metric.hum"), val: `${Math.round(dayObs.humidityAvg)}<small>%</small>`, sub: tr("hist.dag.humSub") },
     ].map(c => `
       <div class="reading">
         <div class="label">${c.label}</div>
@@ -722,9 +726,9 @@ async function renderDag() {
   }
 
   document.getElementById("dag-t-sub").innerHTML = dayObs
-    ? `Min <b>${fmt(dayObs.metric.tempLow)}°</b> · max <b>${fmt(dayObs.metric.tempHigh)}°</b>` : "";
+    ? tr("hist.dag.tempSub", { min: fmt(dayObs.metric.tempLow), max: fmt(dayObs.metric.tempHigh) }) : "";
   document.getElementById("dag-r-sub").innerHTML = dayObs
-    ? `Totalt <b>${fmt(dayObs.metric.precipTotal)} mm</b>` : "";
+    ? tr("hist.dag.rainSub", { value: fmt(dayObs.metric.precipTotal) }) : "";
 
   mountChart("dag-chart-temp", (svg, tip, W) => {
     if (!series.length) return false;
@@ -745,7 +749,8 @@ async function renderDag() {
       const r = svg.getBoundingClientRect();
       const hGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * 23;
       const p = series.reduce((b, q) => Math.abs(q.h - hGuess) < Math.abs(b.h - hGuess) ? q : b, series[0]);
-      showTip(tip, svg.parentElement, sx(p.h), sy(p.temp), `<span class="t-time">kl ${hh(p.h)}</span><br><b>${fmt(p.temp)} °C</b>`);
+      showTip(tip, svg.parentElement, sx(p.h), sy(p.temp),
+        `<span class="t-time">${tr("hist.tip.hour", { h: hh(p.h) })}</span><br><b>${fmt(p.temp)} °C</b>`);
     });
     svg.addEventListener("pointerleave", () => tip.classList.remove("on"));
   });
@@ -767,7 +772,7 @@ async function renderDag() {
       const bar = el("rect", { x, y: zero ? base - 2 : y, width: bw, height: zero ? 2 : base - y, rx: 2,
         fill: zero ? css("--grid") : css("--rain") });
       bar.addEventListener("pointerenter", () => showTip(tip, svg.parentElement, x + bw / 2, zero ? base - 2 : y,
-        `<span class="t-time">kl ${hh(p.h)}–${hh(p.h + 1)}</span><br><b>${fmt(p.rain)} mm</b>`));
+        `<span class="t-time">${tr("hist.tip.hourRange", { from: hh(p.h), to: hh(p.h + 1) })}</span><br><b>${fmt(p.rain)} mm</b>`));
       bar.addEventListener("pointerleave", () => tip.classList.remove("on"));
       svg.append(bar);
     }
@@ -796,7 +801,8 @@ async function renderDag() {
       const hGuess = ((e.clientX - r.left) / r.width * W - PAD.l) / (W - PAD.l - PAD.r) * 23;
       const p = data.reduce((b, q) => Math.abs(q.h - hGuess) < Math.abs(b.h - hGuess) ? q : b, data[0]);
       showTip(tip, svg.parentElement, sx(p.h), sy(ms(p.gust)),
-        `<span class="t-time">kl ${hh(p.h)}</span><br>Medel <b>${fmt(ms(p.wind))}</b> · byar <b>${fmt(ms(p.gust))}</b> m/s`);
+        `<span class="t-time">${tr("hist.tip.hour", { h: hh(p.h) })}</span><br>`
+        + tr("hist.dag.windTip", { avg: fmt(ms(p.wind)), gust: fmt(ms(p.gust)) }));
     });
     svg.addEventListener("pointerleave", () => tip.classList.remove("on"));
   });
@@ -816,8 +822,8 @@ function stepDag(days) {
 async function renderArsdag() {
   const mm = document.getElementById("arsdag-manad").value;
   const dd = document.getElementById("arsdag-dag").value;
-  const label = `${parseInt(dd, 10)} ${MONTHS[parseInt(mm, 10) - 1]}`;
-  document.getElementById("arsdag-sub").innerHTML = `Timvärden den <b>${label}</b> varje år som finns i arkivet`;
+  const label = tr("hist.dayMonth", { day: parseInt(dd, 10), month: MONTHS[parseInt(mm, 10) - 1] });
+  document.getElementById("arsdag-sub").innerHTML = tr("hist.arsdag.sub", { date: label });
 
   const perYear = await Promise.all(years.map(async y => {
     const date = `${y}-${mm}-${dd}`;
@@ -829,8 +835,8 @@ async function renderArsdag() {
   // Remsan: max/min + regn per år
   const strip = document.getElementById("arsdag-strip");
   if (!withData.length) {
-    strip.innerHTML = '<div class="chart-empty" style="grid-column:1/-1">Ingen data för det här datumet ännu — arkivet täcker ' +
-      manifest.firstDate + ' till ' + manifest.lastFetched + '.</div>';
+    strip.innerHTML = `<div class="chart-empty" style="grid-column:1/-1">${
+      tr("hist.empty.dateRange", { from: manifest.firstDate, to: manifest.lastFetched })}</div>`;
   } else {
     const lo = Math.min(...withData.map(p => p.daily.metric.tempLow));
     const hi = Math.max(...withData.map(p => p.daily.metric.tempHigh));
@@ -863,7 +869,7 @@ async function renderArsdag() {
     xMax: 23, snap: 1.5, gapX: 5,
     yFmt: v => v + "°",
     xLabels: [0, 6, 12, 18].map(h => ({ label: hh(h), x: h })),
-    tipTitle: x => `kl ${hh(Math.round(Math.min(Math.max(x, 0), 23)))}`,
+    tipTitle: x => tr("hist.tip.hour", { h: hh(Math.round(Math.min(Math.max(x, 0), 23))) }),
   });
 }
 
@@ -905,15 +911,16 @@ async function renderManadChips() {
     });
     box.append(btn);
   });
-  if (!avail.length) box.innerHTML = '<span style="font-size:13px;color:var(--ink-3)">Inga år med den månaden i arkivet ännu</span>';
+  if (!avail.length) box.innerHTML = `<span style="font-size:13px;color:var(--ink-3)">${tr("hist.manad.noYears")}</span>`;
 }
 
 async function renderManad() {
   const mm = document.getElementById("manad-manad").value;
   const monthName = MONTHS[parseInt(mm, 10) - 1];
   const sel = [...manadState.selected].sort();
-  document.getElementById("manad-t-sub").innerHTML =
-    `<b>${monthName.charAt(0).toUpperCase() + monthName.slice(1)}</b> · ${sel.length ? sel.join(", ") : "välj år ovan"}`;
+  document.getElementById("manad-t-sub").innerHTML = tr("hist.manad.tempSub", {
+    month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+    years: sel.length ? sel.join(", ") : tr("hist.manad.pickYears") });
 
   const daysInMonth = 31;
   const perYear = await Promise.all(sel.map(async (y, i) => {
@@ -936,7 +943,7 @@ async function renderManad() {
     xMax: daysInMonth, snap: 0.6, gapX: 4,
     yFmt: v => v + "°",
     xLabels: [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
-    tipTitle: x => `${Math.round(Math.min(Math.max(x, 1), 31))} ${monthName}`,
+    tipTitle: x => tr("hist.dayMonth", { day: Math.round(Math.min(Math.max(x, 1), 31)), month: monthName }),
   });
 
   multiLine("manad-chart-rain", perYear.map(p => {
@@ -947,7 +954,7 @@ async function renderManad() {
     xMax: daysInMonth, snap: 0.6, gapX: 4, yLo: 0,
     yFmt: v => v,
     xLabels: [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
-    tipTitle: x => `t.o.m. ${Math.round(Math.min(Math.max(x, 1), 31))} ${monthName}`,
+    tipTitle: x => tr("hist.manad.rainTip", { day: Math.round(Math.min(Math.max(x, 1), 31)), month: monthName }),
   });
 
   const table = document.getElementById("manad-stats");
@@ -970,14 +977,15 @@ async function renderManad() {
       rainDays: obs.filter(o => (o.precipTotal ?? 0) >= 0.1).length };
   }).filter(Boolean);
   table.innerHTML = `
-    <thead><tr><th>År</th><th>Medelmax</th><th>Medelmin</th><th>Varmast</th><th>Kallast</th>
-      <th>Nederbörd</th><th>Regndagar</th><th>Dagar med data</th></tr></thead>
+    <thead><tr><th>${tr("hist.label.year")}</th><th>${tr("hist.manad.thAvgHigh")}</th><th>${tr("hist.manad.thAvgLow")}</th>
+      <th>${tr("hist.manad.thWarmest")}</th><th>${tr("hist.manad.thColdest")}</th>
+      <th>${tr("hist.metric.rain")}</th><th>${tr("hist.manad.thRainDays")}</th><th>${tr("hist.manad.thDays")}</th></tr></thead>
     <tbody>${rows.map(r => `
       <tr>
         <td><span class="yr"><span class="swatch" style="background:${r.color}"></span>${r.year}</span></td>
         <td>${fmt(r.avgHigh)}°</td><td>${fmt(r.avgLow)}°</td>
-        <td>${fmt(r.maxHigh)}°<span class="statday">${r.maxHighDay} ${monthName}</span></td>
-        <td>${fmt(r.minLow)}°<span class="statday">${r.minLowDay} ${monthName}</span></td>
+        <td>${fmt(r.maxHigh)}°<span class="statday">${tr("hist.dayMonth", { day: r.maxHighDay, month: monthName })}</span></td>
+        <td>${fmt(r.minLow)}°<span class="statday">${tr("hist.dayMonth", { day: r.minLowDay, month: monthName })}</span></td>
         <td>${fmt(r.rain)} mm</td><td>${r.rainDays}</td><td>${r.n}</td>
       </tr>`).join("")}</tbody>`;
 }
@@ -987,11 +995,13 @@ async function renderManad() {
    (kompletteras av backfillen) med acurite som utfyllnad; ljus/blixtar ur
    myAcuRite-aggregatet. */
 const HM_METRICS = {
-  temp: { label: "Dygnsmedeltemperatur", unit: "°C", fmt: v => fmt(v, 1) + "°" },
-  regn: { label: "Nederbörd", unit: "mm", fmt: v => fmt(v, 1) + " mm" },
-  blixt: { label: "Blixtar", unit: "st", fmt: v => Math.round(v) + " st" },
-  lux: { label: "Ljusintensitet (dygnsmax)", unit: "lux", fmt: v => Math.round(v).toLocaleString("sv-SE") + " lux" },
-  solighet: { label: "Solighet", unit: "%", fmt: v => fmt(v, 0) + " %" },
+  temp: { get label() { return tr("hist.hm.temp"); }, unit: "°C", fmt: v => fmt(v, 1) + "°" },
+  regn: { get label() { return tr("hist.metric.rain"); }, unit: "mm", fmt: v => fmt(v, 1) + " mm" },
+  blixt: { get label() { return tr("hist.metric.blixt"); }, get unit() { return tr("hist.unit.strikes"); },
+    fmt: v => Math.round(v) + " " + tr("hist.unit.strikes") },
+  lux: { get label() { return tr("hist.hm.lux"); }, unit: "lux",
+    fmt: v => Math.round(v).toLocaleString(I18N.locale) + " lux" },
+  solighet: { get label() { return tr("hist.metric.solighet"); }, unit: "%", fmt: v => fmt(v, 0) + " %" },
 };
 
 async function renderAret() {
@@ -1018,7 +1028,7 @@ async function renderAret() {
   const vals = cells.map(c => c.v).filter(v => v != null);
   const box = document.getElementById("aret-heatmap");
   if (!vals.length) {
-    box.innerHTML = '<div class="chart-empty">Ingen data för det här året ännu — arkivet fylls på varje natt.</div>';
+    box.innerHTML = `<div class="chart-empty">${tr("hist.empty.year")}</div>`;
     document.getElementById("aret-sub").textContent = "";
     document.getElementById("aret-legend").innerHTML = "";
     return;
@@ -1052,7 +1062,9 @@ async function renderAret() {
     const rect = el("rect", { x, y, width: CELL, height: CELL, rx: 3,
       fill: fill ?? "none", stroke: css("--grid"), "stroke-width": 1 });
     const t = el("title", {});
-    t.textContent = c.v == null ? `${dateLabel(c.date)}: ingen data` : `${dateLabel(c.date)}: ${M.fmt(c.v)}`;
+    t.textContent = c.v == null
+      ? tr("hist.aret.cellNoData", { date: dateLabel(c.date) })
+      : `${dateLabel(c.date)}: ${M.fmt(c.v)}`;
     rect.append(t);
     svg.append(rect);
     const mon = c.date.slice(5, 7);
@@ -1066,7 +1078,7 @@ async function renderAret() {
   box.innerHTML = "";
   box.append(svg);
   document.getElementById("aret-sub").innerHTML =
-    `<b>${vals.length}</b> dagar med data · min <b>${M.fmt(lo)}</b> · max <b>${M.fmt(hi)}</b>`;
+    tr("hist.aret.sub", { n: vals.length, min: M.fmt(lo), max: M.fmt(hi) });
   document.getElementById("aret-legend").innerHTML =
     `<span>${M.fmt(lo)}</span><span style="flex:1;max-width:120px;height:10px;border-radius:5px;background:linear-gradient(to right,${metric === "temp" ? "#2E7CC4," + light + ",#CE711A" : light + "," + (metric === "regn" ? "#2E7CC4" : "#C4A030")})"></span><span>${M.fmt(hi)}</span>`;
 }
@@ -1088,7 +1100,7 @@ async function renderVindros() {
   const box = document.getElementById("vr-rose");
   const total = sums.reduce((a, b) => a + b, 0);
   if (!total) {
-    box.innerHTML = '<div class="chart-empty">Ingen vinddata för det här urvalet</div>';
+    box.innerHTML = `<div class="chart-empty">${tr("hist.empty.wind")}</div>`;
     return;
   }
   const max = Math.max(...sums);
@@ -1108,11 +1120,12 @@ async function renderVindros() {
       fill: css("--wind"), "fill-opacity": 0.55, stroke: css("--wind"), "stroke-width": 1,
     });
     const t = el("title", {});
-    t.textContent = `${DIRS16[i]}: ${v} timmar (${fmt(v / total * 100, 0)} %)`;
+    t.textContent = tr("hist.vr.dirTitle", { dir: DIRS16[i], hours: v, pct: fmt(v / total * 100, 0) });
     p.append(t);
     svg.append(p);
   });
-  ["N", "O", "S", "V"].forEach((lbl, i) => {
+  // Väderstrecken hämtas ur den språkmedvetna listan (O/V blir E/W på engelska)
+  [0, 4, 8, 12].map(i => DIRS16[i]).forEach((lbl, i) => {
     const ang = (i * 90 - 90) * Math.PI / 180;
     const t = el("text", { x: c + (R + 16) * Math.cos(ang), y: c + (R + 16) * Math.sin(ang) + 4,
       "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: css("--ink-3") });
@@ -1123,7 +1136,7 @@ async function renderVindros() {
   box.append(svg);
   const top = sums.indexOf(max);
   document.getElementById("vr-sub").innerHTML =
-    `Andel blåsiga timmar (≥ 5 km/h) per riktning · <b>${daysN}</b> dagar · vanligast <b>${DIRS16[top]}</b> (${fmt(max / total * 100, 0)} %)`;
+    tr("hist.vr.sub", { days: daysN, dir: DIRS16[top], pct: fmt(max / total * 100, 0) });
 }
 
 /* ===== Vy: Rekord ========================================================== */
@@ -1162,18 +1175,18 @@ async function renderRekord() {
     } else run = null;
   }
   document.getElementById("rk-wu").innerHTML = [
-    hot && rkCard("Varmaste dygn", `${fmt(hot.m.tempHigh)}<small>°C</small>`, rkDate(hot.date)),
-    cold && rkCard("Kallaste natt", `${fmt(cold.m.tempLow)}<small>°C</small>`, rkDate(cold.date)),
-    wet && rkCard("Blötaste dygn", `${fmt(wet.m.precipTotal)}<small>mm</small>`, rkDate(wet.date)),
-    wetMonth && rkCard("Blötaste månad", `${fmt(wetMonth.v, 0)}<small>mm</small>`,
-      `${MONTHS[parseInt(wetMonth.k.slice(5), 10) - 1]} ${wetMonth.k.slice(0, 4)}`),
-    gust && rkCard("Kraftigaste by", `${fmt(ms(gust.m.windgustHigh))}<small>m/s</small>`, rkDate(gust.date)),
-    bestDry && rkCard("Längsta torrperiod", `${bestDry.n}<small>dygn</small>`,
+    hot && rkCard(tr("hist.rk.hottestDay"), `${fmt(hot.m.tempHigh)}<small>°C</small>`, rkDate(hot.date)),
+    cold && rkCard(tr("hist.rk.coldestNight"), `${fmt(cold.m.tempLow)}<small>°C</small>`, rkDate(cold.date)),
+    wet && rkCard(tr("hist.rk.wettestDay"), `${fmt(wet.m.precipTotal)}<small>mm</small>`, rkDate(wet.date)),
+    wetMonth && rkCard(tr("hist.rk.wettestMonth"), `${fmt(wetMonth.v, 0)}<small>mm</small>`,
+      tr("hist.monthYear", { month: MONTHS[parseInt(wetMonth.k.slice(5), 10) - 1], year: wetMonth.k.slice(0, 4) })),
+    gust && rkCard(tr("hist.label.maxGust"), `${fmt(ms(gust.m.windgustHigh))}<small>m/s</small>`, rkDate(gust.date)),
+    bestDry && rkCard(tr("hist.rk.longestDry"), `${bestDry.n}<small>${tr("hist.unit.days")}</small>`,
       `${dateLabel(bestDry.from)} – ${rkDate(bestDry.to)}`),
   ].filter(Boolean).join("");
-  document.getElementById("rk-wu-note").textContent =
-    `Ur WU-arkivet ${manifest.firstDate} – ${manifest.lastFetched}` +
-    (manifest.lastFetched < addDaysIso(todayIso(), -1) ? " — backfillen pågår, rekorden uppdateras i takt med att arkivet växer." : ".");
+  document.getElementById("rk-wu-note").textContent = tr(
+    manifest.lastFetched < addDaysIso(todayIso(), -1) ? "hist.rk.wuNoteBackfill" : "hist.rk.wuNote",
+    { from: manifest.firstDate, to: manifest.lastFetched });
 
   // Sensor-delen: myAcuRite-aggregatet
   const agg = await acuriteDaily();
@@ -1187,16 +1200,17 @@ async function renderRekord() {
     a => Math.min(100, a.secTotal / 3600 / daylightHours(a.date) * 100));
   const stormDays = acu.filter(a => a.strikes > 0).length;
   document.getElementById("rk-acu").innerHTML = [
-    mostStrikes && rkCard("Mest blixtar en dag", `${mostStrikes.strikes}<small>st</small>`,
-      `${rkDate(mostStrikes.date)}${mostStrikes.closestKm ? ` · närmast ${mostStrikes.closestKm} km` : ""}`),
-    closest && rkCard("Närmaste nedslag", `${closest.closestKm}<small>km</small>`, rkDate(closest.date)),
-    rkCard("Åskdagar totalt", `${stormDays}<small>st</small>`, `sedan ${acuFirst ? rkDate(acuFirst) : "–"}`),
-    brightest && rkCard("Högsta ljusintensitet", `${Math.round(brightest.luxMax / 1000)}<small>k lux</small>`, rkDate(brightest.date)),
-    longestLight && rkCard("Längsta ljusdag", `${fmt(longestLight.secTotal / 3600)}<small>h</small>`, rkDate(longestLight.date)),
-    sunniest && rkCard("Soligaste dagen", `${fmt(Math.min(100, sunniest.secTotal / 3600 / daylightHours(sunniest.date) * 100), 0)}<small>%</small>`, rkDate(sunniest.date)),
+    mostStrikes && rkCard(tr("hist.rk.mostStrikes"), `${mostStrikes.strikes}<small>${tr("hist.unit.strikes")}</small>`,
+      `${rkDate(mostStrikes.date)}${mostStrikes.closestKm ? ` ${tr("hist.tip.closest", { km: mostStrikes.closestKm })}` : ""}`),
+    closest && rkCard(tr("hist.rk.closestStrike"), `${closest.closestKm}<small>km</small>`, rkDate(closest.date)),
+    rkCard(tr("hist.rk.stormDays"), `${stormDays}<small>${tr("hist.unit.dayCount")}</small>`,
+      tr("hist.rk.since", { date: acuFirst ? rkDate(acuFirst) : "–" })),
+    brightest && rkCard(tr("hist.rk.brightest"), `${Math.round(brightest.luxMax / 1000)}<small>k lux</small>`, rkDate(brightest.date)),
+    longestLight && rkCard(tr("hist.rk.longestLight"), `${fmt(longestLight.secTotal / 3600)}<small>h</small>`, rkDate(longestLight.date)),
+    sunniest && rkCard(tr("hist.rk.sunniest"), `${fmt(Math.min(100, sunniest.secTotal / 3600 / daylightHours(sunniest.date) * 100), 0)}<small>%</small>`, rkDate(sunniest.date)),
   ].filter(Boolean).join("");
   document.getElementById("rk-acu-note").textContent = acuFirst
-    ? `Stationens egna sensorer via myAcuRite — historik sedan ${rkDate(acuFirst)} (äldre rensas av AcuRite; vårt arkiv bevarar allt framåt).`
+    ? tr("hist.rk.acuNote", { date: rkDate(acuFirst) })
     : "";
 
   // Frost & växtsäsong: minsta dygnstemp ur båda källorna
@@ -1218,7 +1232,8 @@ async function renderRekord() {
     if (spring || autumn) rows.push({ y, spring, autumn, free });
   }
   document.getElementById("rk-frost").innerHTML = `
-    <thead><tr><th>År</th><th>Sista vårfrost</th><th>Första höstfrost</th><th>Frostfria dagar</th></tr></thead>
+    <thead><tr><th>${tr("hist.label.year")}</th><th>${tr("hist.rk.thLastSpringFrost")}</th>
+      <th>${tr("hist.rk.thFirstAutumnFrost")}</th><th>${tr("hist.rk.thFrostFree")}</th></tr></thead>
     <tbody>${rows.map(r => `
       <tr><td>${r.y}</td><td>${r.spring ? dateLabel(r.spring) : "–"}</td>
       <td>${r.autumn ? dateLabel(r.autumn) : "–"}</td><td>${r.free ?? "–"}</td></tr>`).join("")}</tbody>`;
@@ -1258,29 +1273,39 @@ function applyViewFromHash() {
 }
 addEventListener("hashchange", applyViewFromHash);
 
+/* Texter som byggs ur manifestet — samlade så språkbytet kan rita om dem */
+function paintArchiveSpan() {
+  const span = document.getElementById("arkiv-span");
+  if (span && manifest) span.textContent = `${manifest.firstDate} – ${manifest.lastFetched}`;
+}
+// Under backfillen ligger arkivet efter nutid — förklara varför vyerna
+// öppnar på ett äldre datum och hur långt det är kvar
+function paintBackfillNotice() {
+  if (!manifest) return;
+  const yesterday = addDaysIso(todayIso(), -1);
+  if (manifest.lastFetched >= yesterday) return;
+  const daysLeft = Math.round((new Date(yesterday) - new Date(manifest.lastFetched)) / 86400e3);
+  const nights = Math.ceil(daysLeft / 150);
+  const notice = document.getElementById("backfill-notice");
+  notice.textContent = tr("hist.backfill",
+    { from: manifest.firstDate, to: manifest.lastFetched, days: daysLeft, nights });
+  notice.classList.add("on");
+}
+
 async function boot() {
   setupThemeToggle(); // resize-eventet ritar om aktiv flik med nya temat
   manifest = await getArchive("/data/manifest.json");
   if (!manifest) {
     document.querySelector(".page").insertAdjacentHTML("beforeend",
-      '<div class="chart-empty">Arkivet är inte tillgängligt ännu.</div>');
+      `<div class="chart-empty">${tr("hist.empty.archive")}</div>`);
     return;
   }
-  document.getElementById("arkiv-span").textContent =
-    `${manifest.firstDate} – ${manifest.lastFetched}`;
+  paintArchiveSpan();
+  paintBackfillNotice();
+  // Sidfoten översätts i ett stycke — hinner motorn rita om den efter att
+  // manifestet landat måste spannet fyllas i på nytt
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paintArchiveSpan);
 
-  // Under backfillen ligger arkivet efter nutid — förklara varför vyerna
-  // öppnar på ett äldre datum och hur långt det är kvar
-  const yesterday = addDaysIso(todayIso(), -1);
-  if (manifest.lastFetched < yesterday) {
-    const daysLeft = Math.round((new Date(yesterday) - new Date(manifest.lastFetched)) / 86400e3);
-    const nights = Math.ceil(daysLeft / 150);
-    const notice = document.getElementById("backfill-notice");
-    notice.textContent = `Arkivet byggs ifatt i bakgrunden: just nu ${manifest.firstDate} → ${manifest.lastFetched}, `
-      + `och det växer med ~150 dygn per natt (${daysLeft} dygn kvar ≈ ${nights} ${nights === 1 ? "natt" : "nätter"}). `
-      + `Vyerna öppnar på senaste arkiverade dygnet och hittar fram till idag av sig själva.`;
-    notice.classList.add("on");
-  }
   const firstYear = parseInt(manifest.firstDate.slice(0, 4), 10);
   const lastYear = parseInt(manifest.lastFetched.slice(0, 4), 10);
   years = [];
@@ -1341,7 +1366,9 @@ async function boot() {
 
   // Vindros: perioder
   const vrAr = document.getElementById("vr-ar");
-  vrAr.append(new Option("Alla år", ""));
+  const allYears = new Option(tr("hist.vr.allYears"), "");
+  allYears.dataset.i18n = "hist.vr.allYears";   // motorn håller texten aktuell
+  vrAr.append(allYears);
   for (let y = acuLastYear; y >= 2025; y--) vrAr.append(new Option(String(y), String(y)));
   const vrMan = document.getElementById("vr-manad");
   MONTHS.forEach((m, i) => vrMan.append(new Option(m, hh(i + 1))));
@@ -1354,6 +1381,30 @@ async function boot() {
   if (!applyViewFromHash()) await renderUtforska();
 }
 boot();
+
+/* ===== Språkbyte ===========================================================
+   Motorn har redan bytt statisk markup (och charts.js sina namnlistor) när
+   eventet kommer — här ritas det om som byggts i JS. */
+function refreshMonthOptions() {
+  // Väljarna fylls en gång vid uppstart; månadsnamnen måste bytas på plats så
+  // att valt värde behålls (tomma värdet är "Hela året" och sköts av motorn)
+  for (const id of ["arsdag-manad", "manad-manad", "vr-manad"]) {
+    const sel = document.getElementById(id);
+    if (!sel) continue;
+    for (const opt of sel.options) {
+      if (opt.value) opt.textContent = MONTHS[parseInt(opt.value, 10) - 1];
+    }
+  }
+}
+document.addEventListener("langchange", () => {
+  refreshMonthOptions();
+  paintArchiveSpan();          // sidfoten byggs om av motorn → fyll i spannet igen
+  paintBackfillNotice();
+  if (!manifest) return;
+  // Månadsvyn har en egen text i årschipsen → samma kedja som vid månadsbyte
+  if (activeView === "manad") renderManadChips().then(renderManad);
+  else RENDERERS[activeView]();
+});
 
 let resizeRaf;
 addEventListener("resize", () => {
