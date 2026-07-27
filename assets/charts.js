@@ -387,9 +387,13 @@ function niceStep(span, target = 5) {
 function showTip(tip, wrap, x, y, html) {
   tip.innerHTML = html;
   tip.classList.add("on");
-  const w = tip.offsetWidth;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
   tip.style.left = Math.min(Math.max(x - w / 2, 4), wrap.clientWidth - w - 4) + "px";
-  tip.style.top = (y - tip.offsetHeight - 12) + "px";
+  // Ovanför punkten när den får plats, annars under — en hög tooltip (t.ex. ett
+  // år per rad) får aldrig klippas av överkanten i helskärmsvyn
+  let top = y - h - 12;
+  if (top < 4) top = y + 14;
+  tip.style.top = Math.max(4, Math.min(top, wrap.clientHeight - h - 4)) + "px";
 }
 
 /* ===== Nyp-zooma ett diagram i helskärm ===================================
@@ -398,6 +402,10 @@ function showTip(tip, wrap, x, y, html) {
    sidan; skapar sin egen overlay + CSS första gången setupChartZoom() körs. */
 const zoomState = { x: 0, y: 0, k: 1 };
 let zoomMode = "image";                 // "image" = förstora klon · "detail" = interaktiv datazoom
+// Renderarna registrerar sig själva här när de ritat, så att förstoringsknappen
+// får en riktig datazoom (med y-axel och värden) i stället för en skalad bild.
+// window.chartDetail har företräde — sidor kan lägga in finare data för hand.
+window.chartDetailAuto = window.chartDetailAuto || {};
 const zPointers = new Map();
 let zPinchPrev = null, zLastTapT = 0, zLastTapX = 0, zLastTapY = 0, zoomReady = false;
 const zStage = () => document.getElementById("zoom-stage");
@@ -413,7 +421,8 @@ function refreshZoomButtons() {
       btn.addEventListener("click", () => {
         const wrap = card.querySelector(".chart-wrap");
         const title = card.querySelector("h2")?.textContent || "Diagram";
-        const cfgFn = wrap && window.chartDetail && window.chartDetail[wrap.id];
+        const cfgFn = wrap && ((window.chartDetail && window.chartDetail[wrap.id])
+          || (window.chartDetailAuto && window.chartDetailAuto[wrap.id]));
         if (cfgFn) {                                   // interaktiv detaljvy (riktig datazoom)
           Promise.resolve(cfgFn(title)).then(cfg => { if (cfg && cfg.series?.some(s => s.pts.length)) openDetail(cfg); else { const svg = card.querySelector(".chart-wrap svg"); if (svg) openZoom(svg, title); } });
           return;
@@ -531,12 +540,17 @@ function renderDetail() {
     const t = el("text", { x: padL - 8, y: y + 4, "text-anchor": "end", "font-size": 12, fill: css("--ink-3") });
     t.textContent = dCfg.yFmt(v); svg.append(t);
   }
+  const xFmt = dCfg.xFmt ?? fmtClock;
   const tStep = niceTimeStepHours(span);
+  let prevLabel = null;
   for (let x = Math.ceil(x0 / tStep) * tStep; x <= x1 + 1e-6; x += tStep) {
     const xp = sx(x);
     svg.append(el("line", { x1: xp, x2: xp, y1: padT, y2: Hd - padB, stroke: css("--grid"), "stroke-width": 1, opacity: 0.5 }));
+    const label = xFmt(x);
+    if (label === prevLabel) continue;   // djup zoom kan ge samma etikett flera gånger
+    prevLabel = label;
     const t = el("text", { x: xp, y: Hd - 12, "text-anchor": "middle", "font-size": 12, fill: css("--ink-3") });
-    t.textContent = fmtClock(x); svg.append(t);
+    t.textContent = label; svg.append(t);
   }
   for (const s of dCfg.series) {
     const seg = s.pts.filter(p => p.x >= x0 - span * 0.06 && p.x <= x1 + span * 0.06);
@@ -559,8 +573,10 @@ function renderDetail() {
       svg.append(el("circle", { cx: sx(p.x), cy: sy(p.v), r: 4, fill: s.color, stroke: css("--card"), "stroke-width": 2 }));
       return { s, p };
     });
-    const html = `<span class="t-time">kl ${fmtClock(near.x)}</span><br>` + rows.map(({ s, p }) =>
-      `${s.label ? `<span style="color:${s.color}">●</span> ${s.label} ` : ""}<b>${dCfg.yFmt(p.v)}${dCfg.unit ? " " + dCfg.unit : ""}</b>`).join("<br>");
+    const vFmt = dCfg.vFmt ?? dCfg.yFmt;
+    const head = dCfg.tipTitle ? dCfg.tipTitle(near.x) : `kl ${fmtClock(near.x)}`;
+    const html = `<span class="t-time">${head}</span><br>` + rows.map(({ s, p }) =>
+      `${s.label ? `<span style="color:${s.color}">●</span> ${s.label} ` : ""}<b>${vFmt(p.v)}${dCfg.unit ? " " + dCfg.unit : ""}</b>`).join("<br>");
     showTip(tip, pan, xp, sy(rows[0].p.v), html);
   }
 }
@@ -708,6 +724,10 @@ function setupChartZoom() {
 function mountChart(wrapId, draw) {
   const wrap = document.getElementById(wrapId);
   wrap.innerHTML = "";
+  // Samma wrap återanvänds för olika diagramtyper (t.ex. Utforska byter mellan
+  // linje och staplar) — nolla registreringen så att förstoringen aldrig visar
+  // data från det förra diagrammet. Renderaren registrerar sig själv igen nedan.
+  delete window.chartDetailAuto[wrapId];
   if (!wrap.clientWidth) return;
   const W = wrap.clientWidth;
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
@@ -728,6 +748,16 @@ function multiLine(wrapId, series, opts) {
   mountChart(wrapId, (svg, tip, W) => {
     const all = series.flatMap(s => s.pts.map(p => p.v));
     if (!all.length) return false;
+    // Förstoringen ritar om ur samma serier → y-axel och samma tooltip som här
+    window.chartDetailAuto[wrapId] = title => ({
+      title,
+      series: series.filter(s => s.pts.length).map(s => ({ label: s.label, color: s.color, dash: s.dash, pts: s.pts })),
+      xMin: 0, xMax: opts.xMax,
+      yFmt: opts.yFmt ?? (v => v),
+      vFmt: v => fmt(v),
+      xFmt: opts.tipTitle, tipTitle: opts.tipTitle,
+      yLo: opts.yLo,
+    });
     const lo = opts.yLo ?? Math.floor(Math.min(...all)) - 1;
     const hi = opts.yHi ?? Math.ceil(Math.max(...all)) + 1;
     const sy = yScale(lo, hi);
@@ -834,6 +864,19 @@ function barsChart(wrapId, bars, slots, opts) {
 function bandChart(wrapId, pts, color, opts) {
   mountChart(wrapId, (svg, tip, W) => {
     if (pts.length < 2) return false;
+    // Bandet blir tre linjer i förstoringen — max/min streckade kring medellinjen
+    const nearLabel = x => pts.reduce((b, q) => Math.abs(q.x - x) < Math.abs(b.x - x) ? q : b, pts[0]).t;
+    window.chartDetailAuto[wrapId] = title => ({
+      title,
+      series: [
+        { label: "Max", color, dash: true, pts: pts.map(p => ({ x: p.x, v: p.hi })) },
+        { label: "Medel", color, pts: pts.map(p => ({ x: p.x, v: p.avg })) },
+        { label: "Min", color, dash: true, pts: pts.map(p => ({ x: p.x, v: p.lo })) },
+      ],
+      xMin: 0, xMax: opts.xMax,
+      yFmt: v => v + "°", vFmt: v => fmt(v) + "°",
+      xFmt: nearLabel, tipTitle: nearLabel,
+    });
     const lo = Math.floor(Math.min(...pts.map(p => p.lo))) - 1;
     const hi = Math.ceil(Math.max(...pts.map(p => p.hi))) + 1;
     const sy = yScale(lo, hi);
