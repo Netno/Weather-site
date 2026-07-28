@@ -1069,7 +1069,10 @@ async function renderArsdag() {
 }
 
 /* ===== Vy: Månadsjämförelse =============================================== */
-const manadState = { selected: new Set() };
+// picked = användaren har själv klickat i chipsen. Innan dess förväljs alla år;
+// efteråt rörs urvalet inte automatiskt, annars la påfyllningen tillbaka året
+// man just klickat bort.
+const manadState = { selected: new Set(), picked: false };
 
 async function yearsWithMonth(mm) {
   const out = [];
@@ -1087,11 +1090,15 @@ const MANAD_MAX = YEAR_COLORS.length;
 async function renderManadChips() {
   const mm = document.getElementById("manad-manad").value;
   const avail = await yearsWithMonth(mm);
-  // Behåll giltiga val och fyll på med de senaste åren upp till taket
+  // Släpp år som saknar den valda månaden
   manadState.selected = new Set([...manadState.selected].filter(y => avail.includes(y)));
-  for (const y of [...avail].reverse()) {
-    if (manadState.selected.size >= MANAD_MAX) break;
-    manadState.selected.add(y);
+  // Förval (och räddning om månadsbytet tömde urvalet): fyll på från senaste
+  // året upp till taket. Har användaren själv valt lämnas urvalet i fred.
+  if (!manadState.picked || !manadState.selected.size) {
+    for (const y of [...avail].reverse()) {
+      if (manadState.selected.size >= MANAD_MAX) break;
+      manadState.selected.add(y);
+    }
   }
   const box = document.getElementById("manad-ar");
   box.innerHTML = "";
@@ -1104,6 +1111,7 @@ async function renderManadChips() {
       btn.style.background = YEAR_COLORS[idx % YEAR_COLORS.length];
     }
     btn.addEventListener("click", () => {
+      manadState.picked = true;
       if (manadState.selected.has(y)) manadState.selected.delete(y);
       else if (manadState.selected.size < MANAD_MAX) manadState.selected.add(y);
       renderManadChips().then(renderManad);
@@ -1489,7 +1497,10 @@ function paintArchiveSpan() {
 function paintBackfillNotice() {
   if (!manifest) return;
   const yesterday = addDaysIso(todayIso(), -1);
-  if (manifest.lastFetched >= yesterday) return;
+  // Mellan midnatt och nattjobbet (~02:30) ligger arkivet alltid ett dygn efter,
+  // och vyerna fyller ändå ut med livedata — larma först när det halkat efter
+  // på riktigt, annars blinkar notisen förbi varje natt
+  if (manifest.lastFetched >= addDaysIso(todayIso(), -2)) return;
   const daysLeft = Math.round((new Date(yesterday) - new Date(manifest.lastFetched)) / 86400e3);
   const nights = Math.ceil(daysLeft / 150);
   const notice = document.getElementById("backfill-notice");
