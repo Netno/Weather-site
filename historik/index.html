@@ -436,12 +436,52 @@
 <script>
 "use strict";
 /* =============================================================================
-   Historikvyer mot det statiska arkivet i data/. Ingen data hämtas från WU —
-   allt är förhämtat av det nattliga cron-jobbet.
+   Historikvyer mot det statiska arkivet i data/. Arkivet fylls på av det
+   nattliga cron-jobbet och når därför fram till igår. Enda undantaget är
+   dagens pågående dygn, som hämtas live via /api/wu (samma edge-cachade proxy
+   som live-sidan) så att innevarande år finns med ända fram till nu.
    ========================================================================== */
 /* ===== Gemensamt tillstånd ================================================= */
 let manifest = null;
 let years = [];
+
+/* Dagens dygn ur live-API:et, aggregerat till samma form som arkivets dygn:
+   timvärden + dygnets max/min/regn så långt det gått. Hämtas en gång per
+   sidladdning; går det inte får vyerna se ut som om dagen inte fanns. */
+let todayLivePromise = null;
+function todayLive() {
+  if (!todayLivePromise) {
+    todayLivePromise = fetchJSON("/api/wu?e=today").then(d => {
+      const byHour = new Map();
+      for (const o of d.observations ?? []) {
+        if (!o?.obsTimeLocal || !o.metric) continue;
+        const h = parseInt(o.obsTimeLocal.slice(11, 13), 10);
+        if (!byHour.has(h)) byHour.set(h, []);
+        byHour.get(h).push(o);
+      }
+      const month = parseInt(todayIso().slice(5, 7), 10);
+      const hours = [];
+      let hi = null, lo = null, rain = 0;
+      for (const h of [...byHour.keys()].sort((a, b) => a - b)) {
+        const temps = byHour.get(h)
+          .map(o => tempOk(o.metric.tempAvg ?? o.metric.temp, month))
+          .filter(v => v != null);
+        if (temps.length) {
+          hours.push({ h, temp: temps.reduce((a, b) => a + b, 0) / temps.length });
+          hi = Math.max(hi ?? -Infinity, ...temps);
+          lo = Math.min(lo ?? Infinity, ...temps);
+        }
+        // precipTotal är kumulativt sedan midnatt → högsta värdet är dygnets regn
+        for (const o of byHour.get(h)) {
+          const c = inBounds(o.metric.precipTotal, "rainDay");
+          if (c != null) rain = Math.max(rain, c);
+        }
+      }
+      return hours.length ? { hours, tempHigh: hi, tempLow: lo, precipTotal: rain } : null;
+    }).catch(() => null);
+  }
+  return todayLivePromise;
+}
 
 /* ===== Vy: Utforska ========================================================
    Fritt val av mätvärde + period. ≤ 14 dagar ritas med timupplösning ur
@@ -830,36 +870,54 @@ async function renderArsdag() {
     const dObs = (await dailyYear(y))[date] ?? null;
     return { year: y, date, daily: dObs };
   }));
-  const withData = perYear.filter(p => p.daily);
+
+  const entries = perYear.filter(p => p.daily).map(p => ({
+    year: p.year, date: p.date, name: p.year, hours: null,
+    hi: p.daily.metric.tempHigh, lo: p.daily.metric.tempLow, rain: p.daily.metric.precipTotal,
+  }));
+
+  // Arkivet slutar vid igår. Visas dagens datum saknas alltså innevarande år —
+  // hämta det live i stället så att jämförelsen når ända fram till nu.
+  const today = todayIso();
+  let todayPending = false;
+  if (`${today.slice(0, 4)}-${mm}-${dd}` === today && !entries.some(e => e.date === today)) {
+    const live = await todayLive();
+    if (live && live.tempHigh != null && live.tempLow != null) {
+      entries.push({ year: today.slice(0, 4), date: today, hours: live.hours,
+        name: tr("hist.arsdag.todayLabel", { year: today.slice(0, 4) }),
+        hi: live.tempHigh, lo: live.tempLow, rain: live.precipTotal });
+    } else {
+      todayPending = true;   // live-API:et svarade inte — förklara luckan
+    }
+  }
+  document.getElementById("arsdag-sub").innerHTML = tr("hist.arsdag.sub", { date: label })
+    + (todayPending ? " " + tr("hist.arsdag.todayPending", { year: today.slice(0, 4) }) : "");
 
   // Remsan: max/min + regn per år
   const strip = document.getElementById("arsdag-strip");
-  if (!withData.length) {
+  if (!entries.length) {
     strip.innerHTML = `<div class="chart-empty" style="grid-column:1/-1">${
       tr("hist.empty.dateRange", { from: manifest.firstDate, to: manifest.lastFetched })}</div>`;
   } else {
-    const lo = Math.min(...withData.map(p => p.daily.metric.tempLow));
-    const hi = Math.max(...withData.map(p => p.daily.metric.tempHigh));
+    const temps = entries.flatMap(e => [e.hi, e.lo]).filter(v => v != null);
+    const lo = Math.min(...temps);
+    const hi = Math.max(...temps);
     const span = Math.max(hi - lo, 1);
-    strip.innerHTML = withData.map(p => {
-      const m = p.daily.metric;
-      return `<div class="day">
-        <div class="dname">${p.year}</div>
-        <div class="hi">${fmt(m.tempHigh, 0)}°</div>
-        <div class="range"><div class="track"></div>
-          <div class="bar" style="top:${(hi - m.tempHigh) / span * 100}%; height:${(m.tempHigh - m.tempLow) / span * 100}%"></div></div>
-        <div class="lo">${fmt(m.tempLow, 0)}°</div>
-        <div class="rain">${m.precipTotal > 0 ? "☂ " + fmt(m.precipTotal) + " mm" : ""}</div>
-      </div>`;
-    }).join("");
+    strip.innerHTML = entries.map(e => `<div class="day">
+        <div class="dname">${e.name}</div>
+        <div class="hi">${e.hi != null ? fmt(e.hi, 0) + "°" : "–"}</div>
+        <div class="range"><div class="track"></div>${e.hi != null && e.lo != null
+          ? `<div class="bar" style="top:${(hi - e.hi) / span * 100}%; height:${(e.hi - e.lo) / span * 100}%"></div>` : ""}</div>
+        <div class="lo">${e.lo != null ? fmt(e.lo, 0) + "°" : "–"}</div>
+        <div class="rain">${e.rain > 0 ? "☂ " + fmt(e.rain) + " mm" : ""}</div>
+      </div>`).join("");
   }
 
   // Överlagrade timkurvor
-  const series = (await Promise.all(withData.map(async (p, i) => {
-    const month = await hourlyMonth(p.date.slice(0, 7));
-    const s = daySeries(month[p.date]);
-    return { label: p.year, color: YEAR_COLORS[i % YEAR_COLORS.length],
-      pts: s.map(q => ({ x: q.h, v: q.temp })) };
+  const series = (await Promise.all(entries.map(async (e, i) => {
+    const hours = e.hours ?? daySeries((await hourlyMonth(e.date.slice(0, 7)))[e.date]);
+    return { label: e.name, color: YEAR_COLORS[i % YEAR_COLORS.length],
+      pts: hours.map(q => ({ x: q.h, v: q.temp })) };
   }))).filter(s => s.pts.length);
 
   document.getElementById("arsdag-legend").innerHTML = series.map(s =>

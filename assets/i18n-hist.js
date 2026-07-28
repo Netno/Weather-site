@@ -105,6 +105,8 @@ I18N.register({
     "hist.arsdag.sub": "Timvärden den <b>{date}</b> varje år som finns i arkivet",
     "hist.arsdag.stripTitle": "Max, min och nederbörd",
     "hist.arsdag.stripSub": "Samma datum, alla år i arkivet",
+    "hist.arsdag.todayLabel": "{year} (idag)",
+    "hist.arsdag.todayPending": "· {year} arkiveras i natt",
     "hist.empty.dateRange": "Ingen data för det här datumet ännu — arkivet täcker {from} till {to}.",
 
     /* ===== Vy: Månadsjämförelse =========================================== */
@@ -265,6 +267,8 @@ I18N.register({
     "hist.arsdag.sub": "Hourly values on <b>{date}</b> for every year in the archive",
     "hist.arsdag.stripTitle": "Max, min and precipitation",
     "hist.arsdag.stripSub": "The same date, every year in the archive",
+    "hist.arsdag.todayLabel": "{year} (today)",
+    "hist.arsdag.todayPending": "· {year} will be archived tonight",
     "hist.empty.dateRange": "No data for this date yet — the archive covers {from} to {to}.",
 
     /* ===== View: Month comparison ========================================= */
