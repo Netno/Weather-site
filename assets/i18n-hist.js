@@ -134,6 +134,7 @@ I18N.register({
     "hist.aret.sub": "<b>{n}</b> dagar med data · min <b>{min}</b> · max <b>{max}</b>",
     "hist.aret.cellNoData": "{date}: ingen data",
     "hist.empty.year": "Ingen data för det här året ännu — arkivet fylls på varje natt.",
+    "hist.empty.sensorYear": "Stationens ljus- och blixtsensor har data först från {date} — äldre värden finns inte hos vare sig myAcuRite eller Weather Underground.",
 
     /* ===== Vy: Vindros ==================================================== */
     "hist.vr.periodLabel": "Period",
@@ -296,6 +297,7 @@ I18N.register({
     "hist.aret.sub": "<b>{n}</b> days with data · min <b>{min}</b> · max <b>{max}</b>",
     "hist.aret.cellNoData": "{date}: no data",
     "hist.empty.year": "No data for this year yet — the archive is filled in every night.",
+    "hist.empty.sensorYear": "The station's light and lightning sensors only have data from {date} — older values exist neither at myAcuRite nor at Weather Underground.",
 
     /* ===== View: Wind rose ================================================ */
     "hist.vr.periodLabel": "Period",

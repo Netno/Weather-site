@@ -530,6 +530,18 @@ function todayLive() {
 
 /* Dagens AcuRite-dygn live (ljus, UV, ljustid, blixtar), i samma former som
    acuriteDayPts()/daily.json så att Utforska kan blanda dem med arkivet. */
+// AcuRite-manifestets firstDate är stationens start, men myAcuRite gallrar
+// gammal data — sensorhistoriken börjar först den dag arkivet fick värden
+let acuFirstPromise = null;
+function acuFirstDate() {
+  if (!acuFirstPromise) {
+    acuFirstPromise = acuriteDaily()
+      .then(agg => Object.keys(agg).sort().find(k => agg[k]) ?? "2018-12-05")
+      .catch(() => "2018-12-05");
+  }
+  return acuFirstPromise;
+}
+
 let acuLivePromise = null;
 function acuLive() {
   if (acuLivePromise) return acuLivePromise;
@@ -584,6 +596,12 @@ const METRICS = {
 // till skillnad från WU där UV saknas i äldre år)
 const ACU_METRICS = new Set(["uv", "lux", "ljustid", "blixt", "solighet"]);
 const utfState = { range: "vecka" };
+
+// Perioder som spänner över ett årsskifte måste visa båda åren, annars ser
+// "3 mar – 27 jul 2026" ut som om det började i år
+const periodLabel = (from, to) => from.slice(0, 4) === to.slice(0, 4)
+  ? `${dateLabel(from)} – ${dateLabel(to)} ${to.slice(0, 4)}`
+  : `${dateLabel(from)} ${from.slice(0, 4)} – ${dateLabel(to)} ${to.slice(0, 4)}`;
 
 function utfRange(toOverride, firstOverride) {
   const to = toOverride ?? lastDay();
@@ -642,7 +660,7 @@ async function collectDaily(dates) {
 async function renderUtforskaAcu(metric) {
   const M = METRICS[metric];
   const acuMan = await getArchive("/data/acurite/manifest.json");
-  const { from, to } = utfRange(acuAvailableTo(acuMan), "2018-12-05");
+  const { from, to } = utfRange(acuAvailableTo(acuMan), await acuFirstDate());
   const dates = listDates(from, to);
   const hourly = metric !== "solighet" && dates.length <= 14;
   document.getElementById("utf-title").textContent = M.label;
@@ -650,7 +668,7 @@ async function renderUtforskaAcu(metric) {
   const legend = document.getElementById("utf-legend");
   legend.innerHTML = "";
   const xLabels = rangeXLabels(dates, hourly);
-  const period = `${dateLabel(from)} – ${dateLabel(to)} ${to.slice(0, 4)}`;
+  const period = periodLabel(from, to);
   const sub = document.getElementById("utf-sub");
 
   if (hourly) {
@@ -757,7 +775,7 @@ async function renderUtforska() {
 
   const summarize = (min, max, avg, sum) => {
     document.getElementById("utf-sub").innerHTML =
-      `${dateLabel(from)} – ${dateLabel(to)} ${to.slice(0, 4)}` +
+      periodLabel(from, to) +
       (sum != null ? " " + tr("hist.utf.partTotal", { value: `${fmt(sum)} ${M.unit}` }) : "") +
       (min != null ? " " + tr("hist.utf.partMin", { value: fmt(min) }) : "") +
       (max != null ? " " + tr("hist.utf.partMax", { value: fmt(max) }) : "") +
@@ -1062,13 +1080,17 @@ async function yearsWithMonth(mm) {
   return out;
 }
 
+// Så många år som det finns egna färger till — alla år i arkivet ska kunna
+// visas samtidigt, annars ser de bortvalda ut som om de saknade data
+const MANAD_MAX = YEAR_COLORS.length;
+
 async function renderManadChips() {
   const mm = document.getElementById("manad-manad").value;
   const avail = await yearsWithMonth(mm);
-  // Behåll giltiga val; fyll upp till 5 med senaste åren
+  // Behåll giltiga val och fyll på med de senaste åren upp till taket
   manadState.selected = new Set([...manadState.selected].filter(y => avail.includes(y)));
   for (const y of [...avail].reverse()) {
-    if (manadState.selected.size >= 5) break;
+    if (manadState.selected.size >= MANAD_MAX) break;
     manadState.selected.add(y);
   }
   const box = document.getElementById("manad-ar");
@@ -1083,7 +1105,7 @@ async function renderManadChips() {
     }
     btn.addEventListener("click", () => {
       if (manadState.selected.has(y)) manadState.selected.delete(y);
-      else if (manadState.selected.size < 5) manadState.selected.add(y);
+      else if (manadState.selected.size < MANAD_MAX) manadState.selected.add(y);
       renderManadChips().then(renderManad);
     });
     box.append(btn);
@@ -1205,7 +1227,14 @@ async function renderAret() {
   const vals = cells.map(c => c.v).filter(v => v != null);
   const box = document.getElementById("aret-heatmap");
   if (!vals.length) {
-    box.innerHTML = `<div class="chart-empty">${tr("hist.empty.year")}</div>`;
+    // Ljus, blixtar och solighet kommer ur stationens egna sensorer, och de
+    // finns bara från den dag AcuRite-arkivet börjar — säg det i klartext i
+    // stället för att lova att arkivet fylls på
+    const sensorMetric = metric === "blixt" || metric === "lux" || metric === "solighet";
+    const acuFirst = await acuFirstDate();
+    box.innerHTML = `<div class="chart-empty">${sensorMetric && year < acuFirst.slice(0, 4)
+      ? tr("hist.empty.sensorYear", { date: acuFirst })
+      : tr("hist.empty.year")}</div>`;
     document.getElementById("aret-sub").textContent = "";
     document.getElementById("aret-legend").innerHTML = "";
     return;
