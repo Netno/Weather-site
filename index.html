@@ -715,7 +715,7 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
 
 <script src="/assets/i18n.js?v=1"></script>
 <script src="/assets/i18n-live.js?v=1"></script>
-<script src="/assets/charts.js?v=4"></script>
+<script src="/assets/charts.js?v=5"></script>
 <script>
 "use strict";
 /* =============================================================================
@@ -988,6 +988,9 @@ function renderCharts() {
   for (const c of charts) {
     const wrap = document.getElementById(c.wrapId);
     wrap.innerHTML = "";
+    // Dygnsvyn ritar sina SVG:er själv (utan mountChart) — släpp därför en
+    // registrering som ett längre intervall lämnat kvar för samma diagram
+    if (window.chartDetailAuto) delete window.chartDetailAuto[c.wrapId];
     if (!wrap.clientWidth) continue;
     const W = wrap.clientWidth;
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
@@ -1034,25 +1037,33 @@ async function loadTodayFine() {
 }
 const hourlyPts = (get) => (state.today || []).map(p => ({ x: p.h, v: get(p) })).filter(p => p.v != null && !Number.isNaN(p.v));
 const acuPts = (key) => (state.acuriteToday || []).filter(p => p[key] != null).map(p => ({ x: p.h, v: p[key] }));
+/* Dessa konfigurationer gäller bara dygnsvyn — de bygger på dagens 5-minuters-
+   data och spänner 0–24 h. Är ett längre intervall valt returnerar de null, så
+   förstoringen i stället använder diagrammets egen registrering (som täcker hela
+   det valda intervallet). Utan det visade zoomen alltid ett dygn. */
+const todayDetailOnly = () => state.range === "idag";
 window.chartDetail = {
   "chart-temp": async () => {
+    if (!todayDetailOnly()) return null;
     const f = await loadTodayFine();
     const pts = (f && f.temp.length) ? f.temp : hourlyPts(p => p.temp);
     return { title: tr("live.temperature"), series: [{ color: css("--temp"), pts }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 1), unit: "°C" };
   },
   "chart-wind": async () => {
+    if (!todayDetailOnly()) return null;
     const f = await loadTodayFine();
     const avg = (f && f.wind.length) ? f.wind : hourlyPts(p => ms(p.wind));
     const gst = (f && f.gust.length) ? f.gust : hourlyPts(p => ms(p.gust));
     return { title: tr("live.wind"), series: [{ color: css("--wind"), label: tr("live.meanWind"), pts: avg }, { color: css("--wind"), dash: true, label: tr("live.gusts"), pts: gst }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 1), unit: "m/s", yLo: 0 };
   },
   "chart-pressure": async () => {
+    if (!todayDetailOnly()) return null;
     const f = await loadTodayFine();
     const pts = (f && f.press.length) ? f.press : hourlyPts(p => seaLevel(p.pressure, p.temp));
     return { title: tr("live.pressure"), series: [{ color: css("--ink-2"), pts }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 0), unit: "hPa", padL: 58 };
   },
-  "chart-lux": () => ({ title: tr("live.lightLevel"), series: [{ color: LUX_COLOR, pts: acuPts("lux") }], xMin: 0, xMax: 24, yFmt: v => luxFmt(v), unit: "lux", padL: 54, yLo: 0 }),
-  "chart-uv": () => ({ title: tr("live.uvIndex"), series: [{ color: UV_COLOR, pts: acuPts("uv") }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 0), unit: "", yLo: 0 }),
+  "chart-lux": () => (!todayDetailOnly() ? null : { title: tr("live.lightLevel"), series: [{ color: LUX_COLOR, pts: acuPts("lux") }], xMin: 0, xMax: 24, yFmt: v => luxFmt(v), unit: "lux", padL: 54, yLo: 0 }),
+  "chart-uv": () => (!todayDetailOnly() ? null : { title: tr("live.uvIndex"), series: [{ color: UV_COLOR, pts: acuPts("uv") }], xMin: 0, xMax: 24, yFmt: v => fmt(v, 0), unit: "", yLo: 0 }),
 };
 
 /* Temperatur idag */

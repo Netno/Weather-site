@@ -431,14 +431,19 @@ function refreshZoomButtons() {
       btn.addEventListener("click", () => {
         const wrap = card.querySelector(".chart-wrap");
         const title = card.querySelector("h2")?.textContent || "Diagram";
-        const cfgFn = wrap && ((window.chartDetail && window.chartDetail[wrap.id])
-          || (window.chartDetailAuto && window.chartDetailAuto[wrap.id]));
-        if (cfgFn) {                                   // interaktiv detaljvy (riktig datazoom)
-          Promise.resolve(cfgFn(title)).then(cfg => { if (cfg && cfg.series?.some(s => s.pts.length)) openDetail(cfg); else { const svg = card.querySelector(".chart-wrap svg"); if (svg) openZoom(svg, title); } });
-          return;
-        }
-        const svg = card.querySelector(".chart-wrap svg");
-        if (svg) openZoom(svg, title);                 // reserv: förstora bilden
+        // Sidans egen konfiguration först (finare data), sedan diagrammets egen
+        // registrering, och som sista utväg en förstorad bild. Ger en sidkonfig
+        // inget användbart — t.ex. dygnsvyn när ett längre intervall är valt —
+        // faller vi vidare i stället för att hoppa direkt till bilden.
+        (async () => {
+          const cfgFns = [window.chartDetail?.[wrap?.id], window.chartDetailAuto?.[wrap?.id]].filter(Boolean);
+          for (const fn of cfgFns) {
+            const cfg = await Promise.resolve(fn(title)).catch(() => null);
+            if (cfg && cfg.series?.some(s => s.pts.length)) { openDetail(cfg); return; }
+          }
+          const svg = card.querySelector(".chart-wrap svg");
+          if (svg) openZoom(svg, title);
+        })();
       });
       card.appendChild(btn);
     } else if (!hasSvg && btn) {
