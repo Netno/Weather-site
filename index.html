@@ -715,7 +715,7 @@ if(/BramhultApp/.test(navigator.userAgent))document.documentElement.classList.ad
 
 <script src="/assets/i18n.js?v=1"></script>
 <script src="/assets/i18n-live.js?v=1"></script>
-<script src="/assets/charts.js?v=5"></script>
+<script src="/assets/charts.js?v=6"></script>
 <script>
 "use strict";
 /* =============================================================================
@@ -750,7 +750,8 @@ function hourlySeries(buckets) {
     const cum = Math.max(prevCum, ...nums(o => o.metric.precipTotal));
     out.push({
       h,
-      temp: inBounds(avg(nums(o => o.metric.tempAvg ?? o.metric.temp)), "temp"),
+      // säsongsgränser — annars slår givarens −40 igenom mitt i sommaren
+      temp: tempOk(avg(nums(o => o.metric.tempAvg ?? o.metric.temp)), parseInt(os[0].obsTimeLocal.slice(5, 7), 10)),
       rain: inBounds(Math.max(0, cum - prevCum), "rainHour") ?? 0,
       wind: inBounds(avg(nums(o => o.metric.windspeedAvg ?? o.metric.windSpeed)), "windKph"),
       gust: inBounds(Math.max(0, ...nums(o => o.metric.windgustHigh ?? o.metric.windGust)), "windKph"),
@@ -1498,7 +1499,7 @@ async function buildPressureSeries() {
     for (const o of monthData[d.month][d.iso]) {
       const hFrac = parseInt(o.obsTimeLocal.slice(11, 13), 10) + parseInt(o.obsTimeLocal.slice(14, 16), 10) / 60;
       const p = inBounds(o.metric.pressureMax != null ? (o.metric.pressureMax + o.metric.pressureMin) / 2 : o.metric.pressure, "pressureRaw");
-      const v = p != null ? seaLevel(p, inBounds(o.metric.tempAvg ?? o.metric.temp, "temp")) : null;
+      const v = p != null ? seaLevel(p, tempOk(o.metric.tempAvg ?? o.metric.temp, parseInt(o.obsTimeLocal.slice(5, 7), 10))) : null;
       if (v != null) pts.push({ x: dayOffset * 24 + hFrac, v, t: `${d.name} ${o.obsTimeLocal.slice(11, 16)}` });
     }
     labels.push({ label: d.name, x: dayOffset * 24 + 12 });
@@ -1710,7 +1711,7 @@ async function fetchAcurite() {
     state.acurite = a.atlas;
     state.acuriteToday = (a.todaySeries ?? []).map(p => ({
       h: p.h, lux: inBounds(p.lux, "lux"), uv: inBounds(p.uv, "uv"), sec: inBounds(p.sec, "sec"),
-      temp: inBounds(p.temp, "temp"), wind: inBounds(p.wind, "windKph"),
+      temp: tempOk(p.temp, parseInt(todayIso().slice(5, 7), 10)), wind: inBounds(p.wind, "windKph"),
       winddir: p.winddir, pressureSL: inBounds(p.pressureSL, "pressureRaw"), rainCum: p.rainCum,
     }));
     return a;

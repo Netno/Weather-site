@@ -7,7 +7,10 @@
 /* ===== Konstanter & format ================================================= */
 const ELEV = 209.1; // stationens höjd enligt API:et — för havsnivåomräkning
 const ms = kmh => kmh / 3.6;
-const fmt = (n, d = 1) => n.toLocaleString(I18N.locale, { minimumFractionDigits: d, maximumFractionDigits: d });
+// Tål saknade värden: en utrensad glitch ska ge tankstreck, inte krascha vyn
+const fmt = (n, d = 1) => (typeof n === "number" && Number.isFinite(n)
+  ? n.toLocaleString(I18N.locale, { minimumFractionDigits: d, maximumFractionDigits: d })
+  : "–");
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const hh = h => ("0" + h).slice(-2);
 // Namnlistorna fylls ur ordlistan och byts på plats vid språkbyte, så att all
@@ -114,9 +117,11 @@ const inBounds = (v, key) => {
 /* Säsongsvisa temperaturgränser [min,max] °C per månad för Brämhult. Givaren
    glappar till −40 och spikar ibland högt (t.ex. 42 °C, eller 35 °C mitt i
    januari) — sådant är fysiskt omöjligt för säsongen och rensas här. Marginal
-   på några grader över kända lokalrekord så äkta extremvärden får vara kvar. */
+   på några grader över kända lokalrekord så äkta extremvärden får vara kvar:
+   februari når 17 eftersom värmerekordet 2019-02-26 (16,0 °C, jämn dygnskurva)
+   är äkta — svenska februarirekordet ligger på ~16,7 °C. */
 const TEMP_MONTH = [
-  [-30, 13], [-30, 14], [-25, 20], [-15, 26], [-8, 30], [-2, 34],
+  [-30, 13], [-30, 17], [-25, 20], [-15, 26], [-8, 30], [-2, 34],
   [0, 36], [0, 35], [-5, 31], [-12, 25], [-20, 17], [-28, 14],
 ];
 function tempOk(v, month) {
@@ -191,7 +196,9 @@ function daySeries(buckets) {
   return buckets.map(o => {
     const h = parseInt(o.obsTimeLocal.slice(11, 13), 10);
     const cum = Math.max(prevCum, inBounds(o.metric.precipTotal, "rainDay") ?? prevCum);
-    const temp = inBounds(o.metric.tempAvg ?? o.metric.temp, "temp");
+    // Säsongsgränser, inte bara de vida — givaren glappar till −40 mitt i
+    // sommaren, och en sådan timme drog hela dygnskurvan ned i botten
+    const temp = tempOk(o.metric.tempAvg ?? o.metric.temp, parseInt(o.obsTimeLocal.slice(5, 7), 10));
     const pMax = inBounds(o.metric.pressureMax, "pressureRaw");
     const pMin = inBounds(o.metric.pressureMin, "pressureRaw");
     const p = {
@@ -286,10 +293,12 @@ async function collectAcuriteDaily(dates) {
 const stockholmHourFmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm", hour: "2-digit", hour12: false });
 function acuriteDayPts(day) {
   const byH = new Map();
+  let month = null;   // för säsongsfiltret nedan
   const put = (ch, key, unit) => {
     for (const p of day?.[ch] ?? []) {
       const v = p.raw_values?.[unit];
       if (v == null || !p.happened_at) continue;
+      if (month == null) month = new Date(p.happened_at).getUTCMonth() + 1;
       const h = parseInt(stockholmHourFmt.format(new Date(p.happened_at)), 10);
       if (!byH.has(h)) byH.set(h, { h });
       byH.get(h)[key] = v;
@@ -312,7 +321,7 @@ function acuriteDayPts(day) {
       uv: inBounds(p.uv, "uv"),
       sec: inBounds(p.sec, "sec"),
       strikes: typeof p.strikes === "number" && p.strikes >= 0 && p.strikes < 250 ? p.strikes : null,
-      temp: inBounds(p.temp, "temp"),
+      temp: tempOk(p.temp, month),
       wind: inBounds(p.wind, "windKph"),
       gust: inBounds(p.wind, "windKph"), // ingen separat by i timfilen
       // AcuRite ger havsnivåtryck → till stationstryck så seaLevel() ger tillbaka rätt

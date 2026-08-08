@@ -432,7 +432,7 @@
 
 <script src="/assets/i18n.js?v=1"></script>
 <script src="/assets/i18n-hist.js?v=1"></script>
-<script src="/assets/charts.js?v=5"></script>
+<script src="/assets/charts.js?v=6"></script>
 <script>
 "use strict";
 /* =============================================================================
@@ -875,6 +875,16 @@ async function renderDag() {
   if (!dayObs && date === todayIso()) {
     const live = await todayLive();
     if (live) { dayObs = live.daily; series = live.hours; }
+  }
+
+  // Dygnsposten kan vara helt utrensad (givaren glappade till −40/42 °C) medan
+  // timserien är hel — räkna då dygnets max/min ur timmarna i stället för att
+  // visa tomt för en dag som faktiskt har mätvärden
+  if (dayObs?.metric && series.length && (dayObs.metric.tempHigh == null || dayObs.metric.tempLow == null)) {
+    const temps = series.map(p => p.temp);
+    dayObs = { ...dayObs, metric: { ...dayObs.metric,
+      tempHigh: dayObs.metric.tempHigh ?? Math.max(...temps),
+      tempLow: dayObs.metric.tempLow ?? Math.min(...temps) } };
   }
 
   const sum = document.getElementById("dag-summering");
