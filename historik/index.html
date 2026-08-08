@@ -437,7 +437,7 @@
 
 <script src="/assets/i18n.js?v=1"></script>
 <script src="/assets/i18n-hist.js?v=1"></script>
-<script src="/assets/charts.js?v=6"></script>
+<script src="/assets/charts.js?v=7"></script>
 <script>
 "use strict";
 /* =============================================================================
@@ -547,6 +547,29 @@ function acuFirstDate() {
   return acuFirstPromise;
 }
 
+/* Ett nyss avslutat dygn finns inte i arkivet förrän nattjobbet kört (~02:30).
+   WU:s timhistorik täcker de tre senaste dygnen och har samma format som
+   arkivets timfiler, så daySeries() kan läsa svaret rakt av. */
+const recentDayCache = new Map();
+function recentDayHours(date) {
+  if (!recentDayCache.has(date)) {
+    recentDayCache.set(date, fetchJSON(`/api/wu?e=hourly&d=${date}`)
+      .then(d => { const s = daySeries(d.observations ?? []); return s.length ? s : null; })
+      .catch(() => null));
+  }
+  return recentDayCache.get(date);
+}
+
+/* Timserien för ett dygn som arkivet ännu inte hunnit skriva: dagens dygn ur
+   live-serien, gårdagens (och dygnet innan) ur timhistoriken. Övriga dygn
+   ligger i arkivet och ska inte hämtas härifrån. */
+async function unarchivedHours(date) {
+  const today = todayIso();
+  if (date === today) return (await todayLive())?.hours ?? null;
+  if (date <= manifest.lastFetched || date > today || date < addDaysIso(today, -3)) return null;
+  return recentDayHours(date);
+}
+
 let acuLivePromise = null;
 function acuLive() {
   if (acuLivePromise) return acuLivePromise;
@@ -625,23 +648,24 @@ function utfRange(toOverride, firstOverride) {
 
 // Arkivet saknar dagens dygn tills i natt — hämta det live så att perioder som
 // sträcker sig fram till idag blir kompletta
-async function liveHoursFor(dates) {
+// Dygn i perioden som arkivet ännu inte skrivit → hämta dem live (som mest de
+// två-tre senaste dygnen; resten ligger i arkivet)
+async function unarchivedInRange(dates) {
   const today = todayIso();
-  if (!dates.includes(today)) return null;
-  const live = await todayLive();
-  return live ? live.hours : null;
+  const missing = dates.filter(d => d > manifest.lastFetched && d <= today);
+  const pairs = await Promise.all(missing.map(async d => [d, await unarchivedHours(d)]));
+  return Object.fromEntries(pairs.filter(([, h]) => h));
 }
 
 async function collectHourly(dates) {
   const months = [...new Set(dates.map(d => d.slice(0, 7)))];
-  const [data, liveHours] = await Promise.all([
+  const [data, live] = await Promise.all([
     Promise.all(months.map(async m => [m, await hourlyMonth(m)])).then(Object.fromEntries),
-    liveHoursFor(dates),
+    unarchivedInRange(dates),
   ]);
-  const today = todayIso();
   const pts = [];
   dates.forEach((date, di) => {
-    const hours = date === today && liveHours ? liveHours : daySeries(data[date.slice(0, 7)][date]);
+    const hours = live[date] ?? daySeries(data[date.slice(0, 7)][date]);
     for (const p of hours) pts.push({ ...p, x: di * 24 + p.h, date });
   });
   return pts;
@@ -651,12 +675,11 @@ async function collectDaily(dates) {
   const yearsSet = [...new Set(dates.map(d => d.slice(0, 4)))];
   const [data, live] = await Promise.all([
     Promise.all(yearsSet.map(async y => [y, await dailyYear(y)])).then(Object.fromEntries),
-    dates.includes(todayIso()) ? todayLive() : null,
+    unarchivedInRange(dates),
   ]);
-  const today = todayIso();
   return dates.map((date, di) => ({
     x: di, date,
-    obs: (date === today && live ? live.daily : data[date.slice(0, 4)][date]) ?? null,
+    obs: (live[date] ? dailyFromHours(live[date]) : data[date.slice(0, 4)][date]) ?? null,
   }));
 }
 
@@ -903,10 +926,11 @@ async function renderDag() {
   ]);
   let series = daySeries(monthData[date]);
 
-  // Dagens dygn arkiveras först i natt — visa det live så länge
-  if (!dayObs && date === todayIso()) {
-    const live = await todayLive();
-    if (live) { dayObs = live.daily; series = live.hours; }
+  // Dygnet arkiveras först i natt — hämta det live så länge (gäller både dagens
+  // och gårdagens dygn: mellan midnatt och nattjobbet finns inget av dem)
+  if (!series.length) {
+    const hours = await unarchivedHours(date);
+    if (hours) series = hours;
   }
 
   // Timserien kan finnas fast dygnsposten saknas (arkivet halvskrivet) eller är
@@ -1057,19 +1081,24 @@ async function renderArsdag() {
     hi: p.daily.metric.tempHigh, lo: p.daily.metric.tempLow, rain: p.daily.metric.precipTotal,
   }));
 
-  // Arkivet slutar vid igår. Visas dagens datum saknas alltså innevarande år —
-  // hämta det live i stället så att jämförelsen når ända fram till nu.
+  // Arkivet slutar vid det senast arkiverade dygnet. Är det valda datumet
+  // nyare för innevarande år saknas årets kurva — hämta dygnet live i stället
+  // (gäller både idag och gårdagen, som inte arkiveras förrän i natt).
   const today = todayIso();
+  const thisYearDate = `${today.slice(0, 4)}-${mm}-${dd}`;
   let todayPending = false;
-  if (`${today.slice(0, 4)}-${mm}-${dd}` === today && !entries.some(e => e.date === today)) {
-    const live = await todayLive();
-    if (live) {
-      const m = live.daily.metric;
-      entries.push({ year: today.slice(0, 4), date: today, hours: live.hours,
-        name: tr("hist.arsdag.todayLabel", { year: today.slice(0, 4) }),
+  if (thisYearDate <= today && !entries.some(e => e.date === thisYearDate)) {
+    const hours = await unarchivedHours(thisYearDate);
+    const daily = hours ? dailyFromHours(hours) : null;
+    if (daily) {
+      const m = daily.metric;
+      entries.push({ year: thisYearDate.slice(0, 4), date: thisYearDate, hours,
+        name: thisYearDate === today
+          ? tr("hist.arsdag.todayLabel", { year: today.slice(0, 4) })
+          : thisYearDate.slice(0, 4),
         hi: m.tempHigh, lo: m.tempLow, rain: m.precipTotal });
-    } else {
-      todayPending = true;   // live-API:et svarade inte — förklara luckan
+    } else if (thisYearDate > manifest.lastFetched) {
+      todayPending = true;   // varken arkiverat eller åtkomligt live — förklara luckan
     }
   }
   document.getElementById("arsdag-sub").innerHTML = tr("hist.arsdag.sub", { date: label })
