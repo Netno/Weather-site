@@ -129,7 +129,11 @@ I18N.register({
 
     /* ===== Vy: Året (värmekarta) ========================================== */
     "hist.aret.optTemp": "Dygnsmedeltemp",
+    "hist.aret.optTempMax": "Dygnsmax",
+    "hist.aret.optTempMin": "Dygnsmin",
     "hist.hm.temp": "Dygnsmedeltemperatur",
+    "hist.hm.tempMax": "Dygnets högsta temperatur",
+    "hist.hm.tempMin": "Dygnets lägsta temperatur",
     "hist.hm.lux": "Ljusintensitet (dygnsmax)",
     "hist.aret.sub": "<b>{n}</b> dagar med data · min <b>{min}</b> · max <b>{max}</b>",
     "hist.aret.cellNoData": "{date}: ingen data",
@@ -292,7 +296,11 @@ I18N.register({
 
     /* ===== View: The year (heatmap) ======================================= */
     "hist.aret.optTemp": "Daily mean temp",
+    "hist.aret.optTempMin": "Daily minimum",
+    "hist.aret.optTempMax": "Daily maximum",
     "hist.hm.temp": "Daily mean temperature",
+    "hist.hm.tempMin": "Daily minimum temperature",
+    "hist.hm.tempMax": "Daily maximum temperature",
     "hist.hm.lux": "Light intensity (daily max)",
     "hist.aret.sub": "<b>{n}</b> days with data · min <b>{min}</b> · max <b>{max}</b>",
     "hist.aret.cellNoData": "{date}: no data",

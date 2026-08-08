@@ -374,6 +374,8 @@
       <select id="aret-ar"></select>
       <select id="aret-matvarde">
         <option value="temp" data-i18n="hist.aret.optTemp">Dygnsmedeltemp</option>
+        <option value="tempMax" data-i18n="hist.aret.optTempMax">Dygnsmax</option>
+        <option value="tempMin" data-i18n="hist.aret.optTempMin">Dygnsmin</option>
         <option value="regn" data-i18n="hist.metric.rain">Nederbörd</option>
         <option value="blixt" data-i18n="hist.metric.blixt">Blixtar</option>
         <option value="lux" data-i18n="hist.metric.lux">Ljusintensitet</option>
@@ -436,7 +438,7 @@
 </div>
 
 <script src="/assets/i18n.js?v=1"></script>
-<script src="/assets/i18n-hist.js?v=1"></script>
+<script src="/assets/i18n-hist.js?v=2"></script>
 <script src="/assets/charts.js?v=7"></script>
 <script>
 "use strict";
@@ -1277,6 +1279,8 @@ async function renderManad() {
    myAcuRite-aggregatet. */
 const HM_METRICS = {
   temp: { get label() { return tr("hist.hm.temp"); }, unit: "°C", fmt: v => fmt(v, 1) + "°" },
+  tempMax: { get label() { return tr("hist.hm.tempMax"); }, unit: "°C", fmt: v => fmt(v, 1) + "°" },
+  tempMin: { get label() { return tr("hist.hm.tempMin"); }, unit: "°C", fmt: v => fmt(v, 1) + "°" },
   regn: { get label() { return tr("hist.metric.rain"); }, unit: "mm", fmt: v => fmt(v, 1) + " mm" },
   blixt: { get label() { return tr("hist.metric.blixt"); }, get unit() { return tr("hist.unit.strikes"); },
     fmt: v => Math.round(v) + " " + tr("hist.unit.strikes") },
@@ -1297,6 +1301,8 @@ async function renderAret() {
     const a = acu[date];
     switch (metric) {
       case "temp": return w?.tempAvg ?? a?.tAvg ?? null;
+      case "tempMax": return w?.tempHigh ?? a?.tMax ?? null;
+      case "tempMin": return w?.tempLow ?? a?.tMin ?? null;
       case "regn": return w?.precipTotal ?? null;
       case "blixt": return a ? a.strikes : null;
       case "lux": return a?.luxMax ?? null;
