@@ -421,6 +421,11 @@
         <div class="readings" id="rk-wu"></div>
       </div>
       <div class="card span2 chart-card">
+        <h2 data-i18n="hist.rk.yearTitle">Varmast och kallast per år</h2>
+        <p class="subtitle" data-i18n="hist.rk.yearSub">Årets högsta och lägsta uppmätta temperatur</p>
+        <div style="overflow-x:auto"><table class="stats" id="rk-year"></table></div>
+      </div>
+      <div class="card span2 chart-card">
         <h2 data-i18n="hist.rk.acuTitle">Ljus & blixtar</h2>
         <p class="subtitle" id="rk-acu-note"></p>
         <div class="readings" id="rk-acu"></div>
@@ -440,7 +445,7 @@
 </div>
 
 <script src="/assets/i18n.js?v=1"></script>
-<script src="/assets/i18n-hist.js?v=3"></script>
+<script src="/assets/i18n-hist.js?v=4"></script>
 <script src="/assets/charts.js?v=8"></script>
 <script>
 "use strict";
@@ -1533,6 +1538,29 @@ async function renderRekord() {
   document.getElementById("rk-acu-note").textContent = acuFirst
     ? tr("hist.rk.acuNote", { date: rkDate(acuFirst) })
     : "";
+
+  // Varmast och kallast per år: samma extremvärden som korten ovan, men ett
+  // per år och ur båda källorna (WU bakåt, AcuRite för de senaste åren)
+  const yearExtremes = new Map();
+  const bumpYear = (date, hi, lo) => {
+    const y = date.slice(0, 4);
+    if (!yearExtremes.has(y)) yearExtremes.set(y, { y, hot: null, cold: null, days: new Set() });
+    const r = yearExtremes.get(y);
+    if (hi != null || lo != null) r.days.add(date);
+    if (hi != null && (r.hot == null || hi > r.hot.v)) r.hot = { v: hi, date };
+    if (lo != null && (r.cold == null || lo < r.cold.v)) r.cold = { v: lo, date };
+  };
+  for (const e of entries) bumpYear(e.date, e.m.tempHigh, e.m.tempLow);
+  for (const a of acu) bumpYear(a.date, a.tMax, a.tMin);
+  const yearRows = [...yearExtremes.values()].filter(r => r.hot || r.cold).sort((a, b) => a.y < b.y ? -1 : 1);
+  const cell = x => (x
+    ? `${fmt(x.v)}°<span class="statday">${dateLabel(x.date)}</span>`
+    : "–");
+  document.getElementById("rk-year").innerHTML = `
+    <thead><tr><th>${tr("hist.label.year")}</th><th>${tr("hist.manad.thWarmest")}</th>
+      <th>${tr("hist.manad.thColdest")}</th><th>${tr("hist.manad.thDays")}</th></tr></thead>
+    <tbody>${yearRows.map(r => `
+      <tr><td>${r.y}</td><td>${cell(r.hot)}</td><td>${cell(r.cold)}</td><td>${r.days.size}</td></tr>`).join("")}</tbody>`;
 
   // Frost & växtsäsong: minsta dygnstemp ur båda källorna
   const minByDate = new Map();

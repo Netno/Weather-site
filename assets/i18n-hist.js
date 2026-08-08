@@ -153,6 +153,8 @@ I18N.register({
     /* ===== Vy: Rekord ===================================================== */
     "hist.rk.wuTitle": "Temperatur, nederbörd & vind",
     "hist.rk.acuTitle": "Ljus & blixtar",
+    "hist.rk.yearTitle": "Varmast och kallast per år",
+    "hist.rk.yearSub": "Årets högsta och lägsta uppmätta temperatur",
     "hist.rk.frostTitle": "Frost & växtsäsong",
     "hist.rk.frostSub": "Sista vårfrost, första höstfrost och frostfria dagar däremellan",
     "hist.rk.hottestDay": "Varmaste dygn",
@@ -321,6 +323,8 @@ I18N.register({
     /* ===== View: Records ================================================== */
     "hist.rk.wuTitle": "Temperature, precipitation & wind",
     "hist.rk.acuTitle": "Light & lightning",
+    "hist.rk.yearTitle": "Warmest and coldest day by year",
+    "hist.rk.yearSub": "The highest and lowest temperature measured each year",
     "hist.rk.frostTitle": "Frost & growing season",
     "hist.rk.frostSub": "Last spring frost, first autumn frost and the frost-free days in between",
     "hist.rk.hottestDay": "Hottest day",
