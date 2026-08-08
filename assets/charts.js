@@ -769,6 +769,9 @@ function mountChart(wrapId, draw) {
 /* Flerseriediagram med krysshårstooltip.
    series: [{label, color, dash?, pts: [{x, v, t?}]}] */
 function multiLine(wrapId, series, opts) {
+  // Punkter utan värde måste bort: null räknas som 0 i skalberäkningen och
+  // kurvan dyker till botten för dygn där mätvärdet rensats bort som glitch
+  series = series.map(s => ({ ...s, pts: s.pts.filter(p => p.v != null && Number.isFinite(p.v)) }));
   mountChart(wrapId, (svg, tip, W) => {
     const all = series.flatMap(s => s.pts.map(p => p.v));
     if (!all.length) return false;
@@ -859,6 +862,7 @@ function multiLine(wrapId, series, opts) {
 
 /* Staplar (nederbörd). bars: [{x, v, t}], slots = antal staplar som får plats */
 function barsChart(wrapId, bars, slots, opts) {
+  bars = bars.filter(b => b.v != null && Number.isFinite(b.v));
   mountChart(wrapId, (svg, tip, W) => {
     if (!bars.length) return false;
     const hi = Math.max(opts.minY ?? 2, Math.ceil(Math.max(...bars.map(b => b.v)) * 1.15));
@@ -886,6 +890,8 @@ function barsChart(wrapId, bars, slots, opts) {
 /* Max–min-band med medellinje (temperatur i dygnsupplösning).
    pts: [{x, lo, hi, avg, t}] */
 function bandChart(wrapId, pts, color, opts) {
+  // Bandet behöver alla tre värdena; saknas något är dygnet en lucka
+  pts = pts.filter(p => p.lo != null && p.hi != null && p.avg != null);
   mountChart(wrapId, (svg, tip, W) => {
     if (pts.length < 2) return false;
     // Bandet blir tre linjer i förstoringen — max/min streckade kring medellinjen

@@ -439,7 +439,7 @@
 
 <script src="/assets/i18n.js?v=1"></script>
 <script src="/assets/i18n-hist.js?v=2"></script>
-<script src="/assets/charts.js?v=7"></script>
+<script src="/assets/charts.js?v=8"></script>
 <script>
 "use strict";
 /* =============================================================================
@@ -1246,16 +1246,19 @@ async function renderManad() {
     const withObs = p.days.filter(d => d.obs);
     if (!withObs.length) return null;
     const obs = withObs.map(d => d.obs.metric);
-    const avg = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
-    let hotDay = withObs[0], coldDay = withObs[0];
-    for (const d of withObs) {
-      if (d.obs.metric.tempHigh > hotDay.obs.metric.tempHigh) hotDay = d;
-      if (d.obs.metric.tempLow < coldDay.obs.metric.tempLow) coldDay = d;
-    }
+    // Dygn vars temperatur rensats bort som glitch räknas som luckor: de ska
+    // varken dra ned snitten eller vinna som varmast/kallast med tomt värde
+    const nums = get => obs.map(get).filter(v => v != null);
+    const avg = xs => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+    const pickDay = (get, better) => withObs
+      .filter(d => get(d.obs.metric) != null)
+      .reduce((b, d) => (b == null || better(get(d.obs.metric), get(b.obs.metric)) ? d : b), null);
+    const hotDay = pickDay(m => m.tempHigh, (a, b) => a > b);
+    const coldDay = pickDay(m => m.tempLow, (a, b) => a < b);
     return { year: p.year, color: p.color, n: obs.length,
-      avgHigh: avg(obs.map(o => o.tempHigh)), avgLow: avg(obs.map(o => o.tempLow)),
-      maxHigh: hotDay.obs.metric.tempHigh, maxHighDay: hotDay.day,
-      minLow: coldDay.obs.metric.tempLow, minLowDay: coldDay.day,
+      avgHigh: avg(nums(o => o.tempHigh)), avgLow: avg(nums(o => o.tempLow)),
+      maxHigh: hotDay?.obs.metric.tempHigh ?? null, maxHighDay: hotDay?.day ?? null,
+      minLow: coldDay?.obs.metric.tempLow ?? null, minLowDay: coldDay?.day ?? null,
       rain: obs.reduce((a, o) => a + (o.precipTotal ?? 0), 0),
       rainDays: obs.filter(o => (o.precipTotal ?? 0) >= 0.1).length };
   }).filter(Boolean);
@@ -1267,8 +1270,10 @@ async function renderManad() {
       <tr>
         <td><span class="yr"><span class="swatch" style="background:${r.color}"></span>${r.year}</span></td>
         <td>${fmt(r.avgHigh)}°</td><td>${fmt(r.avgLow)}°</td>
-        <td>${fmt(r.maxHigh)}°<span class="statday">${tr("hist.dayMonth", { day: r.maxHighDay, month: monthName })}</span></td>
-        <td>${fmt(r.minLow)}°<span class="statday">${tr("hist.dayMonth", { day: r.minLowDay, month: monthName })}</span></td>
+        <td>${fmt(r.maxHigh)}°<span class="statday">${r.maxHighDay != null
+          ? tr("hist.dayMonth", { day: r.maxHighDay, month: monthName }) : ""}</span></td>
+        <td>${fmt(r.minLow)}°<span class="statday">${r.minLowDay != null
+          ? tr("hist.dayMonth", { day: r.minLowDay, month: monthName }) : ""}</span></td>
         <td>${fmt(r.rain)} mm</td><td>${r.rainDays}</td><td>${r.n}</td>
       </tr>`).join("")}</tbody>`;
 }
