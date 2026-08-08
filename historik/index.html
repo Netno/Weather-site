@@ -124,6 +124,11 @@
   .tabs button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
   .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  /* Dagnamnet är precis så långt att det ibland ryms på kontrollraden och
+     ibland inte — då hoppar layouten mellan två dygn. På mobil får det därför
+     alltid en egen rad under knapparna. */
+  #dag-namn { font-size: 13px; color: var(--ink-3); }
+  @media (max-width: 760px) { #dag-namn { flex-basis: 100%; } }
   .controls label { font-size: 13px; color: var(--ink-3); }
   .controls input[type="date"], .controls select {
     font: inherit; font-size: 14px; color: var(--ink);
@@ -287,7 +292,7 @@
       <button class="step" id="dag-prev" aria-label="Föregående dag" data-i18n-attr="aria-label:hist.dag.prevAria">←</button>
       <input type="date" id="dag-datum">
       <button class="step" id="dag-next" aria-label="Nästa dag" data-i18n-attr="aria-label:hist.dag.nextAria">→</button>
-      <span id="dag-namn" style="font-size:13px;color:var(--ink-3)"></span>
+      <span id="dag-namn"></span>
     </div>
     <div class="grid">
       <div class="card span2"><div class="readings" id="dag-summering"></div></div>
