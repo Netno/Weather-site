@@ -7,7 +7,7 @@
  *  - Övrigt statiskt (js/ikoner/manifest): stale-while-revalidate.
  *  - Externa värdar (Blitzortung, SMHI via proxy sker på origin) rörs inte.
  */
-const VERSION = "v7";
+const VERSION = "v8";
 const SHELL = "shell-" + VERSION;
 const DATA = "data-" + VERSION;
 const SHELL_ASSETS = [
@@ -38,6 +38,18 @@ function staleWhileRevalidate(req, cacheName) {
   );
 }
 
+// Stationens år, inte besökarens tidszon
+function stationYear() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date()).slice(0, 4);
+}
+// Filer som fylls på löpande → nätverk först, cache bara som offline-reserv
+function growingArchive(pathname) {
+  if (pathname.endsWith("manifest.json")) return true;
+  if (pathname.endsWith("/acurite/daily.json")) return true;
+  const y = stationYear();
+  return pathname.includes(`/${y}/`) || pathname.endsWith(`/${y}.json`);
+}
+
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
@@ -49,9 +61,11 @@ self.addEventListener("fetch", (e) => {
     return;
   }
   if (url.pathname.startsWith("/data/")) {
-    // Manifesten styr vilka datum/år vyerna visar — hämta dem färskt först,
-    // annars ligger bannern en deploy efter (cachen är bara offline-reserv)
-    if (url.pathname.endsWith("manifest.json")) {
+    // Arkivfiler som fortfarande växer (manifesten, innevarande års dygnsfil,
+    // innevarande månads timfil, AcuRites daily.json) måste hämtas färskt —
+    // annars visar sidan gårdagens kopia och de senaste dygnen ser ut att
+    // saknas fast de finns. Avslutade år ändras aldrig och cachas som förut.
+    if (growingArchive(url.pathname)) {
       e.respondWith(
         caches.open(DATA).then((cache) =>
           fetch(req)

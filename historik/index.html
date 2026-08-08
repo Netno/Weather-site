@@ -857,6 +857,33 @@ async function renderUtforska() {
   }
 }
 
+/* Bygg en dygnspost ur en timserie (samma form som data/daily/). Används när
+   arkivets dygnspost saknas eller är utrensad men timmarna finns — då ska vyn
+   visa dygnets siffror i stället för att påstå att stationen var offline. */
+function dailyFromHours(hours) {
+  const nums = get => hours.map(get).filter(v => v != null);
+  const temps = nums(p => p.temp);
+  if (!temps.length) return null;
+  const winds = nums(p => p.wind), gusts = nums(p => p.gust), hums = nums(p => p.hum);
+  const uvs = nums(p => p.uv), dews = nums(p => p.dewpt), press = nums(p => p.pressure);
+  const tempAvg = avgOfList(temps);
+  return {
+    humidityAvg: avgOfList(hums),
+    uvHigh: uvs.length ? Math.max(...uvs) : null,
+    metric: {
+      tempHigh: Math.max(...temps), tempLow: Math.min(...temps), tempAvg,
+      dewptAvg: avgOfList(dews),
+      windspeedAvg: avgOfList(winds),
+      windgustHigh: gusts.length ? Math.max(...gusts) : null,
+      precipTotal: nums(p => p.rain).reduce((a, b) => a + b, 0),
+      // timserien bär havsnivåtryck — tillbaka till stationstryck så att
+      // sammanfattningens seaLevel() landar rätt igen
+      pressureMax: press.length ? toStationPressure(Math.max(...press), tempAvg) : null,
+      pressureMin: press.length ? toStationPressure(Math.min(...press), tempAvg) : null,
+    },
+  };
+}
+
 /* ===== Vy: Dag ============================================================= */
 async function renderDag() {
   const date = document.getElementById("dag-datum").value;
@@ -877,14 +904,17 @@ async function renderDag() {
     if (live) { dayObs = live.daily; series = live.hours; }
   }
 
-  // Dygnsposten kan vara helt utrensad (givaren glappade till −40/42 °C) medan
-  // timserien är hel — räkna då dygnets max/min ur timmarna i stället för att
-  // visa tomt för en dag som faktiskt har mätvärden
-  if (dayObs?.metric && series.length && (dayObs.metric.tempHigh == null || dayObs.metric.tempLow == null)) {
-    const temps = series.map(p => p.temp);
-    dayObs = { ...dayObs, metric: { ...dayObs.metric,
-      tempHigh: dayObs.metric.tempHigh ?? Math.max(...temps),
-      tempLow: dayObs.metric.tempLow ?? Math.min(...temps) } };
+  // Timserien kan finnas fast dygnsposten saknas (arkivet halvskrivet) eller är
+  // utrensad (givaren glappade till −40/42 °C). Sammanfattningen byggs då ur
+  // timmarna — annars stod det "stationen var offline" ovanför en full kurva.
+  if (series.length) {
+    if (!dayObs) dayObs = dailyFromHours(series);
+    else if (dayObs.metric && (dayObs.metric.tempHigh == null || dayObs.metric.tempLow == null)) {
+      const temps = series.map(p => p.temp);
+      dayObs = { ...dayObs, metric: { ...dayObs.metric,
+        tempHigh: dayObs.metric.tempHigh ?? Math.max(...temps),
+        tempLow: dayObs.metric.tempLow ?? Math.min(...temps) } };
+    }
   }
 
   const sum = document.getElementById("dag-summering");
