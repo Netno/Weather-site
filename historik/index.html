@@ -344,7 +344,9 @@
   <section class="view" id="view-manad">
     <div class="controls">
       <label for="manad-manad" data-i18n="hist.manad.monthLabel">Månad</label>
-      <select id="manad-manad"></select>
+      <select id="manad-manad">
+        <option value="" data-i18n="hist.vr.wholeYear">Hela året</option>
+      </select>
       <span class="chips" id="manad-ar"></span>
     </div>
     <div class="grid">
@@ -356,7 +358,7 @@
       </div>
       <div class="card span2 chart-card">
         <h2 data-i18n="hist.manad.rainTitle">Ackumulerad nederbörd</h2>
-        <p class="subtitle" data-i18n="hist.manad.rainSub">Summerat från månadens första dag</p>
+        <p class="subtitle" id="manad-r-sub">Summerat från månadens första dag</p>
         <div class="chart-wrap" id="manad-chart-rain"></div>
       </div>
       <div class="card span2 chart-card">
@@ -438,7 +440,7 @@
 </div>
 
 <script src="/assets/i18n.js?v=1"></script>
-<script src="/assets/i18n-hist.js?v=2"></script>
+<script src="/assets/i18n-hist.js?v=3"></script>
 <script src="/assets/charts.js?v=8"></script>
 <script>
 "use strict";
@@ -1150,13 +1152,23 @@ async function renderArsdag() {
 // man just klickat bort.
 const manadState = { selected: new Set(), picked: false };
 
+// mm = "" betyder hela året
 async function yearsWithMonth(mm) {
   const out = [];
   for (const y of years) {
     const d = await dailyYear(y);
-    if (Object.keys(d).some(k => k.slice(5, 7) === mm && d[k])) out.push(y);
+    if (Object.keys(d).some(k => (!mm || k.slice(5, 7) === mm) && d[k])) out.push(y);
   }
   return out;
+}
+
+/* Hela året ritas med dag-på-året (1-366) på x-axeln. Etiketterna räknas ur
+   ett icke-skottår; skottdagen ger som mest ett dygns förskjutning mellan år,
+   vilket inte syns i en jämförelse på den här skalan. */
+const YEAR_MONTH_STARTS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+function doyLabel(doy) {
+  const d = new Date(Date.UTC(2001, 0, Math.max(1, Math.min(365, Math.round(doy)))));
+  return { day: d.getUTCDate(), month: MONTHS[d.getUTCMonth()] };
 }
 
 // Så många år som det finns egna färger till — alla år i arkivet ska kunna
@@ -1199,22 +1211,24 @@ async function renderManadChips() {
 
 async function renderManad() {
   const mm = document.getElementById("manad-manad").value;
-  const monthName = MONTHS[parseInt(mm, 10) - 1];
+  const helaAret = !mm;                       // tomt värde = hela året
+  const monthName = helaAret ? tr("hist.vr.wholeYear") : MONTHS[parseInt(mm, 10) - 1];
   const sel = [...manadState.selected].sort();
   document.getElementById("manad-t-sub").innerHTML = tr("hist.manad.tempSub", {
     month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
     years: sel.length ? sel.join(", ") : tr("hist.manad.pickYears") });
 
-  const daysInMonth = 31;
+  const xMax = helaAret ? 366 : 31;
   const perYear = await Promise.all(sel.map(async (y, i) => {
     const d = await dailyYear(y);
-    const days = [];
-    for (let day = 1; day <= daysInMonth; day++) {
-      const key = `${y}-${mm}-${hh(day)}`;
-      days.push({ day, obs: d[key] ?? null });
-    }
+    const days = helaAret
+      ? listDates(`${y}-01-01`, `${y}-12-31`).map((date, idx) => ({ day: idx + 1, obs: d[date] ?? null }))
+      : Array.from({ length: 31 }, (_, idx) => ({ day: idx + 1, obs: d[`${y}-${mm}-${hh(idx + 1)}`] ?? null }));
     return { year: y, color: YEAR_COLORS[i % YEAR_COLORS.length], days };
   }));
+
+  document.getElementById("manad-r-sub").textContent =
+    tr(helaAret ? "hist.manad.rainSubYear" : "hist.manad.rainSub");
 
   document.getElementById("manad-legend").innerHTML = perYear.map(p =>
     `<span><span class="key" style="border-color:${p.color}"></span>${p.year}</span>`).join("");
@@ -1223,10 +1237,14 @@ async function renderManad() {
     label: p.year, color: p.color,
     pts: p.days.filter(d => d.obs).map(d => ({ x: d.day, v: d.obs.metric.tempHigh })),
   })), {
-    xMax: daysInMonth, snap: 0.6, gapX: 4,
+    xMax, snap: helaAret ? 3 : 0.6, gapX: helaAret ? 8 : 4,
     yFmt: v => v + "°",
-    xLabels: [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
-    tipTitle: x => tr("hist.dayMonth", { day: Math.round(Math.min(Math.max(x, 1), 31)), month: monthName }),
+    xLabels: helaAret
+      ? YEAR_MONTH_STARTS.map((x, i) => ({ label: MONTHS[i].slice(0, 3), x }))
+      : [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
+    tipTitle: x => (helaAret
+      ? tr("hist.dayMonth", doyLabel(x))
+      : tr("hist.dayMonth", { day: Math.round(Math.min(Math.max(x, 1), 31)), month: monthName })),
   });
 
   multiLine("manad-chart-rain", perYear.map(p => {
@@ -1234,10 +1252,14 @@ async function renderManad() {
     return { label: p.year, color: p.color,
       pts: p.days.filter(d => d.obs).map(d => { cum += d.obs.metric.precipTotal ?? 0; return { x: d.day, v: cum }; }) };
   }), {
-    xMax: daysInMonth, snap: 0.6, gapX: 4, yLo: 0,
+    xMax, snap: helaAret ? 3 : 0.6, gapX: helaAret ? 8 : 4, yLo: 0,
     yFmt: v => v,
-    xLabels: [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
-    tipTitle: x => tr("hist.manad.rainTip", { day: Math.round(Math.min(Math.max(x, 1), 31)), month: monthName }),
+    xLabels: helaAret
+      ? YEAR_MONTH_STARTS.map((x, i) => ({ label: MONTHS[i].slice(0, 3), x }))
+      : [1, 5, 10, 15, 20, 25, 31].map(d => ({ label: String(d), x: d })),
+    tipTitle: x => (helaAret
+      ? tr("hist.manad.rainTip", doyLabel(x))
+      : tr("hist.manad.rainTip", { day: Math.round(Math.min(Math.max(x, 1), 31)), month: monthName })),
   });
 
   const table = document.getElementById("manad-stats");
@@ -1271,9 +1293,9 @@ async function renderManad() {
         <td><span class="yr"><span class="swatch" style="background:${r.color}"></span>${r.year}</span></td>
         <td>${fmt(r.avgHigh)}°</td><td>${fmt(r.avgLow)}°</td>
         <td>${fmt(r.maxHigh)}°<span class="statday">${r.maxHighDay != null
-          ? tr("hist.dayMonth", { day: r.maxHighDay, month: monthName }) : ""}</span></td>
+          ? tr("hist.dayMonth", helaAret ? doyLabel(r.maxHighDay) : { day: r.maxHighDay, month: monthName }) : ""}</span></td>
         <td>${fmt(r.minLow)}°<span class="statday">${r.minLowDay != null
-          ? tr("hist.dayMonth", { day: r.minLowDay, month: monthName }) : ""}</span></td>
+          ? tr("hist.dayMonth", helaAret ? doyLabel(r.minLowDay) : { day: r.minLowDay, month: monthName }) : ""}</span></td>
         <td>${fmt(r.rain)} mm</td><td>${r.rainDays}</td><td>${r.n}</td>
       </tr>`).join("")}</tbody>`;
 }
@@ -1709,7 +1731,7 @@ function refreshMonthOptions() {
     const sel = document.getElementById(id);
     if (!sel) continue;
     for (const opt of sel.options) {
-      if (opt.value) opt.textContent = MONTHS[parseInt(opt.value, 10) - 1];
+      if (/^\d{2}$/.test(opt.value)) opt.textContent = MONTHS[parseInt(opt.value, 10) - 1];
     }
   }
 }
