@@ -564,16 +564,37 @@ function renderDetail() {
     const t = el("text", { x: padL - 8, y: y + 4, "text-anchor": "end", "font-size": 12, fill: css("--ink-3") });
     t.textContent = dCfg.yFmt(v); svg.append(t);
   }
-  const xFmt = dCfg.xFmt ?? fmtClock;
-  const tStep = niceTimeStepHours(span);
-  let prevLabel = null;
-  for (let x = Math.ceil(x0 / tStep) * tStep; x <= x1 + 1e-6; x += tStep) {
+  // Axeln vill ha en kort etikett, tooltipen en fullständig mening. Utan xTick
+  // föll axeln tillbaka på tooltiptexten ("t.o.m. 17 februari") och årsvyns
+  // etiketter hamnade ovanpå varandra till en oläslig gröt.
+  const xTick = dCfg.xTick ?? dCfg.xFmt ?? fmtClock;
+  // Har diagrammet egna ankare (månadsstarter, dygnsgränser) används de så länge
+  // några ryms i fönstret — då står förstoringen på samma ställen som den lilla
+  // grafen. Zoomar man in förbi dem tar det beräknade steget över.
+  // Fyra är medvetet valt: dygnsvyn har som mest tre midnattsgränser och ska
+  // behålla sina klockslag, medan månad (7) och år (12) har gott om ankare.
+  const anchors = (dCfg.xAnchors ?? []).filter(a => a.x >= x0 - 1e-6 && a.x <= x1 + 1e-6);
+  let ticks;
+  if (anchors.length >= 4) {
+    ticks = anchors.map(a => ({ x: a.x, label: a.label }));
+  } else {
+    ticks = [];
+    const tStep = niceTimeStepHours(span);
+    for (let x = Math.ceil(x0 / tStep) * tStep; x <= x1 + 1e-6; x += tStep) ticks.push({ x, label: xTick(x) });
+  }
+  let prevLabel = null, lastRight = -Infinity;
+  for (const { x, label } of ticks) {
     const xp = sx(x);
     svg.append(el("line", { x1: xp, x2: xp, y1: padT, y2: Hd - padB, stroke: css("--grid"), "stroke-width": 1, opacity: 0.5 }));
-    const label = xFmt(x);
-    if (label === prevLabel) continue;   // djup zoom kan ge samma etikett flera gånger
+    if (!label || label === prevLabel) continue;   // djup zoom kan ge samma etikett flera gånger
     prevLabel = label;
-    const t = el("text", { x: xp, y: Hd - 12, "text-anchor": "middle", "font-size": 12, fill: css("--ink-3") });
+    // Rita bara etiketter som får plats bredvid den förra, och håll dem innanför
+    // kanterna. Hellre glesa etiketter än överlappande — hjälplinjerna står kvar.
+    const w = label.length * 6.4;
+    const left = Math.max(padL, Math.min(xp - w / 2, W - padR - w));
+    if (left < lastRight + 8) continue;
+    lastRight = left + w;
+    const t = el("text", { x: left, y: Hd - 12, "text-anchor": "start", "font-size": 12, fill: css("--ink-3") });
     t.textContent = label; svg.append(t);
   }
   for (const s of dCfg.series) {
@@ -782,7 +803,7 @@ function multiLine(wrapId, series, opts) {
       xMin: 0, xMax: opts.xMax,
       yFmt: opts.yFmt ?? (v => v),
       vFmt: v => fmt(v),
-      xFmt: opts.tipTitle, tipTitle: opts.tipTitle,
+      xFmt: opts.tipTitle, tipTitle: opts.tipTitle, xTick: opts.xTick, xAnchors: opts.xLabels,
       yLo: opts.yLo,
     });
     const lo = opts.yLo ?? Math.floor(Math.min(...all)) - 1;
@@ -905,7 +926,7 @@ function bandChart(wrapId, pts, color, opts) {
       ],
       xMin: 0, xMax: opts.xMax,
       yFmt: v => v + "°", vFmt: v => fmt(v) + "°",
-      xFmt: nearLabel, tipTitle: nearLabel,
+      xFmt: nearLabel, tipTitle: nearLabel, xTick: opts.xTick ?? nearLabel, xAnchors: opts.xLabels,
     });
     const lo = Math.floor(Math.min(...pts.map(p => p.lo))) - 1;
     const hi = Math.ceil(Math.max(...pts.map(p => p.hi))) + 1;

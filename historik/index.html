@@ -446,7 +446,7 @@
 
 <script src="/assets/i18n.js?v=1"></script>
 <script src="/assets/i18n-hist.js?v=4"></script>
-<script src="/assets/charts.js?v=8"></script>
+<script src="/assets/charts.js?v=9"></script>
 <script>
 "use strict";
 /* =============================================================================
@@ -1224,6 +1224,11 @@ async function renderManad() {
     years: sel.length ? sel.join(", ") : tr("hist.manad.pickYears") });
 
   const xMax = helaAret ? 366 : 31;
+  // Kort etikett till x-axeln i förstoringen. Tooltipen får den långa texten;
+  // axeln behöver "17 feb", inte "t.o.m. 17 februari".
+  const xTick = helaAret
+    ? x => { const d = doyLabel(x); return `${d.day} ${d.month.slice(0, 3)}`; }
+    : x => String(Math.round(Math.min(Math.max(x, 1), 31)));
   const perYear = await Promise.all(sel.map(async (y, i) => {
     const d = await dailyYear(y);
     const days = helaAret
@@ -1242,7 +1247,7 @@ async function renderManad() {
     label: p.year, color: p.color,
     pts: p.days.filter(d => d.obs).map(d => ({ x: d.day, v: d.obs.metric.tempHigh })),
   })), {
-    xMax, snap: helaAret ? 3 : 0.6, gapX: helaAret ? 8 : 4,
+    xMax, snap: helaAret ? 3 : 0.6, gapX: helaAret ? 8 : 4, xTick,
     yFmt: v => v + "°",
     xLabels: helaAret
       ? YEAR_MONTH_STARTS.map((x, i) => ({ label: MONTHS[i].slice(0, 3), x }))
@@ -1257,7 +1262,7 @@ async function renderManad() {
     return { label: p.year, color: p.color,
       pts: p.days.filter(d => d.obs).map(d => { cum += d.obs.metric.precipTotal ?? 0; return { x: d.day, v: cum }; }) };
   }), {
-    xMax, snap: helaAret ? 3 : 0.6, gapX: helaAret ? 8 : 4, yLo: 0,
+    xMax, snap: helaAret ? 3 : 0.6, gapX: helaAret ? 8 : 4, yLo: 0, xTick,
     yFmt: v => v,
     xLabels: helaAret
       ? YEAR_MONTH_STARTS.map((x, i) => ({ label: MONTHS[i].slice(0, 3), x }))
