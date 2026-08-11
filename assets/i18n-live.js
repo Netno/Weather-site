@@ -141,6 +141,20 @@ I18N.register({
     "live.dd.storm": "åska: <b>{n} nedslag</b> ({year})",
     "live.dd.all": "Se alla år →",
 
+    /* ===== Solen ========================================================== */
+    "live.sun.title": "Solen",
+    "live.sun.sub": "Beräknad ur stationens läge — samma geometri som prognosremsan använder",
+    "live.sun.above": "{v}° över horisonten",
+    "live.sun.below": "{v}° under horisonten",
+    "live.sun.rise": "Soluppgång",
+    "live.sun.set": "Solnedgång",
+    "live.sun.len": "Dagens längd",
+    "live.sun.hm": "{h} h {m} min",
+    "live.sun.longer": "{v} min längre i morgon",
+    "live.sun.shorter": "{v} min kortare i morgon",
+    "live.sun.noon": "Middagshöjd",
+    "live.sun.noonAt": "som högst kl {t}",
+
     /* ===== Prognos (SMHI) ================================================= */
     "live.fc.title": "Prognos",
     "live.fc.subInit": "Kommande dygn",
@@ -354,6 +368,20 @@ I18N.register({
     "live.dd.wettest": "most rain <b>{v} mm</b> ({year})",
     "live.dd.storm": "thunder: <b>{n} strikes</b> ({year})",
     "live.dd.all": "See all years →",
+
+    /* ===== Solen ========================================================== */
+    "live.sun.title": "The sun",
+    "live.sun.sub": "Computed from the station's position — the same geometry the forecast strip uses",
+    "live.sun.above": "{v}° above the horizon",
+    "live.sun.below": "{v}° below the horizon",
+    "live.sun.rise": "Sunrise",
+    "live.sun.set": "Sunset",
+    "live.sun.len": "Day length",
+    "live.sun.hm": "{h} h {m} min",
+    "live.sun.longer": "{v} min longer tomorrow",
+    "live.sun.shorter": "{v} min shorter tomorrow",
+    "live.sun.noon": "Noon altitude",
+    "live.sun.noonAt": "highest at {t}",
 
     /* ===== Prognos (SMHI) ================================================= */
     "live.fc.title": "Forecast",
