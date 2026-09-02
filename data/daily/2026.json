@@ -9961,5 +9961,46 @@
    "precipRate": 0.76,
    "precipTotal": 1.02
   }
+ },
+ "2026-09-01": {
+  "stationID": "IBRMHULT2",
+  "tz": "Europe/Stockholm",
+  "obsTimeUtc": "2026-09-01T21:59:57Z",
+  "obsTimeLocal": "2026-09-01 23:59:57",
+  "epoch": 1788299997,
+  "lat": 57.721607,
+  "lon": 13.005132,
+  "solarRadiationHigh": null,
+  "uvHigh": 3,
+  "winddirAvg": 238,
+  "humidityHigh": 99,
+  "humidityLow": 69,
+  "humidityAvg": 88.8,
+  "qcStatus": -1,
+  "metric": {
+   "tempHigh": 19.5,
+   "tempLow": 12.9,
+   "tempAvg": 15.3,
+   "windspeedHigh": 12.9,
+   "windspeedLow": 0,
+   "windspeedAvg": 2.3,
+   "windgustHigh": 12.9,
+   "windgustLow": 0,
+   "windgustAvg": 3.4,
+   "dewptHigh": 15,
+   "dewptLow": 12,
+   "dewptAvg": 13.4,
+   "windchillHigh": 19.5,
+   "windchillLow": 12.9,
+   "windchillAvg": 15.3,
+   "heatindexHigh": 19.5,
+   "heatindexLow": 12.9,
+   "heatindexAvg": 15.3,
+   "pressureMax": 988.15,
+   "pressureMin": 983.41,
+   "pressureTrend": 0.2,
+   "precipRate": 3.3,
+   "precipTotal": 3.3
+  }
  }
 }
