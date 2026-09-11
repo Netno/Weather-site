@@ -811,6 +811,7 @@ function hourlySeries(buckets) {
 const state = {
   current: null,   // senaste observationen
   today: [],       // timserie ur hourlySeries()
+  yesterday: [],   // gårdagens timserie, live ur /api/acurite (fyller arkivets natt-glapp)
   week: [],        // dygnssummeringar (dailysummary/7day)
   pressurePts: [], // idag-vyns tryckkurva (upp till 3 dygn)
   pressureLabels: [],
@@ -818,19 +819,26 @@ const state = {
   range: "idag",   // idag | 48h | vecka | manad
   acurite: null,   // stationens egna sensorer via /api/acurite (blixt, lux)
   acuriteToday: [],// dagens timserie för lux/uv från samma endpoint
+  acuriteYesterday: [], // gårdagens motsvarighet, samma live-källa
   forecast: null,  // SMHI-prognos via /api/smhi (timserie + dygn)
 };
 
-/* Timpunkter för en periods datum: bakdagar ur arkivet, idag från API:et */
+/* Timpunkter för en periods datum: bakdagar ur arkivet, idag från API:et.
+   Gårdagen faller tillbaka till samma live dagsfil om arkivet inte hunnit
+   ikapp än (natt-jobbet är alltid minst ett dygn efter). */
 async function acuriteRangePts(dates) {
   const months = [...new Set(dates.slice(0, -1).map(d => d.slice(0, 7)))];
   const monthData = {};
   for (const m of months) monthData[m] = await acuriteMonth(m);
+  const yesterdayIso = addDaysIso(todayIso(), -1);
   const out = [];
   dates.forEach((date, di) => {
     const isToday = di === dates.length - 1;
-    const pts = isToday ? (state.acuriteToday ?? [])
-      : monthData[date.slice(0, 7)]?.[date] ? acuriteDayPts(monthData[date.slice(0, 7)][date]) : [];
+    const archived = monthData[date.slice(0, 7)]?.[date];
+    let pts;
+    if (isToday) pts = state.acuriteToday ?? [];
+    else if (!archived && date === yesterdayIso) pts = state.acuriteYesterday ?? [];
+    else pts = archived ? acuriteDayPts(archived) : [];
     for (const p of pts) out.push({ ...p, x: di * 24 + p.h, date });
   });
   return out;
@@ -1283,30 +1291,32 @@ chart("chart-uv", (svg, tip, W) => drawHourSeries(svg, tip, W,
   UV_COLOR, { minY: 3, yFmt: v => v, fmtVal: v => "UV " + fmt(v, 0) }));
 
 /* ===== Periodvyer (48 tim / vecka / månad) ================================
-   Historik ur arkivet + dagens data från API:et. Saknade dygn (arkivet ej
-   ikapp, station offline) lämnas som hål och fylls i av nattens hämtningar. */
-function todayPtsHourly(dayIndex, dateIso) {
-  return state.today.map(p => ({
+   Historik ur arkivet, idag och gårdagen live från API:et (gårdagen hinner
+   annars inte arkiveras förrän nattens jobb kört). Äldre dygn som saknas
+   (station offline flera dygn) lämnas som hål tills nästa arkivering. */
+function hourlyPtsFrom(series, dayIndex, dateIso) {
+  return series.map(p => ({
     x: dayIndex * 24 + p.h, date: dateIso, h: p.h,
     temp: p.temp, rain: p.rain, wind: p.wind, gust: p.gust,
     pressure: p.pressure != null ? seaLevel(p.pressure, p.temp) : null,
   }));
 }
+const todayPtsHourly = (dayIndex, dateIso) => hourlyPtsFrom(state.today, dayIndex, dateIso);
 
-function todaySyntheticDaily() {
-  if (!state.today.length && !state.current) return null;
-  const temps = state.today.map(p => p.temp);
-  if (state.current) temps.push(state.current.metric.temp);
+function syntheticDailyFromSeries(series, currentObs) {
+  if (!series.length && !currentObs) return null;
+  const temps = series.map(p => p.temp);
+  if (currentObs) temps.push(currentObs.metric.temp);
   if (!temps.length) return null;
-  const winds = state.today.map(p => p.wind).filter(v => v != null);
-  const gusts = state.today.map(p => p.gust).filter(v => v != null);
-  const press = state.today.filter(p => p.pressure != null);
+  const winds = series.map(p => p.wind).filter(v => v != null);
+  const gusts = series.map(p => p.gust).filter(v => v != null);
+  const press = series.filter(p => p.pressure != null);
   return {
-    humidityAvg: state.current?.humidity,
+    humidityAvg: currentObs?.humidity,
     metric: {
       tempHigh: Math.max(...temps), tempLow: Math.min(...temps),
       tempAvg: temps.reduce((a, b) => a + b, 0) / temps.length,
-      precipTotal: state.current?.metric.precipTotal ?? state.today.reduce((a, p) => a + p.rain, 0),
+      precipTotal: currentObs?.metric.precipTotal ?? series.reduce((a, p) => a + p.rain, 0),
       windspeedAvg: winds.length ? winds.reduce((a, b) => a + b, 0) / winds.length : null,
       windgustHigh: gusts.length ? Math.max(...gusts) : null,
       pressureMax: press.length ? Math.max(...press.map(p => p.pressure)) : null,
@@ -1314,6 +1324,7 @@ function todaySyntheticDaily() {
     },
   };
 }
+const todaySyntheticDaily = () => syntheticDailyFromSeries(state.today, state.current);
 
 async function buildRangeData() {
   const { days: n, hourly } = RANGES[state.range];
@@ -1326,7 +1337,15 @@ async function buildRangeData() {
     // Bakdagar ur AcuRite-arkivet (dygnsvis, uppdaterat varje natt), idag
     // ur dashboarden. AcuRite är stationens källa och kräver ingen WU-nyckel.
     const archivePts = await collectAcuriteHourly(past);
-    let pts = [...archivePts, ...todayPtsHourly(past.length, today)];
+    let pts = [...archivePts];
+    // Gårdagen hinner inte alltid arkiveras innan man tittar på sidan på
+    // morgonen — fyll den då med samma live dagsfil som "Idag" använder,
+    // i stället för att lämna ett hål i grafen.
+    const yesterdayIso = addDaysIso(today, -1);
+    if (past.includes(yesterdayIso) && !archivePts.some(p => p.date === yesterdayIso) && state.yesterday.length) {
+      pts.push(...hourlyPtsFrom(state.yesterday, past.indexOf(yesterdayIso), yesterdayIso));
+    }
+    pts = [...pts, ...todayPtsHourly(past.length, today)];
 
     // Äkta rullande fönster: exakt 48 timmar bakåt från nu (svensk tid)
     const [nowH, nowM] = new Intl.DateTimeFormat("sv-SE",
@@ -1359,6 +1378,13 @@ async function buildRangeData() {
     .map(s => [s.obsTimeLocal.slice(0, 10), s]));
   for (const d of days) {
     if (!d.obs && weekByDate.has(d.date)) d.obs = weekByDate.get(d.date);
+  }
+  // Gårdagen saknas ofta i både arkivet och veckoremsan (samma anledning som
+  // ovan) — fyll den från gårdagens live dagsfil om den finns.
+  const yesterdayIso = addDaysIso(today, -1);
+  const yesterdayDay = days.find(d => d.date === yesterdayIso);
+  if (yesterdayDay && !yesterdayDay.obs && state.yesterday.length) {
+    yesterdayDay.obs = syntheticDailyFromSeries(state.yesterday, null);
   }
   days.push({ x: past.length, date: today, obs: todaySyntheticDaily() });
   const covered = days.filter(d => d.obs).length;
@@ -1446,7 +1472,8 @@ async function renderRangeCharts() {
 }
 
 /* Ljusintensitet & UV för periodvyerna — bakdagar ur data/acurite-arkivet,
-   idag från API:et. Saknade dygn fylls i när myAcuRite-arkivet är på plats. */
+   idag och gårdagen live från API:et (se acuriteRangePts). Äldre saknade
+   dygn fylls i när nästa arkivering har kört. */
 async function renderAcuriteRange(data, label, gapNote) {
   const { dates, hourly } = data;
   let pts = await acuriteRangePts(dates);
@@ -1747,16 +1774,22 @@ async function acuriteWeek() {
   return out;
 }
 
+function cleanAcuriteSeries(ts, dateIso) {
+  return (ts ?? []).map(p => ({
+    h: p.h, lux: inBounds(p.lux, "lux"), uv: inBounds(p.uv, "uv"), sec: inBounds(p.sec, "sec"),
+    temp: tempOk(p.temp, parseInt(dateIso.slice(5, 7), 10)), wind: inBounds(p.wind, "windKph"),
+    winddir: p.winddir, pressureSL: inBounds(p.pressureSL, "pressureRaw"), rainCum: p.rainCum,
+  }));
+}
+
 async function fetchAcurite() {
   try {
     const a = await fetchJSON("/api/acurite");
     if (a.status !== "ok" || !a.atlas) return null;
     state.acurite = a.atlas;
-    state.acuriteToday = (a.todaySeries ?? []).map(p => ({
-      h: p.h, lux: inBounds(p.lux, "lux"), uv: inBounds(p.uv, "uv"), sec: inBounds(p.sec, "sec"),
-      temp: tempOk(p.temp, parseInt(todayIso().slice(5, 7), 10)), wind: inBounds(p.wind, "windKph"),
-      winddir: p.winddir, pressureSL: inBounds(p.pressureSL, "pressureRaw"), rainCum: p.rainCum,
-    }));
+    const today = todayIso();
+    state.acuriteToday = cleanAcuriteSeries(a.todaySeries, today);
+    state.acuriteYesterday = cleanAcuriteSeries(a.yesterdaySeries, addDaysIso(today, -1));
     return a;
   } catch (err) { console.warn("acurite:", err); return null; }
 }
@@ -1793,6 +1826,9 @@ async function loadDayAndWeek() {
   if (state.acuriteRaw) {
     const s = acuriteTodayToSeries(state.acuriteToday);
     if (s.length) { state.today = s; gotToday = true; }
+    // Gårdagens live-serie — fyller 48h-/vecko-/månadsvyns glapp tills
+    // nattens arkivering (data/acurite/) hunnit ikapp.
+    state.yesterday = acuriteTodayToSeries(state.acuriteYesterday);
     const w = await acuriteWeek();
     if (w.length) { state.week = w; gotWeek = true; }
   }

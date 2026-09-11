@@ -18,6 +18,8 @@ const TOKEN_TTL = 6 * 3600e3;
 
 const stockholmToday = () =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date());
+const stockholmYesterday = () =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Stockholm" }).format(new Date(Date.now() - 86_400_000));
 
 const trim = (obj, max = 6000) => {
   const s = JSON.stringify(obj);
@@ -289,18 +291,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // Dagens ljus/UV-timserie ur den publika dagsfilen (URL:en hålls serversida)
-    let todaySeries = [];
+    // Dagens + gårdagens timserie ur de publika dagsfilerna (URL:en hålls
+    // serversida). Gårdagen hämtas live här också — annars gapar
+    // 48-timmars-/vecko-/månadsvyn varje morgon tills nattens arkivering
+    // (som skriver till data/acurite/) hunnit ikapp.
+    let todaySeries = [], yesterdaySeries = [];
     try {
       const prefix = findAtlas(detail)?.meta_file?.replace(/meta\.json$/, "");
       if (prefix) {
-        const r = await fetch(`${prefix}1h-summaries/${stockholmToday()}.json`);
-        if (r.ok) todaySeries = parseDaySeries(await r.json());
+        const [rToday, rYesterday] = await Promise.all([
+          fetch(`${prefix}1h-summaries/${stockholmToday()}.json`),
+          fetch(`${prefix}1h-summaries/${stockholmYesterday()}.json`),
+        ]);
+        if (rToday.ok) todaySeries = parseDaySeries(await rToday.json());
+        if (rYesterday.ok) yesterdaySeries = parseDaySeries(await rYesterday.json());
       }
-    } catch { /* timserien är ett tillägg — resten av svaret gäller ändå */ }
+    } catch { /* timserierna är ett tillägg — resten av svaret gäller ändå */ }
 
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
-    return res.status(200).json({ status: "ok", atlas, todaySeries });
+    return res.status(200).json({ status: "ok", atlas, todaySeries, yesterdaySeries });
   } catch (err) {
     session.token = null; // tvinga ny inloggning vid nästa försök
     return res.status(502).json({
